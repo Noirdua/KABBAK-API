@@ -15,7 +15,7 @@ Do not invent a bundler or framework. API is Express + SQLite JSON blobs. GUI is
 Local run order:
 
 1. API: `npm install && npm start` → `http://127.0.0.1:3100` (override bind with `HOST`)
-2. GUI: `cd ../KABBAK-GUI && npx http-server .` → `http://127.0.0.1:8080`
+2. GUI: `cd ../KABBAK-GUI && npm start` → `http://127.0.0.1:8080`
 3. Browser: connection gate asks for API base URL + key
 
 ## API layout
@@ -114,7 +114,7 @@ Mindmap: correspondence catalogs stay graphs; Admin, Settings, Quiz, Scriber, Sp
 
 ## Conventions
 
-- **Package manager:** npm + `package-lock.json` on API and GUI. Do not switch to pnpm — GUI is unbundled and serves `node_modules/` (fonts, calendar, astronomy, html2canvas, jspdf) as static files; pnpm’s symlink layout breaks that on Windows/`http-server`. Trees are tiny (~9–11 direct deps); npm ships with Node.
+- **Package manager:** npm + `package-lock.json` on API and GUI. Do not switch to pnpm — GUI is unbundled and serves `node_modules/` (fonts, calendar, astronomy, html2canvas, jspdf) as static files; pnpm’s symlink layout breaks that on Windows/`serve`. Trees are tiny (~9–11 direct deps); npm ships with Node.
 - **JS:** Node 18+, `"use strict"` IIFEs in the GUI, no new comments unless asked.
 - **Cache-bust GUI** script tags in `index.html` and `lazy-sections.js` when you change those files.
 - **Do not commit secrets.** Managed keys live in `storage/config/api-clients.json` (plaintext today).
@@ -137,7 +137,7 @@ npm run dlc               # DLC checkout helpers
 GUI:
 
 ```text
-npm start                 # http-server
+npm start                 # serve (port 8080)
 npm run check:syntax
 npm run check:html        # untagged innerHTML linter
 ```

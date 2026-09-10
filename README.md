@@ -245,7 +245,7 @@ Premium assets (tarot deck images) require an authorized key. Public assets (`/a
 ## Local Run Order
 
 1. API: `cd kabbak-api && npm install && npm start` (port 3100)
-2. Frontend: `cd kabbak && npx http-server .` (port 8080)
+2. Frontend: `cd kabbak && npm start` (port 8080)
 3. Browser: `http://127.0.0.1:8080`
 
 ## Testing
