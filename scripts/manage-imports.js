@@ -206,9 +206,9 @@ Local import commands:
 
 DLC commands (git folder tree — decks/, texts/, packs/, plugins/):
   dlc repo                        List configured DLC git repositories
-  dlc repo <url>                  Add a repo (or set the primary if none)
+  dlc repo <url>                  Add a repo (first one is optional; DLC is not required)
   dlc repo <url> --replace        Change the primary repo URL
-  dlc repo --remove <id|url>      Remove an extra repo (not the primary)
+  dlc repo --remove <id|url>      Remove a repo (including the last / primary)
   dlc list [--refresh] [--deck|--text|--reference|--pack|--plugin]
                                   Show the catalog, grouped by repository
   dlc info --name <name> [--source <id>]
@@ -379,12 +379,7 @@ function cmdDlcRepo(rawUrl, { remove = "", replace = false, primary = false, nam
     return;
   }
 
-  if (replace || !primarySource?.url) {
-    if (!primarySource) {
-      console.error(dlc.MISSING_DLC_REPO_MESSAGE);
-      process.exitCode = 1;
-      return;
-    }
+  if (replace && primarySource) {
     const described = dlcSources.updateSource(primarySource.id, {
       url,
       name: name || primarySource.name || inferRepoLabel(url) || "KABBAK DLC",
@@ -412,8 +407,7 @@ async function cmdDlcList(kind, refresh, sourceId) {
   const { origin, items, sources } = await dlc.getCatalog({ refresh, log: (message) => console.log(message) });
 
   if (origin === "none" || !items.length) {
-    console.error("No DLC catalog available. Run: npm run dlc -- repo <git-url>");
-    process.exitCode = 1;
+    console.log("No DLC catalog. DLC is optional — add a repo with: npm run dlc -- repo <git-url>");
     return;
   }
 
@@ -431,18 +425,22 @@ async function cmdDlcList(kind, refresh, sourceId) {
   const sourceList = Array.isArray(sources) && sources.length
     ? sources
     : dlcSources.listDescribedSources();
-  const duplicates = visible.filter((item) => item.duplicate).length;
+  const sharedNames = new Set(
+    visible.filter((item) => item.duplicate).map((item) => `${item.kind}:${String(item.name || "").toLowerCase()}`)
+  );
+  const uniqueNames = new Set(visible.map((item) => `${item.kind}:${String(item.name || "").toLowerCase()}`));
 
   console.log(`\nDLC catalog (${ORIGIN_LABEL[origin] || origin})`);
-  if (duplicates) {
-    console.log(`${duplicates} item(s) share a name across repos — listed in each group.`);
+  if (sharedNames.size) {
+    console.log(`${sharedNames.size} name(s) appear in more than one repo (shown in each group).`);
   }
 
   for (const source of sourceList) {
     const groupItems = visible.filter((item) => item.sourceId === source.id);
     if (!groupItems.length) continue;
+    const onlyHere = groupItems.filter((item) => !item.duplicate).length;
     const label = source.primary ? `${source.name} (primary)` : source.name;
-    console.log(`\n${label}`);
+    console.log(`\n${label} — ${groupItems.length} item(s)${onlyHere ? `, ${onlyHere} only in this repo` : ""}`);
     console.log(`${source.url || "(local)"}  ${source.branch || "main"}`);
     console.log(`${"TYPE".padEnd(10)} ${"STATUS".padEnd(10)} ${"SIZE".padStart(9)}  ${"NAME".padEnd(34)} TITLE`);
     console.log("-".repeat(92));
@@ -473,7 +471,7 @@ async function cmdDlcList(kind, refresh, sourceId) {
 
   const installed = visible.filter((item) => item.status === "installed").length;
   const staged = visible.filter((item) => item.status === "staged").length;
-  console.log(`\n${visible.length} item(s) — ${installed} installed, ${staged} staged, ${visible.length - installed - staged} available.`);
+  console.log(`\n${visible.length} listing(s) / ${uniqueNames.size} unique name(s) — ${installed} installed, ${staged} staged, ${visible.length - installed - staged} available.`);
   console.log(`Install one with: npm run dlc -- install --name "<name>"`);
   console.log(`Add another repo with: npm run dlc -- repo <git-url>`);
 }
@@ -584,8 +582,7 @@ function cmdDlcUpdate() {
   const results = dlcSources.syncAllEnabledSources({ log: (message) => console.log(message) });
   dlc.invalidateCatalogCache();
   if (!results.length) {
-    console.error("No DLC repositories configured. Run: npm run dlc -- repo <git-url>");
-    process.exitCode = 1;
+    console.log("No DLC repositories configured. DLC is optional — add one with: npm run dlc -- repo <git-url>");
     return;
   }
   console.log(`\nUpdated ${results.length} DLC repo(s).`);

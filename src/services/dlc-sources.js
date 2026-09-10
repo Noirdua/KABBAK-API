@@ -86,7 +86,7 @@ function normalizeSource(raw, fallbackIndex = 0) {
     url: String(raw?.url || "").trim(),
     branch: String(raw?.branch || "main").trim() || "main",
     enabled: raw?.enabled !== false,
-    primary: raw?.primary === true || id === PRIMARY_ID
+    primary: raw?.primary === true
   };
 }
 
@@ -119,6 +119,7 @@ function seedSources() {
       branch = head;
     }
   }
+  if (!url) return [];
   return [
     normalizeSource({
       id: PRIMARY_ID,
@@ -132,16 +133,11 @@ function seedSources() {
 }
 
 function listSources() {
-  let sources = readStoredSources();
-  if (!sources || !sources.length) {
-    sources = seedSources();
-    persist(sources);
-  }
-  if (!sources.some((source) => source.primary)) {
-    sources[0].primary = true;
-    persist(sources);
-  }
-  return sources;
+  const stored = readStoredSources();
+  if (Array.isArray(stored)) return stored;
+  const seeded = seedSources();
+  if (seeded.length) persist(seeded);
+  return seeded;
 }
 
 function getSource(id) {
@@ -190,9 +186,6 @@ function listDescribedSources() {
 
 function writeSources(nextSources) {
   const normalized = nextSources.map((entry, index) => normalizeSource(entry, index));
-  if (!normalized.some((source) => source.primary) && normalized.length) {
-    normalized[0].primary = true;
-  }
   persist(normalized);
   return normalized;
 }
@@ -203,6 +196,45 @@ function applyRemoteUrl(source) {
     return;
   }
   git(["remote", "set-url", "origin", source.url], { cwd: root });
+}
+
+function detectRemoteBranch(root) {
+  if (!root || !fs.existsSync(path.join(root, ".git"))) return "";
+  const current = tryGit(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: root }).output.trim();
+  if (current && current !== "HEAD") return current;
+  const originHead = tryGit(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], { cwd: root }).output.trim();
+  const fromOrigin = originHead.replace(/^origin\//, "");
+  if (fromOrigin && fromOrigin !== "HEAD") return fromOrigin;
+  const sym = tryGit(["ls-remote", "--symref", "origin", "HEAD"], { cwd: root }).output;
+  const match = String(sym || "").match(/ref:\s*refs\/heads\/(\S+)/);
+  return match ? match[1] : "";
+}
+
+function remoteHasBranch(root, branch) {
+  const name = String(branch || "").trim();
+  if (!name || !root) return false;
+  const result = tryGit(["ls-remote", "--heads", "origin", name], { cwd: root });
+  if (!result.ok) return false;
+  return result.output.split(/\r?\n/).some((line) => line.includes(`refs/heads/${name}`));
+}
+
+function resolveSyncBranch(source, root) {
+  const requested = String(source?.branch || "").trim();
+  if (requested && remoteHasBranch(root, requested)) return requested;
+  const detected = detectRemoteBranch(root);
+  if (detected) return detected;
+  if (requested) return requested;
+  return "main";
+}
+
+function rememberSourceBranch(sourceId, branch) {
+  const name = String(branch || "").trim();
+  if (!name) return;
+  const sources = listSources();
+  const index = sources.findIndex((entry) => entry.id === sourceId);
+  if (index < 0 || sources[index].branch === name) return;
+  sources[index] = { ...sources[index], branch: name };
+  persist(sources);
 }
 
 function syncSource(sourceOrId, { log = () => {} } = {}) {
@@ -226,7 +258,8 @@ function syncSource(sourceOrId, { log = () => {} } = {}) {
     applyRemoteUrl(source);
   }
 
-  const branch = source.branch || "main";
+  const branch = resolveSyncBranch(source, root);
+  rememberSourceBranch(source.id, branch);
   log(`Updating ${source.name} (${branch})...`);
   git(["fetch", "--filter=blob:none", "origin", branch], { cwd: root, stdio: "inherit" });
   git(["checkout", branch], { cwd: root, stdio: "inherit" });
@@ -242,12 +275,12 @@ function addSource({ name, url, branch } = {}, { log = () => {} } = {}) {
     id = `${slugify(label) || "source"}-${Date.now().toString(36)}`;
   }
   const source = normalizeSource({
-    id,
+    id: sources.length ? id : PRIMARY_ID,
     name: label,
     url: normalizeUrl(url),
     branch: normalizeBranch(branch),
     enabled: true,
-    primary: false
+    primary: sources.length === 0
   });
   sources.push(source);
   persist(sources);
@@ -257,7 +290,7 @@ function addSource({ name, url, branch } = {}, { log = () => {} } = {}) {
     persist(sources.filter((entry) => entry.id !== source.id));
     throw error;
   }
-  return describeSource(getSource(id));
+  return describeSource(getSource(source.id));
 }
 
 function updateSource(id, patch = {}, { log = () => {} } = {}) {
@@ -278,9 +311,6 @@ function updateSource(id, patch = {}, { log = () => {} } = {}) {
   }
   if (patch.enabled != null) {
     current.enabled = patch.enabled === true;
-    if (current.primary && current.enabled === false) {
-      throw new Error("The primary DLC repository cannot be disabled.");
-    }
   }
   if (patch.primary === true) {
     sources.forEach((source) => {
@@ -304,9 +334,6 @@ function removeSource(id) {
   if (!source) {
     throw new Error(`Unknown DLC source '${wanted}'.`);
   }
-  if (source.primary || source.id === PRIMARY_ID) {
-    throw new Error("The primary DLC repository cannot be removed. Change its URL instead.");
-  }
   persist(listSources().filter((entry) => entry.id !== wanted));
   return { removed: true, id: wanted };
 }
@@ -324,6 +351,7 @@ module.exports = {
   addSource,
   coerceRepoUrl,
   describeSource,
+  detectRemoteBranch,
   findSourceByUrl,
   getPrimarySource,
   getSource,

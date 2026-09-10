@@ -212,14 +212,13 @@ function requireRepoUrl() {
 }
 
 function resolveBranch() {
-  const primary = dlcSources.getPrimarySource();
-  if (primary?.branch) return primary.branch;
   const fromEnv = String(process.env.KABBAK_DLC_BRANCH || "").trim();
   if (fromEnv) return fromEnv;
-  if (isRepoPresent()) {
-    const head = tryGit(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: dlcRoot }).output.trim();
-    if (head && head !== "HEAD") return head;
-  }
+  const primary = dlcSources.getPrimarySource();
+  const detected = dlcSources.detectRemoteBranch(dlcRoot);
+  if (primary?.branch && primary.branch === detected) return primary.branch;
+  if (detected) return detected;
+  if (primary?.branch) return primary.branch;
   return "main";
 }
 
