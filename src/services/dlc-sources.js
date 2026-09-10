@@ -38,8 +38,15 @@ function slugify(value) {
   return slug || `source-${Date.now().toString(36)}`;
 }
 
+function coerceRepoUrl(value) {
+  let raw = String(value || "").trim();
+  if (!raw) throw new Error("Repository URL is required.");
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(raw)) raw = `https://${raw}`;
+  return raw;
+}
+
 function normalizeUrl(value) {
-  const raw = String(value || "").trim();
+  const raw = coerceRepoUrl(value);
   let parsed;
   try {
     parsed = new URL(raw);
@@ -50,6 +57,17 @@ function normalizeUrl(value) {
     throw new Error("Repository URL must use http or https.");
   }
   return raw.replace(/\.git$/i, "").replace(/\/+$/, "");
+}
+
+function urlsMatch(left, right) {
+  const a = String(left || "").trim().replace(/\.git$/i, "").replace(/\/+$/, "").toLowerCase();
+  const b = String(right || "").trim().replace(/\.git$/i, "").replace(/\/+$/, "").toLowerCase();
+  return Boolean(a && a === b);
+}
+
+function findSourceByUrl(url) {
+  const wanted = normalizeUrl(url);
+  return listSources().find((source) => urlsMatch(source.url, wanted)) || null;
 }
 
 function normalizeBranch(value) {
@@ -304,15 +322,19 @@ function syncAllEnabledSources({ log = () => {} } = {}) {
 module.exports = {
   PRIMARY_ID,
   addSource,
+  coerceRepoUrl,
   describeSource,
+  findSourceByUrl,
   getPrimarySource,
   getSource,
   getSourceRoot,
   listDescribedSources,
   listEnabledSourceRoots,
   listSources,
+  normalizeUrl,
   removeSource,
   syncAllEnabledSources,
   syncSource,
-  updateSource
+  updateSource,
+  urlsMatch
 };

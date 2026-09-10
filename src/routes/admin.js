@@ -493,11 +493,9 @@ router.post("/admin/dlc/reload", (request, response) => {
   });
 });
 
-// Pull the DLC checkout (git fetch + fast-forward) so installed plugins pick
-// up the latest files from the repository. The catalog manifest itself is
-// fetched remotely and cached, so this is the step that actually upgrades
-// plugin code served from the checkout. Failures are reported in-band (the
-// generic 5xx envelope hides details, but admins need the git error).
+// Pull every DLC checkout (git fetch + fast-forward) so installed plugins pick
+// up the latest files. The catalog is listed from the git tree. Failures are
+// reported in-band (the generic 5xx envelope hides details, but admins need the git error).
 router.post("/admin/dlc/update", (request, response) => {
   let head = "";
   let failure = "";

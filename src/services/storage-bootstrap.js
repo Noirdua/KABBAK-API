@@ -1,6 +1,6 @@
 const fs = require("fs/promises");
 const path = require("path");
-const { spawn, execFileSync } = require("child_process");
+const { spawn } = require("child_process");
 const fsSync = require("fs");
 
 const {
@@ -43,7 +43,6 @@ const requiredStoragePaths = [
 ];
 
 const STORAGE_STATUS_CACHE_TTL_MS = 120 * 1000;
-const SUBMODULE_CLONE_TIMEOUT_MS = 30 * 1000;
 let storageStatusCache = {
   expiresAtMs: 0,
   value: null,
@@ -238,48 +237,7 @@ function relayOutput(logger, method, chunk) {
   });
 }
 
-function initSubmodules(logger = console) {
-  const gitmodulesPath = path.join(apiRoot, ".gitmodules");
-  if (!fsSync.existsSync(gitmodulesPath)) return;
 
-  try {
-    const content = fsSync.readFileSync(gitmodulesPath, "utf8");
-    const submoduleMatches = content.matchAll(/\[submodule\s+"([^"]+)"\]\s*\n\s*path\s*=\s*(.+)\s*\n\s*url\s*=\s*(.+)/gi);
-
-    for (const match of submoduleMatches) {
-      const subPath = match[2].trim();
-      const subUrl = match[3].trim();
-      const fullPath = path.join(apiRoot, subPath);
-
-      if (fsSync.existsSync(fullPath)) {
-        const entries = fsSync.readdirSync(fullPath, { withFileTypes: true });
-        if (entries.length === 0 || (entries.length === 1 && entries[0].name === ".git")) {
-          logger.log(`[storage] Initializing submodule ${subPath} (sparse clone — metadata only)...`);
-          try {
-            execFileSync("git", [
-              "clone", "--filter=blob:none", "--no-checkout", "--sparse",
-              subUrl, fullPath
-            ], { cwd: apiRoot, stdio: "pipe", timeout: SUBMODULE_CLONE_TIMEOUT_MS, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
-          } catch { continue; }
-        }
-      } else {
-        logger.log(`[storage] Cloning submodule ${subPath} (sparse clone — metadata only)...`);
-        try {
-          execFileSync("git", [
-            "clone", "--filter=blob:none", "--no-checkout", "--sparse",
-            subUrl, fullPath
-          ], { cwd: apiRoot, stdio: "pipe", timeout: SUBMODULE_CLONE_TIMEOUT_MS, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
-        } catch { continue; }
-      }
-    }
-    logger.log("[storage] Git submodules initialized.");
-  } catch (error) {
-    const stderr = String(error.stderr || "").trim();
-    if (stderr) {
-      logger.error(`[storage] Failed to initialize git submodules: ${stderr}`);
-    }
-  }
-}
 
 async function runMigration(logger = console) {
   await new Promise((resolve, reject) => {
@@ -304,8 +262,6 @@ async function runMigration(logger = console) {
 }
 
 async function ensureStorageReady({ logger = console } = {}) {
-  initSubmodules(logger);
-
   const status = await getStorageStatus();
   if (status.ready) {
     return status;

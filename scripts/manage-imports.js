@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { execFileSync, spawnSync } = require("child_process");
+const { spawnSync } = require("child_process");
 
 const {
   projectRoot,
@@ -14,6 +14,7 @@ const {
 } = require("../src/config/paths");
 
 const dlc = require("../src/services/dlc-catalog");
+const dlcSources = require("../src/services/dlc-sources");
 const { scanTextLibrary, writeTextLibraryRegistry } = require("../src/services/text-library-registry");
 
 function listTextImports() {
@@ -183,188 +184,12 @@ function cmdRemove(name, type) {
   }
 }
 
-// --- Submodule commands ---
-
-function exec(args, opts = {}) {
-  try {
-    return execFileSync("git", args, { cwd: projectRoot, encoding: "utf8", stdio: opts.stdio || "pipe", ...opts });
-  } catch (error) {
-    if (opts.ignoreError) return "";
-    throw error;
-  }
-}
-
-function inferSubmoduleName(repoUrl) {
+function inferRepoLabel(repoUrl) {
   const raw = String(repoUrl || "").trim();
   const match = raw.match(/\/([^/]+?)(?:\.git)?$/);
   return match ? match[1] : "";
 }
 
-function resolveSubmodulePath(name) {
-  const deckPath = path.join(decksImportRoot, name);
-  const dlcPath = path.join(dlcRoot, name);
-
-  if (fs.existsSync(deckPath) && fs.statSync(deckPath).isDirectory()) {
-    return { type: "deck", filePath: deckPath };
-  }
-  if (fs.existsSync(dlcPath) && fs.statSync(dlcPath).isDirectory()) {
-    return { type: "dlc", filePath: dlcPath };
-  }
-
-  const gitmodulesPath = path.join(projectRoot, ".gitmodules");
-  if (fs.existsSync(gitmodulesPath)) {
-    try {
-      const content = fs.readFileSync(gitmodulesPath, "utf8");
-      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const sectionRe = new RegExp(`\\[submodule\\s+"([^"]*${escaped}[^"]*)"\\]`, "i");
-      const match = content.match(sectionRe);
-      if (match) {
-        const subPath = match[1];
-        if (subPath.startsWith("imports/decks/")) {
-          return { type: "deck", filePath: path.join(projectRoot, subPath) };
-        }
-        if (subPath.startsWith("imports/dlc/")) {
-          return { type: "dlc", filePath: path.join(projectRoot, subPath) };
-        }
-      }
-    } catch (_error) {}
-  }
-
-  return null;
-}
-
-function cmdSubmoduleAdd(repoUrl, type, displayName) {
-  if (!repoUrl) {
-    console.error("Usage: npm run imports -- submodule add <repo-url> --deck|--dlc [name]");
-    process.exit(1);
-  }
-
-  if (type === "dlc") {
-    console.error("The DLC catalog is managed by the dlc commands, not submodule add.");
-    console.error("  npm run dlc -- init --repo " + repoUrl);
-    process.exit(1);
-  }
-
-  if (type !== "deck") {
-    console.error("Specify --deck to indicate the submodule type.");
-    process.exit(1);
-  }
-
-  const name = displayName || inferSubmoduleName(repoUrl);
-  if (!name) {
-    console.error("Could not infer a name from the repo URL. Provide one: --name <name>");
-    process.exit(1);
-  }
-
-  const targetPath = path.join(decksImportRoot, name);
-  const relativePath = path.relative(projectRoot, targetPath).replace(/\\/g, "/");
-
-  fs.mkdirSync(decksImportRoot, { recursive: true });
-
-  if (fs.existsSync(targetPath)) {
-    console.error(`Path already exists: ${targetPath}`);
-    console.error("Remove it first with: npm run imports -- submodule remove --name " + name);
-    process.exit(1);
-  }
-
-  console.log(`Adding deck submodule '${name}' from ${repoUrl}...\n`);
-  exec(["submodule", "add", "--force", repoUrl, relativePath], { stdio: "inherit" });
-
-  const statusOut = exec(["submodule", "status", relativePath], { ignoreError: true }).trim();
-  console.log(`\nSubmodule status: ${statusOut || "added"}`);
-  console.log(`\n"${name}" added as a git submodule at ${relativePath}.`);
-  console.log(`Run npm run migrate:data to import into the database.`);
-}
-
-function cmdSubmoduleRemove(name) {
-  if (!name) {
-    console.error("Usage: npm run imports -- submodule remove --name <name>");
-    process.exit(1);
-  }
-
-  const resolved = resolveSubmodulePath(name);
-  if (!resolved) {
-    console.error(`Submodule '${name}' not found in imports/decks/ or imports/dlc/.`);
-    process.exit(1);
-  }
-
-  const relativePath = path.relative(projectRoot, resolved.filePath).replace(/\\/g, "/");
-
-  console.log(`Removing ${resolved.type} submodule '${name}' from ${relativePath}...\n`);
-
-  exec(["submodule", "deinit", "-f", relativePath], { stdio: "inherit", ignoreError: true });
-  exec(["rm", "-f", relativePath], { stdio: "inherit", ignoreError: true });
-
-  const modPath = path.join(projectRoot, ".git", "modules", relativePath);
-  if (fs.existsSync(modPath)) {
-    fs.rmSync(modPath, { recursive: true, force: true });
-    console.log(`  Removed: ${modPath}`);
-  }
-
-  console.log(`\nSubmodule '${name}' removed. Commit the change to complete removal.`);
-  console.log(`Run npm run migrate:data to rebuild the database without this ${resolved.type}.`);
-}
-
-function cmdSubmoduleList() {
-  const gitmodulesPath = path.join(projectRoot, ".gitmodules");
-  if (!fs.existsSync(gitmodulesPath)) {
-    console.log("No git submodules configured. Add packs/decks with:\n");
-    console.log("  npm run imports -- submodule add <repo-url> --pack <name>");
-    console.log("  npm run imports -- submodule add <repo-url> --deck <name>");
-    return;
-  }
-
-  const statusOut = exec(["submodule", "status"], { ignoreError: true }).trim();
-  if (!statusOut) {
-    console.log("No submodules found.");
-    return;
-  }
-
-  const lines = statusOut.split(/\r?\n/).filter(Boolean);
-  const importLines = lines.filter((line) => {
-    const parts = line.trim().split(/\s+/);
-    const subPath = parts[parts.length - 1] || "";
-    return subPath.startsWith("imports/decks/") || subPath.startsWith("imports/dlc/");
-  });
-
-  if (!importLines.length) {
-    console.log("No deck or dlc submodules found.");
-    return;
-  }
-
-  console.log(`\n${importLines.length} submodule(s):\n`);
-  for (const line of importLines) {
-    const parts = line.trim().split(/\s+/);
-    const sha = parts[0] || "";
-    const subPath = parts[parts.length - 1] || "";
-    let type = "dlc";
-    if (subPath.startsWith("imports/decks/")) type = "deck";
-    const name = path.basename(subPath);
-    const prefix = sha.startsWith("-") ? "  (not initialized)" : sha.startsWith("+") ? "  (modified)" : "";
-    console.log(`  [${type}] ${name}  ${sha.substring(0, 8)}${prefix}`);
-  }
-  console.log("");
-}
-
-function cmdSubmoduleUpdate(name) {
-  if (name) {
-    const resolved = resolveSubmodulePath(name);
-    if (!resolved) {
-      console.error(`Submodule '${name}' not found.`);
-      process.exit(1);
-    }
-
-    const relativePath = path.relative(projectRoot, resolved.filePath).replace(/\\/g, "/");
-    console.log(`Updating submodule '${name}' to latest remote...\n`);
-    exec(["submodule", "update", "--init", "--remote", relativePath], { stdio: "inherit" });
-    console.log(`\n"${name}" updated. Run npm run migrate:data to rebuild the database.`);
-    return;
-  }
-
-  console.log("Updating all submodules...\n");
-  exec(["submodule", "update", "--init", "--remote"], { stdio: "inherit" });
-  console.log("\nAll submodules updated. Run npm run migrate:data to rebuild the database.");
-}
 
 function printUsage() {
   console.log(`
@@ -379,35 +204,28 @@ Local import commands:
   library [--write]               Show curated text sources and lexicons found in
                                   source/data/text; --write updates library.json
 
-DLC catalog commands (content published in the DLC repository):
-  dlc init --repo <url>           Clone the DLC catalog (metadata only, no content)
-  dlc list [--refresh] [--deck|--text|--reference|--pack]
-                                  Show the catalog with sizes and install status
-  dlc info --name <name>          Show details for one catalog item
-  dlc install --name <name> [--stage-only]
+DLC commands (git folder tree — decks/, texts/, packs/, plugins/):
+  dlc repo                        List configured DLC git repositories
+  dlc repo <url>                  Add a repo (or set the primary if none)
+  dlc repo <url> --replace        Change the primary repo URL
+  dlc repo --remove <id|url>      Remove an extra repo (not the primary)
+  dlc list [--refresh] [--deck|--text|--reference|--pack|--plugin]
+                                  Show the catalog, grouped by repository
+  dlc info --name <name> [--source <id>]
+  dlc install --name <name> [--source <id>] [--stage-only]
   dlc install --all [--deck|--text|--reference|--pack] [--stage-only]
-                                  Download the item, stage it, and rebuild the database
-  dlc uninstall --name <name> [--purge]
-                                  Remove an installed item (--purge also frees the download)
-  dlc update                      Fast-forward the catalog to the latest published revision
+  dlc uninstall --name <name> [--source <id>] [--purge]
+  dlc update                      Fast-forward every configured repo
   dlc check                       Validate downloaded DLC content before importing
-  dlc manifest                    (publisher) Update manifest.json only when the catalog changed
-
-Deck submodules (for decks hosted in their own repository):
-  submodule add <repo-url> --deck [--name <name>]
-  submodule remove --name <name>
-  submodule list
-  submodule update [--name <name>]
+  dlc init --repo <url>           Alias for: dlc repo <url> --replace
 
 Examples:
-  npm run dlc -- init --repo <your-dlc-git-url>
+  npm run dlc -- repo github.com/org/kabbak-dlc
+  npm run dlc -- repo github.com/org/extra-plugins
   npm run dlc -- list
   npm run dlc -- install --name "Rider Waite"
   npm run dlc -- uninstall --name "Rider Waite" --purge
-  npm run dlc -- update
   npm run imports -- list --deck
-  npm run imports -- library --write
-  npm run imports -- remove --name "my-book" --text
 `);
 }
 
@@ -446,23 +264,26 @@ async function cmdLibrary(write) {
 // --- DLC catalog commands ---
 
 const ORIGIN_LABEL = {
-  local: "local catalog copy",
-  remote: "remote repository",
-  scan: "local file scan"
+  git: "git tree",
+  scan: "local folders",
+  merged: "git tree + local folders"
 };
 
-function requireCatalogItem(items, name, kind) {
+function requireCatalogItem(items, name, kind, sourceId) {
   if (!name) {
     console.error("Provide an item name: --name <name>");
     process.exit(1);
   }
-  const { matches, item } = dlc.findCatalogItem(items, name, kind);
+  const { matches, item } = dlc.findCatalogItem(items, name, kind, sourceId);
   if (item) return item;
   if (!matches.length) {
     console.error(`"${name}" was not found in the DLC catalog. Run: npm run dlc -- list`);
     process.exit(1);
   }
-  console.error(`"${name}" is ambiguous across ${matches.map((m) => m.kind).join(", ")}. Narrow it with --deck/--text/--pack.`);
+  console.error(`"${name}" matches ${matches.length} items. Narrow with --deck/--text/--pack/--plugin or --source <id>:`);
+  for (const match of matches) {
+    console.error(`  [${match.kind}] ${match.name}  ${match.sourceName || match.sourceId || "unknown repo"}`);
+  }
   process.exit(1);
 }
 
@@ -493,50 +314,160 @@ function runRebuild() {
 }
 
 function cmdDlcInit(repoUrl) {
-  if (repoUrl) process.env.KABBAK_DLC_REPO = repoUrl;
-  if (!String(process.env.KABBAK_DLC_REPO || "").trim() && !dlc.isRepoPresent() && !dlc.resolveRepoUrl()) {
-    console.error(dlc.MISSING_DLC_REPO_MESSAGE);
-    process.exit(1);
-  }
-  const { cloned, url } = dlc.ensureRepo({ log: (message) => console.log(message) });
-  console.log(cloned
-    ? `\nDLC catalog ready at imports/dlc (${url}).`
-    : `\nDLC catalog already present at imports/dlc (${url}).`);
-  console.log("Next: npm run dlc -- list");
+  cmdDlcRepo(repoUrl, { replace: true });
 }
 
-async function cmdDlcList(kind, refresh) {
-  const { origin, items } = await dlc.getCatalog({ refresh, log: (message) => console.log(message) });
+function printRepoList() {
+  const sources = dlcSources.listDescribedSources();
+  if (!sources.length) {
+    console.log("No DLC repositories configured. Add one with:");
+    console.log("  npm run dlc -- repo github.com/org/kabbak-dlc");
+    return;
+  }
+  console.log(`\n${sources.length} DLC repo(s):\n`);
+  for (const source of sources) {
+    const mark = source.primary ? "primary" : source.id;
+    const state = source.present ? (source.head || "cloned") : "not cloned";
+    console.log(`  [${mark}] ${source.name}`);
+    console.log(`         ${source.url || "(no url)"}  ${source.branch || "main"}  ${state}`);
+  }
+  console.log("");
+}
 
-  if (origin === "none") {
-    console.error("No DLC catalog available. Run: npm run dlc -- init --repo <your-dlc-git-url>");
+function cmdDlcRepo(rawUrl, { remove = "", replace = false, primary = false, name = "", branch = "" } = {}) {
+  const log = (message) => console.log(message);
+  if (remove) {
+    const token = String(remove).trim();
+    let source = dlcSources.getSource(token);
+    if (!source) {
+      try {
+        source = dlcSources.findSourceByUrl(token);
+      } catch (_error) {
+        source = null;
+      }
+    }
+    if (!source) {
+      console.error(`No DLC repo matching '${token}'.`);
+      process.exitCode = 1;
+      return;
+    }
+    dlcSources.removeSource(source.id);
+    dlc.invalidateCatalogCache();
+    console.log(`Removed DLC repo '${source.name}' (${source.id}).`);
+    return;
+  }
+
+  if (!rawUrl) {
+    printRepoList();
+    return;
+  }
+
+  const url = dlcSources.normalizeUrl(rawUrl);
+  const existing = dlcSources.findSourceByUrl(url);
+  const primarySource = dlcSources.getPrimarySource();
+
+  if (existing) {
+    const patch = {};
+    if (name) patch.name = name;
+    if (branch) patch.branch = branch;
+    if (primary || replace) patch.primary = true;
+    patch.sync = true;
+    const described = dlcSources.updateSource(existing.id, patch, { log });
+    dlc.invalidateCatalogCache();
+    console.log(`\nDLC repo '${described.name}' ready (${described.url}).`);
+    console.log("Next: npm run dlc -- list");
+    return;
+  }
+
+  if (replace || !primarySource?.url) {
+    if (!primarySource) {
+      console.error(dlc.MISSING_DLC_REPO_MESSAGE);
+      process.exitCode = 1;
+      return;
+    }
+    const described = dlcSources.updateSource(primarySource.id, {
+      url,
+      name: name || primarySource.name || inferRepoLabel(url) || "KABBAK DLC",
+      branch: branch || primarySource.branch || "main",
+      primary: true,
+      sync: true
+    }, { log });
+    dlc.invalidateCatalogCache();
+    console.log(`\nPrimary DLC repo is now ${described.url}.`);
+    console.log("Next: npm run dlc -- list");
+    return;
+  }
+
+  const described = dlcSources.addSource({
+    name: name || inferRepoLabel(url) || "Additional DLC",
+    url,
+    branch: branch || "main"
+  }, { log });
+  dlc.invalidateCatalogCache();
+  console.log(`\nAdded DLC repo '${described.name}' (${described.url}).`);
+  console.log("Catalog items from every repo show together, grouped, in: npm run dlc -- list");
+}
+
+async function cmdDlcList(kind, refresh, sourceId) {
+  const { origin, items, sources } = await dlc.getCatalog({ refresh, log: (message) => console.log(message) });
+
+  if (origin === "none" || !items.length) {
+    console.error("No DLC catalog available. Run: npm run dlc -- repo <git-url>");
     process.exitCode = 1;
     return;
   }
 
-  const visible = kind ? items.filter((item) => item.kind === kind) : items;
+  let visible = kind ? items.filter((item) => item.kind === kind) : items;
+  if (sourceId) {
+    const wanted = String(sourceId).trim().toLowerCase();
+    visible = visible.filter((item) => String(item.sourceId || "").toLowerCase() === wanted
+      || String(item.sourceName || "").toLowerCase() === wanted);
+  }
   if (!visible.length) {
     console.log(`No DLC items listed (source: ${ORIGIN_LABEL[origin] || origin}).`);
     return;
   }
 
-  console.log(`\nDLC catalog — ${dlc.resolveRepoUrl()} (${dlc.resolveBranch()})`);
-  console.log(`Source: ${ORIGIN_LABEL[origin] || origin}\n`);
-  console.log(`${"TYPE".padEnd(6)} ${"STATUS".padEnd(10)} ${"SIZE".padStart(9)}  ${"NAME".padEnd(34)} TITLE`);
-  console.log("-".repeat(92));
+  const sourceList = Array.isArray(sources) && sources.length
+    ? sources
+    : dlcSources.listDescribedSources();
+  const duplicates = visible.filter((item) => item.duplicate).length;
 
-  for (const category of dlc.CATEGORIES) {
-    const group = visible
-      .filter((item) => item.kind === category.kind)
-      .sort((a, b) => {
-        const order = { installed: 0, staged: 1, available: 2 };
-        return (order[a.status] ?? 3) - (order[b.status] ?? 3) || a.name.localeCompare(b.name);
-      });
-    for (const item of group) {
-      const detail = item.kind === "pack"
-        ? `${item.memberCount} item(s)${item.missingCount ? `, ${item.missingCount} missing` : ""}`
-        : (item.title === item.name ? "" : item.title);
-      console.log(`${item.kind.padEnd(6)} ${item.status.padEnd(10)} ${dlc.formatSize(item.size).padStart(9)}  ${item.name.padEnd(34)} ${detail}`);
+  console.log(`\nDLC catalog (${ORIGIN_LABEL[origin] || origin})`);
+  if (duplicates) {
+    console.log(`${duplicates} item(s) share a name across repos — listed in each group.`);
+  }
+
+  for (const source of sourceList) {
+    const groupItems = visible.filter((item) => item.sourceId === source.id);
+    if (!groupItems.length) continue;
+    const label = source.primary ? `${source.name} (primary)` : source.name;
+    console.log(`\n${label}`);
+    console.log(`${source.url || "(local)"}  ${source.branch || "main"}`);
+    console.log(`${"TYPE".padEnd(10)} ${"STATUS".padEnd(10)} ${"SIZE".padStart(9)}  ${"NAME".padEnd(34)} TITLE`);
+    console.log("-".repeat(92));
+    for (const category of dlc.CATEGORIES) {
+      const group = groupItems
+        .filter((item) => item.kind === category.kind)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      for (const item of group) {
+        const detail = item.kind === "pack"
+          ? `${item.memberCount} item(s)${item.missingCount ? `, ${item.missingCount} missing` : ""}`
+          : (item.title === item.name ? "" : item.title);
+        const dup = item.duplicate ? "  [also in another repo]" : "";
+        console.log(`${item.kind.padEnd(10)} ${item.status.padEnd(10)} ${dlc.formatSize(item.size).padStart(9)}  ${item.name.padEnd(34)} ${detail}${dup}`);
+      }
+    }
+  }
+
+  const ungrouped = visible.filter((item) => !sourceList.some((source) => source.id === item.sourceId));
+  if (ungrouped.length) {
+    console.log(`\nOther`);
+    console.log(`${"TYPE".padEnd(10)} ${"STATUS".padEnd(10)} ${"SIZE".padStart(9)}  ${"NAME".padEnd(34)} TITLE`);
+    console.log("-".repeat(92));
+    for (const item of ungrouped) {
+      const detail = item.title === item.name ? "" : item.title;
+      console.log(`${item.kind.padEnd(10)} ${item.status.padEnd(10)} ${dlc.formatSize(item.size).padStart(9)}  ${item.name.padEnd(34)} ${detail}`);
     }
   }
 
@@ -544,17 +475,21 @@ async function cmdDlcList(kind, refresh) {
   const staged = visible.filter((item) => item.status === "staged").length;
   console.log(`\n${visible.length} item(s) — ${installed} installed, ${staged} staged, ${visible.length - installed - staged} available.`);
   console.log(`Install one with: npm run dlc -- install --name "<name>"`);
-  console.log(`Install all with: npm run dlc -- install --all`);
+  console.log(`Add another repo with: npm run dlc -- repo <git-url>`);
 }
 
-async function cmdDlcInfo(name, kind) {
+async function cmdDlcInfo(name, kind, sourceId) {
   const { items } = await dlc.getCatalog({ log: (message) => console.log(message) });
-  const item = requireCatalogItem(items, name, kind);
+  const item = requireCatalogItem(items, name, kind, sourceId);
   console.log(`\n${item.title}`);
   console.log("-".repeat(Math.max(item.title.length, 12)));
   console.log(`  type         ${item.kind}`);
   console.log(`  name         ${item.name}`);
   console.log(`  id           ${item.id}`);
+  if (item.sourceName || item.sourceUrl) {
+    console.log(`  repo         ${item.sourceName || item.sourceId}${item.sourceUrl ? `  ${item.sourceUrl}` : ""}`);
+  }
+  if (item.duplicate) console.log("  duplicate    yes (same name in another repo)");
   console.log(`  size         ${dlc.formatSize(item.size)}${item.files ? ` (${item.files} file(s))` : ""}`);
   console.log(`  status       ${item.status}`);
   if (item.kind !== "pack") console.log(`  downloaded   ${item.downloaded ? "yes" : "no"}`);
@@ -573,10 +508,10 @@ async function cmdDlcInfo(name, kind) {
   console.log("");
 }
 
-async function cmdDlcInstall({ name, kind, all, stageOnly }) {
+async function cmdDlcInstall({ name, kind, all, stageOnly, sourceId }) {
   const { origin, items } = await dlc.getCatalog({ log: (message) => console.log(message) });
   if (origin === "none") {
-    console.error("No DLC catalog available. Run: npm run dlc -- init --repo <your-dlc-git-url>");
+    console.error("No DLC catalog available. Run: npm run dlc -- repo <git-url>");
     process.exitCode = 1;
     return;
   }
@@ -589,7 +524,7 @@ async function cmdDlcInstall({ name, kind, all, stageOnly }) {
       return;
     }
   } else {
-    targets = resolveTargets(items, requireCatalogItem(items, name, kind));
+    targets = resolveTargets(items, requireCatalogItem(items, name, kind, sourceId));
     if (!targets.length) {
       console.log(`'${name}' lists no installable items.`);
       return;
@@ -628,9 +563,9 @@ async function cmdDlcInstall({ name, kind, all, stageOnly }) {
   }
 }
 
-async function cmdDlcUninstall({ name, kind, purge }) {
+async function cmdDlcUninstall({ name, kind, purge, sourceId }) {
   const { items } = await dlc.getCatalog({ log: (message) => console.log(message) });
-  const targets = resolveTargets(items, requireCatalogItem(items, name, kind));
+  const targets = resolveTargets(items, requireCatalogItem(items, name, kind, sourceId));
 
   let removed = 0;
   for (const item of targets) {
@@ -646,15 +581,21 @@ async function cmdDlcUninstall({ name, kind, purge }) {
 }
 
 function cmdDlcUpdate() {
-  const head = dlc.updateRepo({ log: (message) => console.log(message) });
-  console.log(`\nDLC catalog now at ${head || "latest"}.`);
+  const results = dlcSources.syncAllEnabledSources({ log: (message) => console.log(message) });
+  dlc.invalidateCatalogCache();
+  if (!results.length) {
+    console.error("No DLC repositories configured. Run: npm run dlc -- repo <git-url>");
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`\nUpdated ${results.length} DLC repo(s).`);
   console.log("Run npm run dlc -- list to see what changed.");
 }
 
 function cmdDlcCheck() {
   if (!fs.existsSync(dlcRoot) || !fs.statSync(dlcRoot).isDirectory()) {
     console.log("DLC catalog not found. Clone it first:\n");
-    console.log("  npm run dlc -- init --repo <your-dlc-git-url>");
+    console.log("  npm run dlc -- repo <git-url>");
     return;
   }
 
@@ -901,63 +842,6 @@ function cmdDlcCheck() {
   }
 }
 
-function cmdDlcManifest() {
-  const previous = dlc.readLocalManifest();
-  const manifest = dlc.buildManifest();
-  const diff = dlc.diffManifests(previous, manifest);
-  const counts = `${manifest.decks.length} deck(s), ${manifest.packs.length} pack(s), ${manifest.texts.length} text(s), ${manifest.references.length} reference(s), ${manifest.plugins.length} plugin(s).`;
-  if (diff.hadPrevious && !dlc.manifestHasChanges(diff)) {
-    console.log(`Manifest unchanged. ${counts}`);
-    for (const line of dlc.formatManifestDiff(diff)) {
-      console.log(line);
-    }
-    return;
-  }
-
-  const manifestPath = dlc.writeManifest(manifest);
-  console.log(`Wrote ${path.relative(projectRoot, manifestPath)}`);
-  console.log(counts);
-  for (const line of dlc.formatManifestDiff(diff)) {
-    console.log(line);
-  }
-  console.log("Commit and push the DLC repo to publish the catalog.");
-}
-
-// --- Command routing ---
-
-function handleSubmoduleCommand(subArgs) {
-  const subCmd = subArgs[0];
-  let repoUrl = "";
-  let type = "";
-  let name = "";
-
-  for (let i = 1; i < subArgs.length; i++) {
-    if (subArgs[i] === "--deck" || subArgs[i] === "--decks") type = "deck";
-    else if (subArgs[i] === "--dlc") type = "dlc";
-    else if (subArgs[i] === "--name" && i + 1 < subArgs.length) { name = subArgs[++i]; }
-    else if (!repoUrl) repoUrl = subArgs[i];
-  }
-
-  switch (subCmd) {
-    case "add":
-      cmdSubmoduleAdd(repoUrl, type, name);
-      break;
-    case "remove":
-      cmdSubmoduleRemove(name);
-      break;
-    case "list":
-      cmdSubmoduleList();
-      break;
-    case "update":
-      cmdSubmoduleUpdate(name);
-      break;
-    default:
-      printUsage();
-      break;
-  }
-}
-
-// Main
 const args = process.argv.slice(2);
 const command = args[0];
 
@@ -969,13 +853,20 @@ function parseFlags(argv) {
     else if (arg === "--deck" || arg === "--decks") flags.type = "deck";
     else if (arg === "--pack" || arg === "--packs") flags.type = "pack";
     else if (arg === "--reference" || arg === "--references" || arg === "--ref") flags.type = "reference";
+    else if (arg === "--plugin" || arg === "--plugins") flags.type = "plugin";
     else if (arg === "--all") flags.all = true;
     else if (arg === "--stage-only") flags.stageOnly = true;
     else if (arg === "--refresh") flags.refresh = true;
     else if (arg === "--purge") flags.purge = true;
     else if (arg === "--write") flags.write = true;
+    else if (arg === "--replace") flags.replace = true;
+    else if (arg === "--primary") flags.primary = true;
     else if (arg === "--name" && i + 1 < argv.length) flags.name = argv[++i];
     else if (arg === "--repo" && i + 1 < argv.length) flags.repo = argv[++i];
+    else if (arg === "--source" && i + 1 < argv.length) flags.source = argv[++i];
+    else if (arg === "--branch" && i + 1 < argv.length) flags.branch = argv[++i];
+    else if (arg === "--remove" && i + 1 < argv.length) flags.remove = argv[++i];
+    else if (arg === "--remove") flags.remove = true;
     else if (!arg.startsWith("--")) flags.positional.push(arg);
   }
   return flags;
@@ -984,33 +875,49 @@ function parseFlags(argv) {
 async function handleDlcCommand(subArgs) {
   const subCmd = subArgs[0];
   const flags = parseFlags(subArgs.slice(1));
-  // Allow `dlc install "Rider Waite"` as a shorthand for `--name "Rider Waite"`.
   const name = flags.name || flags.positional[0] || "";
 
   switch (subCmd) {
     case "init":
       cmdDlcInit(flags.repo || flags.positional[0] || "");
       return;
+    case "repo":
+      cmdDlcRepo(flags.repo || (flags.remove ? "" : flags.positional[0]) || "", {
+        remove: flags.remove === true ? (flags.positional[0] || "") : (flags.remove || ""),
+        replace: Boolean(flags.replace) || Boolean(flags.primary),
+        primary: Boolean(flags.primary),
+        name: flags.name || "",
+        branch: flags.branch || ""
+      });
+      return;
     case "list":
-      await cmdDlcList(flags.type, Boolean(flags.refresh));
+      await cmdDlcList(flags.type, Boolean(flags.refresh), flags.source || "");
       return;
     case "info":
-      await cmdDlcInfo(name, flags.type);
+      await cmdDlcInfo(name, flags.type, flags.source || "");
       return;
     case "install":
-      await cmdDlcInstall({ name, kind: flags.type, all: Boolean(flags.all), stageOnly: Boolean(flags.stageOnly) });
+      await cmdDlcInstall({
+        name,
+        kind: flags.type,
+        all: Boolean(flags.all),
+        stageOnly: Boolean(flags.stageOnly),
+        sourceId: flags.source || ""
+      });
       return;
     case "uninstall":
-      await cmdDlcUninstall({ name, kind: flags.type, purge: Boolean(flags.purge) });
+      await cmdDlcUninstall({
+        name,
+        kind: flags.type,
+        purge: Boolean(flags.purge),
+        sourceId: flags.source || ""
+      });
       return;
     case "update":
       cmdDlcUpdate();
       return;
     case "check":
       cmdDlcCheck();
-      return;
-    case "manifest":
-      cmdDlcManifest();
       return;
     default:
       printUsage();
@@ -1029,9 +936,6 @@ async function main() {
       return;
     case "library":
       await cmdLibrary(Boolean(flags.write));
-      return;
-    case "submodule":
-      handleSubmoduleCommand(args.slice(1));
       return;
     case "dlc":
       await handleDlcCommand(args.slice(1));

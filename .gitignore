@@ -39,7 +39,7 @@ imports/decks/*
 !imports/decks/README.md
 !imports/decks/.gitkeep
 
-# DLC catalog checkout — set the repository URL with KABBAK_DLC_REPO,
-# `npm run dlc -- init --repo <url>`, or Admin → DLC. Do not ship a default URL.
+# DLC catalog checkout — `npm run dlc -- repo <url>` (multiple repos allowed).
+# Do not ship a default URL.
 imports/dlc/*
 !imports/dlc/.gitkeep

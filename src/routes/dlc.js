@@ -187,6 +187,7 @@ function emitDlcMutationAuditEvent(request, response, payload) {
 function assertDlcMutationBody(body) {
   const kind = String(body?.kind || "").trim().toLowerCase();
   const name = String(body?.name || "").trim();
+  const sourceId = String(body?.sourceId || body?.source || "").trim();
   if (!kind || !name) {
     throw createHttpError(400, "invalid_dlc_request", "Both `kind` and `name` are required.");
   }
@@ -198,7 +199,7 @@ function assertDlcMutationBody(body) {
   } catch (error) {
     throw createHttpError(400, "invalid_dlc_name", error.message);
   }
-  return { kind, name };
+  return { kind, name, sourceId };
 }
 
 // Available catalog (all categories). Plugins are what the shop installs.
@@ -519,7 +520,7 @@ router.post(
     errorMessage: "This route requires the admin role or api:admin scope."
   }),
   async (request, response) => {
-    const { kind, name } = assertDlcMutationBody(getRequestBody(request));
+    const { kind, name, sourceId } = assertDlcMutationBody(getRequestBody(request));
     if (kind === "pack") {
       throw createHttpError(400, "unsupported_dlc_kind", "Packs cannot be installed directly. Install their items individually or use the dlc CLI.");
     }
@@ -527,8 +528,11 @@ router.post(
     let installed = false;
     try {
       const catalog = await getCatalog();
-      const found = findCatalogItem(catalog.items, name, kind);
-      installed = installItem(found.item || { kind, name }, { log: (message) => emitDlcLog(request, message) });
+      const found = findCatalogItem(catalog.items, name, kind, sourceId);
+      if (!found.item && found.matches.length > 1) {
+        throw new Error(`'${name}' is in more than one DLC repo. Pass sourceId (${found.matches.map((match) => match.sourceId).join(", ")}).`);
+      }
+      installed = installItem(found.item || { kind, name, sourceId }, { log: (message) => emitDlcLog(request, message) });
     } catch (error) {
       emitDlcLog(request, error.message || "DLC install failed.", {
         event: "api_dlc_error",
@@ -576,11 +580,11 @@ router.post(
     errorMessage: "This route requires the admin role or api:admin scope."
   }),
   (request, response) => {
-    const { kind, name } = assertDlcMutationBody(getRequestBody(request));
+    const { kind, name, sourceId } = assertDlcMutationBody(getRequestBody(request));
 
     let result;
     try {
-      result = updateItem({ kind, name }, { log: (message) => emitDlcLog(request, message) });
+      result = updateItem({ kind, name, sourceId }, { log: (message) => emitDlcLog(request, message) });
     } catch (error) {
       emitDlcLog(request, error.message || "DLC update failed.", {
         event: "api_dlc_error",
@@ -613,14 +617,13 @@ router.post(
     errorMessage: "This route requires the admin role or api:admin scope."
   }),
   async (request, response) => {
-    const { kind, name } = assertDlcMutationBody(getRequestBody(request));
+    const { kind, name, sourceId } = assertDlcMutationBody(getRequestBody(request));
 
     let removed = 0;
     try {
       if (kind === "pack") {
-        // Packs are curated lists: uninstalling one removes its members.
         const catalog = await getCatalog({ refresh: true });
-        const { item: packItem } = findCatalogItem(catalog.items, name, "pack");
+        const { item: packItem } = findCatalogItem(catalog.items, name, "pack", sourceId);
         if (!packItem) {
           throw new Error(`Pack '${name}' was not found in the catalog.`);
         }

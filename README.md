@@ -210,9 +210,9 @@ That scan also detects Strong's-style lexicons and links them to interlinear sou
 Tarot deck images are **not included** in the repository. Point the server at your DLC catalog, then install items from it:
 
 ```text
-npm run dlc -- init --repo <your-dlc-git-url>
+npm run dlc -- repo <your-dlc-git-url>
 npm run dlc -- list
-npm run dlc -- install --name "Rider Waite" --rebuild
+npm run dlc -- install --name "Rider Waite"
 ```
 
 There is no default catalog URL. Set `KABBAK_DLC_REPO` (and optionally `KABBAK_DLC_BRANCH`) or add the source in Admin → DLC.

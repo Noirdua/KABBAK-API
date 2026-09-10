@@ -145,7 +145,7 @@ npm run check:html        # untagged innerHTML linter
 ## Pitfalls
 
 - Bind default is `127.0.0.1`. LAN access needs `HOST=0.0.0.0` and matching `KABBAK_ALLOWED_ORIGINS`.
-- No default DLC/plugin catalog URL. Set `KABBAK_DLC_REPO`, `npm run dlc -- init --repo <url>`, or Admin → DLC.
+- No default DLC/plugin catalog URL. `npm run dlc -- repo <url>` (more than one repo is allowed; `dlc list` groups by source). Or Admin → DLC.
 - Demo user is opt-in (Admin create). Demo gate key is **not** public unless loopback or `KABBAK_DEMO_ACCESS=1`.
 - Hydrus has no hardcoded key; plugin config GET redacts secrets; file URLs are proxied through `/api/v1/integrations/hydrus-network/…`.
 - Failed skin `mount` must not leave `html[data-plugin-skin]` set (host restores chrome on throw).

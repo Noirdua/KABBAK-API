@@ -13,10 +13,7 @@ const {
 } = require("../config/paths");
 const dlcSources = require("./dlc-sources");
 
-const MISSING_DLC_REPO_MESSAGE = "No DLC catalog URL is configured. Set KABBAK_DLC_REPO, pass --repo <url>, or add a catalog URL in Admin → DLC.";
-const MANIFEST_FILE = "manifest.json";
-const MANIFEST_SCHEMA = 2;
-const REMOTE_FETCH_TIMEOUT_MS = 15_000;
+const MISSING_DLC_REPO_MESSAGE = "No DLC catalog URL is configured. Set KABBAK_DLC_REPO, run `npm run dlc -- repo <url>`, or add a catalog URL in Admin → DLC.";
 
 // Packs hold no files of their own: a pack is a curated list of other catalog
 // items that install together.
@@ -196,18 +193,6 @@ function isRepoPresent() {
   return fs.existsSync(path.join(dlcRoot, ".git"));
 }
 
-function readGitmodulesUrl() {
-  const gitmodulesPath = path.join(projectRoot, ".gitmodules");
-  if (!fs.existsSync(gitmodulesPath)) return "";
-  try {
-    const content = fs.readFileSync(gitmodulesPath, "utf8");
-    const match = content.match(/\[submodule\s+"imports\/dlc"\][\s\S]*?url\s*=\s*(.+)/i);
-    return match ? match[1].trim() : "";
-  } catch {
-    return "";
-  }
-}
-
 function resolveRepoUrl() {
   const primary = dlcSources.getPrimarySource();
   if (primary?.url) return primary.url;
@@ -217,7 +202,7 @@ function resolveRepoUrl() {
     const fromRemote = tryGit(["remote", "get-url", "origin"], { cwd: dlcRoot }).output.trim();
     if (fromRemote) return fromRemote;
   }
-  return readGitmodulesUrl();
+  return "";
 }
 
 function requireRepoUrl() {
@@ -345,42 +330,6 @@ function updateRepo({ log = () => {} } = {}) {
 
 // --- Catalog -----------------------------------------------------------------
 
-function buildRawUrl(repoUrl, filePath, branch) {
-  const base = String(repoUrl).replace(/\.git$/, "").replace(/\/+$/, "");
-  const encoded = filePath.split("/").map(encodeURIComponent).join("/");
-  // Forgejo/Gitea use /raw/branch/<branch>/, GitHub raw hosts use /raw/<branch>/.
-  if (/github\.com/i.test(base)) return `${base}/raw/${encodeURIComponent(branch)}/${encoded}`;
-  return `${base}/raw/branch/${encodeURIComponent(branch)}/${encoded}`;
-}
-
-async function fetchRemoteManifest({ log = () => {}, url: repoUrl = "", branch = "" } = {}) {
-  const resolvedUrl = String(repoUrl || resolveRepoUrl() || "").trim();
-  if (!resolvedUrl) return null;
-  const url = buildRawUrl(resolvedUrl, MANIFEST_FILE, String(branch || resolveBranch() || "main"));
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REMOTE_FETCH_TIMEOUT_MS);
-  try {
-    const response = await fetch(url, {
-      headers: { accept: "application/json" },
-      signal: controller.signal
-    });
-    if (!response.ok) {
-      log(`Remote catalog request failed (${response.status} ${response.statusText}): ${url}`);
-      return null;
-    }
-    return await response.json();
-  } catch (error) {
-    log(`Remote catalog unavailable: ${error.message}`);
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function readLocalManifest() {
-  return readJsonIfPresent(path.join(dlcRoot, MANIFEST_FILE));
-}
-
 function readTextManifest(itemPath) {
   // metadata.json is the universal manifest name; text.json is the legacy one.
   return readJsonIfPresent(path.join(itemPath, "metadata.json"))
@@ -436,8 +385,29 @@ function normalizePackItems(rawItems) {
   return items;
 }
 
-function describeLocalItem(category, name) {
-  const itemPath = path.join(dlcRoot, category.dir, name);
+function gitShowJson(root, relativePath) {
+  const posix = String(relativePath || "").replace(/\\/g, "/");
+  if (!posix) return null;
+  const result = tryGit(["show", `HEAD:${posix}`], { cwd: root });
+  if (!result.ok) return null;
+  try {
+    return JSON.parse(result.output);
+  } catch {
+    return null;
+  }
+}
+
+function listGitTreeDirs(root, categoryDir) {
+  if (!fs.existsSync(path.join(root, ".git"))) return [];
+  const result = tryGit(["ls-tree", "-d", "--name-only", `HEAD:${categoryDir}`], { cwd: root });
+  if (!result.ok) return [];
+  return result.output.split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((name) => name && !name.startsWith(".") && !name.startsWith("_"));
+}
+
+function describeLocalItem(category, name, root = dlcRoot) {
+  const itemPath = path.join(root, category.dir, name);
   if (!isDirectory(itemPath)) return null;
 
   const { size, files } = getDirSize(itemPath);
@@ -522,11 +492,11 @@ function resolveStatus(kind, name, id) {
   return "available";
 }
 
-function normalizeItem(category, entry) {
+function normalizeItem(category, entry, root = dlcRoot) {
   const name = String(entry?.name || "").trim();
   if (!name) return null;
 
-  const local = describeLocalItem(category, name);
+  const local = describeLocalItem(category, name, root);
   const id = String(entry?.id || local?.id || fallbackId(name));
   const item = {
     kind: category.kind,
@@ -592,7 +562,8 @@ function resolvePackRollups(items) {
   const contentItems = items.filter((item) => item.kind !== "pack");
   for (const pack of items.filter((item) => item.kind === "pack")) {
     const members = pack.items
-      .map((member) => findCatalogItem(contentItems, member.name, member.type).item)
+      .map((member) => findCatalogItem(contentItems, member.name, member.type, pack.sourceId).item
+        || findCatalogItem(contentItems, member.name, member.type).item)
       .filter(Boolean);
 
     pack.memberCount = pack.items.length;
@@ -612,26 +583,118 @@ function resolvePackRollups(items) {
   }
 }
 
-function normalizeCatalog(raw) {
+function normalizeCatalog(raw, root = dlcRoot) {
   const items = [];
   for (const category of CATEGORIES) {
     const entries = Array.isArray(raw?.[category.key]) ? raw[category.key] : [];
     for (const entry of entries) {
-      const item = normalizeItem(category, typeof entry === "string" ? { name: entry } : entry);
+      const item = normalizeItem(category, typeof entry === "string" ? { name: entry } : entry, root);
       if (item) items.push(item);
     }
   }
-  resolvePackRollups(items);
   return items;
+}
+
+function markDuplicates(items) {
+  const counts = new Map();
+  for (const item of items) {
+    const key = `${item.kind}:${String(item.name || "").toLowerCase()}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  for (const item of items) {
+    const key = `${item.kind}:${String(item.name || "").toLowerCase()}`;
+    item.duplicate = (counts.get(key) || 0) > 1;
+  }
+}
+
+function describeGitItem(root, category, name) {
+  const prefix = `${category.dir}/${name}`;
+  const local = describeLocalItem(category, name, root);
+  const base = { name, size: local?.size || 0, files: local?.files || 0 };
+
+  if (category.kind === "deck") {
+    const deck = gitShowJson(root, `${prefix}/deck.json`);
+    if (!deck && local) return local;
+    return { ...base, id: deck?.id || local?.id || fallbackId(name), title: deck?.name || deck?.label || deck?.title || local?.title || name, description: deck?.description || local?.description || "" };
+  }
+  if (category.kind === "pack") {
+    const pack = gitShowJson(root, `${prefix}/pack.json`);
+    if (!pack && local) return local;
+    const packItems = normalizePackItems(pack?.items);
+    return {
+      ...base,
+      id: pack?.id || local?.id || fallbackId(name),
+      title: pack?.name || pack?.title || local?.title || name,
+      description: pack?.description || local?.description || "",
+      items: packItems.length ? packItems : (local?.items || [])
+    };
+  }
+  if (category.kind === "reference") {
+    const reference = gitShowJson(root, `${prefix}/reference.json`);
+    if (!reference && local) return local;
+    return {
+      ...base,
+      id: reference?.id || local?.id || fallbackId(name),
+      title: reference?.title || local?.title || name,
+      description: reference?.description || local?.description || "",
+      refKind: reference?.kind || local?.refKind || "dictionary",
+      keyScheme: reference?.keyScheme || local?.keyScheme || "word"
+    };
+  }
+  if (category.kind === "plugin" || category.kind === "api") {
+    const manifest = gitShowJson(root, `${prefix}/manifest.json`);
+    const changelog = gitShowJson(root, `${prefix}/changelog.json`);
+    if (!manifest && local) return local;
+    const section = manifest?.section && typeof manifest.section === "object" ? manifest.section : (local?.section || null);
+    return {
+      ...base,
+      id: manifest?.id || local?.id || fallbackId(name),
+      title: manifest?.name || manifest?.title || local?.title || name,
+      description: manifest?.description || local?.description || "",
+      version: manifest?.version || "",
+      entry: manifest?.entry || local?.entry || "",
+      css: manifest?.css || local?.css || "",
+      section,
+      role: normalizePluginRole(manifest?.role, section, manifest?.overhaul) || local?.role,
+      preserveChrome: manifest?.preserveChrome === true || local?.preserveChrome === true,
+      changelog: normalizeChangelogEntries(changelog?.entries).length
+        ? normalizeChangelogEntries(changelog?.entries)
+        : (local?.changelog || [])
+    };
+  }
+  const text = gitShowJson(root, `${prefix}/metadata.json`) || gitShowJson(root, `${prefix}/text.json`);
+  if (!text && local) return local;
+  return {
+    ...base,
+    id: text?.id || local?.id || fallbackId(name),
+    title: text?.title || text?.shortTitle || local?.title || name,
+    description: text?.description || text?.tradition || local?.description || "",
+    format: text?.input?.format || local?.format || ""
+  };
 }
 
 function scanLocalTree(root = dlcRoot) {
   if (!isDirectory(root)) return null;
   const raw = {};
+  let found = false;
   for (const category of CATEGORIES) {
-    raw[category.key] = listContentDirs(path.join(root, category.dir)).map((name) => ({ name }));
+    const names = listContentDirs(path.join(root, category.dir));
+    if (names.length) found = true;
+    raw[category.key] = names.map((name) => ({ name }));
   }
-  return raw;
+  return found ? raw : null;
+}
+
+function scanGitTree(root = dlcRoot) {
+  if (!fs.existsSync(path.join(root, ".git"))) return null;
+  const raw = {};
+  let found = false;
+  for (const category of CATEGORIES) {
+    const names = listGitTreeDirs(root, category.dir);
+    if (names.length) found = true;
+    raw[category.key] = names.map((name) => describeGitItem(root, category, name));
+  }
+  return found ? raw : null;
 }
 
 const CATALOG_CACHE_TTL_MS = 30 * 1000;
@@ -653,7 +716,7 @@ async function getCatalog({ refresh = false, log = () => {} } = {}) {
 
   const addItems = (nextItems, source, from) => {
     for (const item of nextItems) {
-      const key = `${item.kind}:${String(item.name || "").toLowerCase()}`;
+      const key = `${source?.id || ""}:${item.kind}:${String(item.name || "").toLowerCase()}`;
       if (!key.endsWith(":") && seen.has(key)) {
         continue;
       }
@@ -662,6 +725,7 @@ async function getCatalog({ refresh = false, log = () => {} } = {}) {
       }
       item.sourceId = source?.id || "";
       item.sourceName = source?.name || "";
+      item.sourceUrl = source?.url || "";
       items.push(item);
     }
     if (from && origin === "none") {
@@ -672,28 +736,25 @@ async function getCatalog({ refresh = false, log = () => {} } = {}) {
   };
 
   for (const source of sources) {
-    const remote = await fetchRemoteManifest({
-      log,
-      url: source.url,
-      branch: source.branch
-    });
-    if (remote) {
-      addItems(normalizeCatalog(remote), source, "remote");
+    const root = dlcSources.getSourceRoot(source);
+    const gitRaw = scanGitTree(root);
+    if (gitRaw) {
+      addItems(normalizeCatalog(gitRaw, root), source, "git");
     }
-    const scanned = scanLocalTree(dlcSources.getSourceRoot(source));
+    const scanned = scanLocalTree(root);
     if (scanned) {
-      addItems(normalizeCatalog(scanned), source, origin === "none" ? "scan" : origin);
+      addItems(normalizeCatalog(scanned, root), source, origin === "none" ? "scan" : origin);
     }
   }
 
-  if (!items.length) {
-    const local = readLocalManifest();
-    if (local) {
-      addItems(normalizeCatalog(local), dlcSources.getPrimarySource(), "local");
-    }
-  }
+  resolvePackRollups(items);
+  markDuplicates(items);
 
-  const result = { origin, items };
+  const result = {
+    origin,
+    items,
+    sources: dlcSources.listDescribedSources()
+  };
 
   catalogCache = {
     expiresAtMs: nowMs + CATALOG_CACHE_TTL_MS,
@@ -702,10 +763,12 @@ async function getCatalog({ refresh = false, log = () => {} } = {}) {
   return result;
 }
 
-function findCatalogItem(items, name, kind) {
+function findCatalogItem(items, name, kind, sourceId) {
   const wanted = String(name || "").trim().toLowerCase();
+  const sourceWanted = String(sourceId || "").trim().toLowerCase();
   const matches = items.filter((item) => {
     if (kind && item.kind !== kind) return false;
+    if (sourceWanted && String(item.sourceId || "").toLowerCase() !== sourceWanted) return false;
     return item.name.toLowerCase() === wanted || item.id.toLowerCase() === wanted;
   });
   return { matches, item: matches.length === 1 ? matches[0] : null };
@@ -812,9 +875,13 @@ function expandPack(pack, items) {
   const members = [];
   const missing = [];
   for (const member of pack.items || []) {
-    const { item } = findCatalogItem(contentItems, member.name, member.type);
+    const { item } = findCatalogItem(contentItems, member.name, member.type, pack.sourceId);
     if (item) members.push(item);
-    else missing.push(member);
+    else {
+      const fallback = findCatalogItem(contentItems, member.name, member.type);
+      if (fallback.item) members.push(fallback.item);
+      else missing.push(member);
+    }
   }
   return { members, missing };
 }
@@ -964,275 +1031,6 @@ function uninstallItem(item, { purge = false, log = () => {} } = {}) {
 
   invalidateCatalogCache();
   return removed;
-}
-
-// --- Publisher-side manifest generation --------------------------------------
-
-function buildManifest() {
-  if (!isDirectory(dlcRoot)) {
-    throw new Error("DLC checkout not found. Run `npm run dlc -- init --repo <url>` first.");
-  }
-
-  const manifest = {
-    schema: MANIFEST_SCHEMA,
-    generatedAt: new Date().toISOString()
-  };
-  // Initialize every category so later `manifest[category.key].push` calls
-  // cannot crash on a category that ships no entries (plugins used to be
-  // missing here, which silently dropped them from the published manifest).
-  for (const category of CATEGORIES) {
-    manifest[category.key] = [];
-  }
-
-  for (const category of CATEGORIES) {
-    for (const name of listContentDirs(path.join(dlcRoot, category.dir))) {
-      const described = describeLocalItem(category, name);
-      if (!described) continue;
-      const entry = {
-        name: described.name,
-        id: described.id,
-        title: described.title,
-        description: described.description,
-        size: described.size,
-        files: described.files
-      };
-      // A pack ships no files; publishing its item list is what makes it installable.
-      if (category.kind === "pack") {
-        delete entry.size;
-        delete entry.files;
-        entry.items = described.items;
-      }
-      // References advertise how their entries are keyed so install/check can validate.
-      if (category.kind === "reference") {
-        entry.kind = described.refKind;
-        entry.keyScheme = described.keyScheme;
-      }
-      // Plugins are served straight out of the checkout; publish the load
-      // metadata so the shop can describe them before their folder downloads.
-      if (category.kind === "plugin" || category.kind === "api") {
-        entry.version = described.version;
-        entry.entry = described.entry;
-        entry.css = described.css;
-        if (described.section) entry.section = described.section;
-        if (described.role && described.role !== "widget") entry.role = described.role;
-        if (described.preserveChrome) entry.preserveChrome = true;
-        if (described.changelog.length) {
-          entry.changelog = described.changelog;
-        }
-      }
-      manifest[category.key].push(entry);
-    }
-    manifest[category.key].sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  return manifest;
-}
-
-function writeManifest(manifest) {
-  const manifestPath = path.join(dlcRoot, MANIFEST_FILE);
-  fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-  return manifestPath;
-}
-
-function catalogItemKey(item) {
-  return String(item?.id || item?.name || "").trim().toLowerCase();
-}
-
-function indexCatalogItems(list) {
-  const map = new Map();
-  for (const item of Array.isArray(list) ? list : []) {
-    const key = catalogItemKey(item);
-    if (key) {
-      map.set(key, item);
-    }
-  }
-  return map;
-}
-
-function sameJson(left, right) {
-  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
-}
-
-function formatManifestValue(field, value) {
-  if (field === "size") {
-    return formatSize(value);
-  }
-  if (value == null || value === "") {
-    return "(empty)";
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-
-function describeCatalogItem(item) {
-  const name = String(item?.name || item?.id || "item").trim();
-  const title = String(item?.title || "").trim();
-  const version = String(item?.version || "").trim();
-  const bits = [title && title !== name ? `${name} (${title})` : name];
-  if (version) {
-    bits.push(`v${version}`);
-  }
-  const description = String(item?.description || "").trim();
-  if (description) {
-    bits.push(description.length > 100 ? `${description.slice(0, 97)}...` : description);
-  }
-  return bits.join(" — ");
-}
-
-function diffPackItems(previous, next) {
-  const oldItems = normalizePackItems(previous);
-  const newItems = normalizePackItems(next);
-  const keyOf = (item) => `${String(item?.kind || "").trim()}:${String(item?.name || item?.id || "").trim()}`.toLowerCase();
-  const oldMap = new Map(oldItems.map((item) => [keyOf(item), item]));
-  const newMap = new Map(newItems.map((item) => [keyOf(item), item]));
-  const added = [...newMap.keys()].filter((key) => !oldMap.has(key)).map((key) => newMap.get(key));
-  const removed = [...oldMap.keys()].filter((key) => !newMap.has(key)).map((key) => oldMap.get(key));
-  if (!added.length && !removed.length) {
-    return [];
-  }
-  const parts = [];
-  if (added.length) {
-    parts.push(`added ${added.map((item) => item.name || item.id).join(", ")}`);
-  }
-  if (removed.length) {
-    parts.push(`removed ${removed.map((item) => item.name || item.id).join(", ")}`);
-  }
-  return [{ field: "items", text: `items ${parts.join("; ")}` }];
-}
-
-function diffChangelog(previous, next) {
-  const oldVersions = new Set(
-    (Array.isArray(previous) ? previous : [])
-      .map((entry) => String(entry?.version || "").trim())
-      .filter(Boolean)
-  );
-  return (Array.isArray(next) ? next : [])
-    .filter((entry) => {
-      const version = String(entry?.version || "").trim();
-      return version && !oldVersions.has(version);
-    })
-    .map((entry) => {
-      const notes = Array.isArray(entry.notes) ? entry.notes.map((note) => String(note || "").trim()).filter(Boolean) : [];
-      return {
-        field: "changelog",
-        text: notes.length
-          ? `changelog ${entry.version}: ${notes.join(" ")}`
-          : `changelog ${entry.version}`
-      };
-    });
-}
-
-function diffCatalogItem(previous, next) {
-  const changes = [];
-  const fields = ["title", "description", "version", "entry", "css", "kind", "keyScheme", "files", "size"];
-  for (const field of fields) {
-    if (previous?.[field] === undefined && next?.[field] === undefined) {
-      continue;
-    }
-    if (!sameJson(previous?.[field], next?.[field])) {
-      changes.push({
-        field,
-        text: `${field} ${formatManifestValue(field, previous?.[field])} → ${formatManifestValue(field, next?.[field])}`
-      });
-    }
-  }
-  if (!sameJson(previous?.section, next?.section)) {
-    changes.push({
-      field: "section",
-      text: `section ${formatManifestValue("section", previous?.section)} → ${formatManifestValue("section", next?.section)}`
-    });
-  }
-  if (Array.isArray(previous?.items) || Array.isArray(next?.items)) {
-    changes.push(...diffPackItems(previous?.items, next?.items));
-  }
-  changes.push(...diffChangelog(previous?.changelog, next?.changelog));
-  return changes;
-}
-
-function diffManifests(previous, next) {
-  const hadPrevious = Boolean(previous) && typeof previous === "object";
-  const result = {
-    hadPrevious,
-    previousGeneratedAt: hadPrevious ? String(previous.generatedAt || "").trim() : "",
-    added: [],
-    removed: [],
-    changed: []
-  };
-  if (!hadPrevious) {
-    return result;
-  }
-
-  for (const category of CATEGORIES) {
-    const oldMap = indexCatalogItems(previous[category.key]);
-    const newMap = indexCatalogItems(next?.[category.key]);
-    for (const [key, item] of newMap) {
-      if (!oldMap.has(key)) {
-        result.added.push({ kind: category.kind, label: category.label, item });
-        continue;
-      }
-      const changes = diffCatalogItem(oldMap.get(key), item);
-      if (changes.length) {
-        result.changed.push({
-          kind: category.kind,
-          label: category.label,
-          item,
-          previous: oldMap.get(key),
-          changes
-        });
-      }
-    }
-    for (const [key, item] of oldMap) {
-      if (!newMap.has(key)) {
-        result.removed.push({ kind: category.kind, label: category.label, item });
-      }
-    }
-  }
-  return result;
-}
-
-function manifestHasChanges(diff) {
-  return Boolean(diff?.added?.length || diff?.removed?.length || diff?.changed?.length);
-}
-
-function formatManifestDiff(diff) {
-  const lines = [];
-  if (!diff?.hadPrevious) {
-    lines.push("No previous manifest to compare.");
-    return lines;
-  }
-  const added = diff.added || [];
-  const removed = diff.removed || [];
-  const changed = diff.changed || [];
-  if (!added.length && !removed.length && !changed.length) {
-    lines.push(`No catalog changes since ${diff.previousGeneratedAt || "the last manifest"}.`);
-    return lines;
-  }
-
-  lines.push(`Compared to last manifest${diff.previousGeneratedAt ? ` (${diff.previousGeneratedAt})` : ""}:`);
-  if (added.length) {
-    lines.push(`  Added (${added.length}):`);
-    for (const entry of added) {
-      lines.push(`    [${entry.kind}] ${describeCatalogItem(entry.item)}`);
-    }
-  }
-  if (changed.length) {
-    lines.push(`  Changed (${changed.length}):`);
-    for (const entry of changed) {
-      lines.push(`    [${entry.kind}] ${describeCatalogItem(entry.item)}`);
-      for (const change of entry.changes) {
-        lines.push(`      ${change.text}`);
-      }
-    }
-  }
-  if (removed.length) {
-    lines.push(`  Removed (${removed.length}):`);
-    for (const entry of removed) {
-      lines.push(`    [${entry.kind}] ${describeCatalogItem(entry.item)}`);
-    }
-  }
-  return lines;
 }
 
 // --- Plugin helpers -----------------------------------------------------------
@@ -1737,19 +1535,15 @@ module.exports = {
   REFERENCE_KEY_SCHEMES,
   SUPPORTED_TEXT_FORMATS,
   assertSafeName,
-  buildManifest,
   categoryByKind,
   createPluginPlaylist,
   createPluginScaffold,
   dematerialize,
-  diffManifests,
   MISSING_DLC_REPO_MESSAGE,
   ensureRepo,
   expandPack,
   findCatalogItem,
-  formatManifestDiff,
   formatSize,
-  manifestHasChanges,
   getCatalog,
   getDirSize,
   installItem,
@@ -1762,7 +1556,6 @@ module.exports = {
   materialize,
   normalizePackItems,
   readJsonIfPresent,
-  readLocalManifest,
   readPluginConfig,
   readPluginManifest,
   removePluginAssetFile,
@@ -1777,6 +1570,5 @@ module.exports = {
   updateRepo,
   invalidateCatalogCache,
   writePluginAssetFile,
-  writePluginConfig,
-  writeManifest
+  writePluginConfig
 };
