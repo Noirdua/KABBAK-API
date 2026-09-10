@@ -59,6 +59,7 @@ function normalizeHydrusPluginConfig(config) {
     .filter((item) => item.name && item.search);
   return {
     allowSearch: Boolean(src.allowSearch),
+    collapseTags: src.collapseTags !== false,
     origin: String(src.origin || "").trim().replace(/\/+$/, ""),
     apiKey: String(src.apiKey || "").trim(),
     categories

@@ -220,13 +220,15 @@ async function proxyHydrusRequest(request, response, origin, apiKey) {
 }
 
 router.get("/integrations/hydrus-network/_web-url", async (request, response) => {
-  resolveHydrusSettings();
+  const { origin, apiKey } = resolveHydrusSettings();
   const fileId = String(request.query?.file_id || "").trim();
   if (!fileId) {
     throw createHttpError(400, "invalid_web_url", "A file_id is required.");
   }
-  const url = `/api/v1/integrations/hydrus-network/get_files/file?file_id=${encodeURIComponent(fileId)}`;
-  response.apiSuccess({ url, proxied: true });
+  const url = new URL("/get_files/file", `${origin}/`);
+  url.searchParams.set("file_id", fileId);
+  url.searchParams.set("Hydrus-Client-API-Access-Key", apiKey);
+  response.apiSuccess({ url: url.toString() });
 });
 
 router.use("/integrations/hydrus-network", async (request, response) => {
