@@ -1,0 +1,500 @@
+{
+  "meta": {
+    "description": "Kabbalah Tree of Life — unified 32-path dataset. Paths 1–10 are the Sephiroth; paths 11–32 are the 22 Hebrew letter paths. Foreign keys reference sephirot.json (sephiraId) and hebrewLetters.json (letterTransliteration). Tarot and astrological correspondences follow the Hermetic / Golden Dawn tradition (Liber 777).",
+    "sources": [
+      "Sefer Yetzirah",
+      "Liber 777 — Aleister Crowley",
+      "open_777 paths dataset — adamblvck (github.com/adamblvck/open_777)"
+    ],
+    "tradition": "Hermetic Qabalah / Golden Dawn",
+    "notes": "The 22 letter paths use the Hermetic GD attribution (Tzaddi = Aquarius / The Star, He = Aries / The Emperor)."
+  },
+  "sephiroth": [
+    {
+      "number": 1,
+      "sephiraId": "keter",
+      "name": "Kether",
+      "nameHebrew": "כתר",
+      "translation": "Crown",
+      "planet": "Primum Mobile",
+      "intelligence": "The Admirable or Hidden Intelligence",
+      "tarot": "The 4 Aces",
+      "description": "The first path is called the Great or Hidden Intelligence (Supreme Crown). It is the light that expresses the first principle without a source, and is the primordial glory, that nothing created can attain its essence."
+    },
+    {
+      "number": 2,
+      "sephiraId": "chochmah",
+      "name": "Chokmah",
+      "nameHebrew": "חכמה",
+      "translation": "Wisdom",
+      "planet": "Zodiac",
+      "intelligence": "The Illuminating Intelligence",
+      "tarot": "The 4 Twos — Kings / Knights",
+      "description": "The second path is the path of the enlightened intellect, the crown of creation, the light of its equal unity, exalted above all like the head, which the Kabbalists call the Second Glory."
+    },
+    {
+      "number": 3,
+      "sephiraId": "binah",
+      "name": "Binah",
+      "nameHebrew": "בינה",
+      "translation": "Understanding",
+      "planet": "Saturn",
+      "intelligence": "The Sanctifying Intelligence",
+      "tarot": "The 4 Threes — Queens",
+      "description": "The third way is the sanctifying intelligence, the foundation of primordial wisdom, which is called the giver of faith and its root. It is the parent of faith, from which faith comes."
+    },
+    {
+      "number": 4,
+      "sephiraId": "hesed",
+      "name": "Chesed",
+      "nameHebrew": "חסד",
+      "translation": "Mercy",
+      "planet": "Jupiter",
+      "intelligence": "The Measuring, Cohesive, or Receptacular Intelligence",
+      "tarot": "The 4 Fours",
+      "description": "The fourth path is called Measure, or Cohesion, or Container, so called because it contains all the divine powers, and from it all the spiritual virtues of the highest beings emerge. The virtues are radiated from each other by the primordial radiant force."
+    },
+    {
+      "number": 5,
+      "sephiraId": "gevurah",
+      "name": "Geburah",
+      "nameHebrew": "גבורה",
+      "translation": "Strength",
+      "planet": "Mars",
+      "intelligence": "The Radical Intelligence",
+      "tarot": "The 4 Fives",
+      "description": "The Fifth Path is called the Radical Intelligence, which itself is the Equal Essence of the Oneness, and considers itself Wisdom, or Binah, or Intelligence, radiating from the primordial depths of Hochmah."
+    },
+    {
+      "number": 6,
+      "sephiraId": "tiferet",
+      "name": "Tiphareth",
+      "nameHebrew": "תפארת",
+      "translation": "Beauty",
+      "planet": "Sol",
+      "intelligence": "The Intelligence of the Mediating Influence",
+      "tarot": "The 4 Sixes — Princes",
+      "description": "The Sixth Path is called the Intelligence of Mediating Influence, for within it the influx of Emitters increases. For it causes an influx that flows into all the reservoirs of blessing, which become one with them."
+    },
+    {
+      "number": 7,
+      "sephiraId": "netzach",
+      "name": "Netzach",
+      "nameHebrew": "נצח",
+      "translation": "Victory",
+      "planet": "Venus",
+      "intelligence": "The Occult or Hidden Intelligence",
+      "tarot": "The 4 Sevens",
+      "description": "The Seventh Path is the Hidden Intelligence, which is the radiance of all the intellectual virtues recognized by the eyes of the intellect and the contemplation of faith."
+    },
+    {
+      "number": 8,
+      "sephiraId": "hod",
+      "name": "Hod",
+      "nameHebrew": "הוד",
+      "translation": "Splendour",
+      "planet": "Mercury",
+      "intelligence": "The Absolute or Perfect Intelligence",
+      "tarot": "The 4 Eights",
+      "description": "The Eighth Path is called the Absolute Path, or the Perfect Path, because it is the means of the First. The first has no root to cling to or depend on but the Gedulah from its own nature, the hidden places of its majesty."
+    },
+    {
+      "number": 9,
+      "sephiraId": "yesod",
+      "name": "Yesod",
+      "nameHebrew": "יסוד",
+      "translation": "Foundation",
+      "planet": "Luna",
+      "intelligence": "The Pure or Clear Intelligence",
+      "tarot": "The 4 Nines",
+      "description": "The Ninth Path is pure intelligence, so called because it purifies the counting laws, substantiates and corrects the conception of their explanations, and apportions their unity. They are united to that unity without diminution or division."
+    },
+    {
+      "number": 10,
+      "sephiraId": "malchut",
+      "name": "Malkuth",
+      "nameHebrew": "מלכות",
+      "translation": "Kingdom",
+      "planet": "Earth / Sphere of Elements",
+      "intelligence": "The Resplendent Intelligence",
+      "tarot": "The 4 Tens — Princesses",
+      "description": "The tenth path is the brilliant intelligence, for it is exalted above all heads and sits on the throne of Binah (the intelligence spoken of in the third path). It illuminates the radiance of all light, and causes the supply of influence to radiate from the King of Faces."
+    }
+  ],
+  "paths": [
+    {
+      "pathNumber": 11,
+      "connectKey": "1_2",
+      "connects": { "from": 1, "to": 2 },
+      "connectIds": { "from": "keter", "to": "chochmah" },
+      "pillar": "horizontal-supernal",
+      "hebrewLetter": {
+        "char": "א",
+        "transliteration": "Aleph",
+        "letterType": "mother",
+        "meaning": "Ox"
+      },
+      "astrology": { "type": "element", "name": "Air" },
+      "tarot": { "card": "The Fool", "trumpNumber": 0, "tarotId": "0" },
+      "intelligence": "Scintillating Intelligence",
+      "description": "The Eleventh Path is the sparkling intelligence, for it is the nature of the veil placed close to the order of arrangement, and it is the special dignity given to it that it may stand before the face of the cause of causes.\n\nThis path is the essence of the 'veil' (ordained by this system). Path number 11 represents the relationship between paths, and it is here that we stand in the face of the 'Cause of Causes'."
+    },
+    {
+      "pathNumber": 12,
+      "connectKey": "1_3",
+      "connects": { "from": 1, "to": 3 },
+      "connectIds": { "from": "keter", "to": "binah" },
+      "pillar": "left-supernal",
+      "hebrewLetter": {
+        "char": "ב",
+        "transliteration": "Beth",
+        "letterType": "double",
+        "meaning": "House"
+      },
+      "astrology": { "type": "planet", "name": "Mercury" },
+      "tarot": { "card": "The Magician", "trumpNumber": 1, "tarotId": "1" },
+      "intelligence": "Intelligence of Transparency",
+      "description": "The Twelfth Path is the intellect of invisibility, for it is a kind of magnificence called Chazchazit. Khazkhajit is called the place from which visions of those who see in visions (i.e. prophecies received by prophets in visions) come from.\n\nThis path is the essence of the 'Ophan-wheel' of 'Greatness'. This is called 'the one who realizes in front of his eyes (Visualizer)', and 'Those who can see (Seers)' see what is realized here as 'vision'."
+    },
+    {
+      "pathNumber": 13,
+      "connectKey": "1_6",
+      "connects": { "from": 1, "to": 6 },
+      "connectIds": { "from": "keter", "to": "tiferet" },
+      "pillar": "middle",
+      "hebrewLetter": {
+        "char": "ג",
+        "transliteration": "Gimel",
+        "letterType": "double",
+        "meaning": "Camel"
+      },
+      "astrology": { "type": "planet", "name": "Luna" },
+      "tarot": { "card": "The High Priestess", "trumpNumber": 2, "tarotId": "2" },
+      "intelligence": "Uniting Intelligence",
+      "description": "The thirteenth path is the unifying intelligence, so called because it is itself the essence of glory. It is the perfection of the truth of individual spiritual beings.\n\nThis path is the essence of 'Glory'. It represents the achievement of true essence by united spirit beings.\n\nThe Thirteenth Path, as Gimel, has been called 'the dark night of the soul'. This thirteenth path crosses the abyss leading directly to Kether. The letter Gimel means 'camel' — a medium that crosses the seemingly infinite abyss desert alone. Gimel is the ultimate source of water and expresses the primordial essence of consciousness.\n\nTogether with Temperance (Samekh) and the Universe (Tav), these paths constitute the middle pillar in the tree of life. Walking the thirteenth path unites the human incarnation with the eternal self, and when safely crossing the abyss, the greatest initiation is bestowed. This path connects Tiphareth (the divine incarnation) with Kether, the highest source."
+    },
+    {
+      "pathNumber": 14,
+      "connectKey": "2_3",
+      "connects": { "from": 2, "to": 3 },
+      "connectIds": { "from": "chochmah", "to": "binah" },
+      "pillar": "horizontal-supernal",
+      "hebrewLetter": {
+        "char": "ד",
+        "transliteration": "Daleth",
+        "letterType": "double",
+        "meaning": "Door"
+      },
+      "astrology": { "type": "planet", "name": "Venus" },
+      "tarot": { "card": "The Empress", "trumpNumber": 3, "tarotId": "3" },
+      "intelligence": "Illuminating Intelligence",
+      "description": "The fourteenth path is the enlightening intelligence, so called because it is itself that Chashmal. Kashmal is the founder of the hidden fundamental concept of holiness and its preparatory stages.\n\nThis path is the essence of 'Speaking of Silence'. On this path one obtains esoteric teachings about the sacred secrets and their structures."
+    },
+    {
+      "pathNumber": 15,
+      "connectKey": "2_6",
+      "connects": { "from": 2, "to": 6 },
+      "connectIds": { "from": "chochmah", "to": "tiferet" },
+      "pillar": "right",
+      "hebrewLetter": {
+        "char": "ה",
+        "transliteration": "Heh",
+        "letterType": "simple",
+        "meaning": "Window"
+      },
+      "astrology": { "type": "zodiac", "name": "Aries" },
+      "tarot": { "card": "The Emperor", "trumpNumber": 4, "tarotId": "4" },
+      "intelligence": "Constituting Intelligence",
+      "description": "The fifteenth path is the constructive intelligence, so called because it constitutes the reality of creation in pure darkness. People have spoken of these meditations as 'the darkness that the Bible speaks of as the thick darkness that is the belt around it' (Job 38:9).\n\nThis path is a state of consolidation of the essence of creation in the 'Glooms of Purity'."
+    },
+    {
+      "pathNumber": 16,
+      "connectKey": "2_4",
+      "connects": { "from": 2, "to": 4 },
+      "connectIds": { "from": "chochmah", "to": "hesed" },
+      "pillar": "right",
+      "hebrewLetter": {
+        "char": "ו",
+        "transliteration": "Vav",
+        "letterType": "simple",
+        "meaning": "Nail"
+      },
+      "astrology": { "type": "zodiac", "name": "Taurus" },
+      "tarot": { "card": "The Hierophant", "trumpNumber": 5, "tarotId": "5" },
+      "intelligence": "Eternal Intelligence",
+      "description": "The sixteenth path is the victorious or eternal intelligence, so called because it is the joy of glory. Beyond it there is no other glory like it. It is also called the paradise prepared for the righteous.\n\nThis path is 'the Delight of the Glory'. Therefore, it is the lowest state of 'glory'. This is called the Garden of Eden, and it is a place prepared (as a reward) for the saint."
+    },
+    {
+      "pathNumber": 17,
+      "connectKey": "3_6",
+      "connects": { "from": 3, "to": 6 },
+      "connectIds": { "from": "binah", "to": "tiferet" },
+      "pillar": "left",
+      "hebrewLetter": {
+        "char": "ז",
+        "transliteration": "Zayin",
+        "letterType": "simple",
+        "meaning": "Sword"
+      },
+      "astrology": { "type": "zodiac", "name": "Gemini" },
+      "tarot": { "card": "The Lovers", "trumpNumber": 6, "tarotId": "6" },
+      "intelligence": "Disposing Intelligence",
+      "description": "The seventeenth path is the disposing intelligence, which gives faith to the righteous, by which they are clothed with the Holy Spirit, and which is called the fountain of virtue in the state of higher beings.\n\nThis path is reserved for faithful saints, and saints are sanctified here. It belongs to the supernal Entities, and it is called 'the foundation of beauty'."
+    },
+    {
+      "pathNumber": 18,
+      "connectKey": "3_5",
+      "connects": { "from": 3, "to": 5 },
+      "connectIds": { "from": "binah", "to": "gevurah" },
+      "pillar": "left",
+      "hebrewLetter": {
+        "char": "ח",
+        "transliteration": "Cheth",
+        "letterType": "simple",
+        "meaning": "Fence"
+      },
+      "astrology": { "type": "zodiac", "name": "Cancer" },
+      "tarot": { "card": "The Chariot", "trumpNumber": 7, "tarotId": "7" },
+      "intelligence": "House of Influence",
+      "description": "The Eighteenth Path is called the House of Influence (the flow of good things to created beings is increased by the greatness of its abundance), and from the midst of the search are drawn secrets and hidden meanings, which are the cause of all causes. It comes from the cause, dwells in its shadow, and clings to it.\n\nIn exploring this path, those who dwell in the shadow of the 'cause of causes' are handed over hidden mysteries and hints, and vow to thoroughly dig out the material that has flowed in from 'the cause of causes'."
+    },
+    {
+      "pathNumber": 19,
+      "connectKey": "4_5",
+      "connects": { "from": 4, "to": 5 },
+      "connectIds": { "from": "hesed", "to": "gevurah" },
+      "pillar": "horizontal-middle",
+      "hebrewLetter": {
+        "char": "ט",
+        "transliteration": "Teth",
+        "letterType": "simple",
+        "meaning": "Serpent"
+      },
+      "astrology": { "type": "zodiac", "name": "Leo" },
+      "tarot": { "card": "Strength", "trumpNumber": 8, "tarotId": "8" },
+      "intelligence": "Intelligence of the Secret of Spiritual Activities",
+      "description": "The Nineteenth Path is the intelligence of all the deeds of spiritual beings, so called because of the abundance spread by it from the highest blessings and the most exalted and sublime glory.\n\nThis path points to an influx from the 'Supreme Blessing' and the 'Glory of the Most High'."
+    },
+    {
+      "pathNumber": 20,
+      "connectKey": "4_6",
+      "connects": { "from": 4, "to": 6 },
+      "connectIds": { "from": "hesed", "to": "tiferet" },
+      "pillar": "right",
+      "hebrewLetter": {
+        "char": "י",
+        "transliteration": "Yod",
+        "letterType": "simple",
+        "meaning": "Hand"
+      },
+      "astrology": { "type": "zodiac", "name": "Virgo" },
+      "tarot": { "card": "The Hermit", "trumpNumber": 9, "tarotId": "9" },
+      "intelligence": "Intelligence of the Will",
+      "description": "The Twentieth Path is the intelligence of the will, so called because it is the means of preparing all and each of created beings. By this intellect the existence of primordial wisdom becomes known.\n\nThis path is the structure of all that is formed. Through this state of consciousness, we can know the nature of 'Original Wisdom'."
+    },
+    {
+      "pathNumber": 21,
+      "connectKey": "4_7",
+      "connects": { "from": 4, "to": 7 },
+      "connectIds": { "from": "hesed", "to": "netzach" },
+      "pillar": "right",
+      "hebrewLetter": {
+        "char": "כ",
+        "transliteration": "Kaph",
+        "letterType": "double",
+        "meaning": "Palm"
+      },
+      "astrology": { "type": "planet", "name": "Jupiter" },
+      "tarot": { "card": "Wheel of Fortune", "trumpNumber": 10, "tarotId": "10" },
+      "intelligence": "Intelligence of Conciliation",
+      "description": "The Twenty-first Path is the Intelligence of Reconciliation, so called because it receives the influence of God flowing into it from the blessings bestowed on all beings and each being.\n\nThis path is the state of receiving the influx of divinity, through which all beings receive the blessings of the gods.\n\nThe 21st path connects Netzach and Chesed, and directly reflects the power of Jupiter — benevolent king. The alphabetic attribute is the letter Kaph, which in its general form represents a cupped hand for receptivity. The letter Kaph means 'palm' as well as 'closed and clenched hands' and has the numeric value 100. Kaph is layered with mystical meanings closely linked to prophecy and vision.\n\nFundamental to the mysticism of this key is the cyclical nature of life — the regularity of the seasons, the repetitive actions of mankind and astronomical movements in the sky. Kabbalah teaches that the secret to mastering the environment is to be found through enlightenment, and that the center of the wheel is the only resting place."
+    },
+    {
+      "pathNumber": 22,
+      "connectKey": "5_6",
+      "connects": { "from": 5, "to": 6 },
+      "connectIds": { "from": "gevurah", "to": "tiferet" },
+      "pillar": "left",
+      "hebrewLetter": {
+        "char": "ל",
+        "transliteration": "Lamed",
+        "letterType": "simple",
+        "meaning": "Ox Goad"
+      },
+      "astrology": { "type": "zodiac", "name": "Libra" },
+      "tarot": { "card": "Justice", "trumpNumber": 11, "tarotId": "11" },
+      "intelligence": "Faithful Intelligence",
+      "description": "The Twenty-Second Path is the Faithful Intelligence, so called because by it spiritual virtues are increased and almost all the inhabitants of the earth are under its shadow.\n\nA state of enhanced spiritual power, through which all beings 'dwelling in the shadows' can be approached."
+    },
+    {
+      "pathNumber": 23,
+      "connectKey": "5_8",
+      "connects": { "from": 5, "to": 8 },
+      "connectIds": { "from": "gevurah", "to": "hod" },
+      "pillar": "horizontal-middle",
+      "hebrewLetter": {
+        "char": "מ",
+        "transliteration": "Mem",
+        "letterType": "mother",
+        "meaning": "Water"
+      },
+      "astrology": { "type": "element", "name": "Water" },
+      "tarot": { "card": "The Hanged Man", "trumpNumber": 12, "tarotId": "12" },
+      "intelligence": "Stable Intelligence",
+      "description": "The Twenty-Third Path is the Stable Intelligence, so called because it possesses the virtue of unity in all ranks.\n\nThis path is the power that sustains all Sephiroth. The 23rd Path runs between Hod and Geburah and is governed by the water element. The Hebrew letter Mem means 'waters' or sea. Water is considered the first principle in alchemy, the most stable and fundamental of the elements.\n\nThe Hanged Man depicts this stable intelligence because he cannot separate it from the Unity that water expresses. The most implicit symbolic system is the symbolic system of reversal or suspension of general consciousness, symbolizing immersion in superconsciousness and the absolute surrender of the individual will. The mythological concept of sacrifice — the dying god — is cosmic and cross-cultural: Odin hung on the world tree, Osiris in Egypt, Dionysus in Greece. The main image of a dying god is that of complete liberation, restoring the Creator back to the throne."
+    },
+    {
+      "pathNumber": 24,
+      "connectKey": "6_7",
+      "connects": { "from": 6, "to": 7 },
+      "connectIds": { "from": "tiferet", "to": "netzach" },
+      "pillar": "right",
+      "hebrewLetter": {
+        "char": "נ",
+        "transliteration": "Nun",
+        "letterType": "simple",
+        "meaning": "Fish"
+      },
+      "astrology": { "type": "zodiac", "name": "Scorpio" },
+      "tarot": { "card": "Death", "trumpNumber": 13, "tarotId": "13" },
+      "intelligence": "Imaginative Intelligence",
+      "description": "The twenty-fourth path is the intellect of the imagination, so called because it gives its harmonious elegance and likeness to all likenesses created in like ways.\n\nIn this path, all the illusions created appear in a form appropriate to their status."
+    },
+    {
+      "pathNumber": 25,
+      "connectKey": "6_9",
+      "connects": { "from": 6, "to": 9 },
+      "connectIds": { "from": "tiferet", "to": "yesod" },
+      "pillar": "middle",
+      "hebrewLetter": {
+        "char": "ס",
+        "transliteration": "Samekh",
+        "letterType": "simple",
+        "meaning": "Prop"
+      },
+      "astrology": { "type": "zodiac", "name": "Sagittarius" },
+      "tarot": { "card": "Temperance", "trumpNumber": 14, "tarotId": "14" },
+      "intelligence": "Intelligence of Temptation and Trial",
+      "description": "The twenty-fifth path is the intelligence of testing or trial, so called because it is the first temptation by which the Creator tests all righteous men.\n\nGod causes the called ones to undergo a fundamental test here. Together with the High Priestess (Gimel) and the Universe (Tav), Samekh (Temperance) constitutes the middle pillar in the tree of life. Both Samekh and Gimel have been called 'the dark night of the soul', because both cross an abyss — Samekh crosses the lesser abyss on its journey to Tiphareth."
+    },
+    {
+      "pathNumber": 26,
+      "connectKey": "6_8",
+      "connects": { "from": 6, "to": 8 },
+      "connectIds": { "from": "tiferet", "to": "hod" },
+      "pillar": "left",
+      "hebrewLetter": {
+        "char": "ע",
+        "transliteration": "Ayin",
+        "letterType": "simple",
+        "meaning": "Eye"
+      },
+      "astrology": { "type": "zodiac", "name": "Capricorn" },
+      "tarot": { "card": "The Devil", "trumpNumber": 15, "tarotId": "15" },
+      "intelligence": "Renovating Intelligence",
+      "description": "The twenty-sixth path is called the Renovating Intelligence, because the Holy God by it renews all the changing things that are renewed by the creation of the world.\n\nThe 26th Path is called the 'Resurrecting Intelligence'. Ayin is said to harbor many mysteries; Gematria equates Ayin to 70 and also the word for 'secret' (SVD). The Ayin, or eye, is the organ of vision — it sees the exterior and appearance of things. In Qabalah, the world of appearances is an illusion arising from our own perception. At Ayin, we learn to use the intelligent eyes of Hod to see anew in the light of beauty illuminated by Tiphareth. Ascension on this path is the process of transferring consciousness from the concrete mind (ego) to the abstract mind (Higher Self)."
+    },
+    {
+      "pathNumber": 27,
+      "connectKey": "7_8",
+      "connects": { "from": 7, "to": 8 },
+      "connectIds": { "from": "netzach", "to": "hod" },
+      "pillar": "horizontal-lower",
+      "hebrewLetter": {
+        "char": "פ",
+        "transliteration": "Pe",
+        "letterType": "double",
+        "meaning": "Mouth"
+      },
+      "astrology": { "type": "planet", "name": "Mars" },
+      "tarot": { "card": "The Tower", "trumpNumber": 16, "tarotId": "16" },
+      "intelligence": "Exciting Intelligence",
+      "description": "The Twenty-seventh Path is the Exciting Intelligence, so called because by it the intelligence of all created beings and their stimuli or motions under the highest heavens was created.\n\nAll creatures created in the higher dimensions — including their sentience — were created through this path."
+    },
+    {
+      "pathNumber": 28,
+      "connectKey": "7_9",
+      "connects": { "from": 7, "to": 9 },
+      "connectIds": { "from": "netzach", "to": "yesod" },
+      "pillar": "right",
+      "hebrewLetter": {
+        "char": "צ",
+        "transliteration": "Tzaddi",
+        "letterType": "simple",
+        "meaning": "Fish-hook"
+      },
+      "astrology": { "type": "zodiac", "name": "Aquarius" },
+      "tarot": { "card": "The Star", "trumpNumber": 17, "tarotId": "17" },
+      "intelligence": "Natural Intelligence",
+      "description": "The twenty-eighth path is the natural intelligence, so called because the characteristics of all beings under the solar sphere are perfected and established through it.\n\nThe nature of everything that exists under the sun (belonging to the realm of the sun) is established through this consciousness."
+    },
+    {
+      "pathNumber": 29,
+      "connectKey": "7_10",
+      "connects": { "from": 7, "to": 10 },
+      "connectIds": { "from": "netzach", "to": "malchut" },
+      "pillar": "right",
+      "hebrewLetter": {
+        "char": "ק",
+        "transliteration": "Qoph",
+        "letterType": "simple",
+        "meaning": "Back of Head"
+      },
+      "astrology": { "type": "zodiac", "name": "Pisces" },
+      "tarot": { "card": "The Moon", "trumpNumber": 18, "tarotId": "18" },
+      "intelligence": "Corporeal Intelligence",
+      "description": "The twenty-ninth path is the bodily intelligence, so called because it gives form to all the worlds and all bodies formed under their multiplication.\n\nThis path describes the development of the materialized according to the systems of each domain.\n\nThe 29th route is another route that threatens the traveler with the risk of disintegration. Since this path leads to Netzach it can cause mental disruption — what is indicated is the renunciation of individuality. The journey from Malkuth to Netzach is a confluence of physical and emotional natures. All paths leading towards Netzach are Orphic paths, similar to Orpheus who enchanted nature with the gift of song.\n\nThe letter Qoph has a value of 100 and also translates as 'awakening'. Called physical intelligence, this is truly the pathway to body consciousness. One of the most important lessons of this path is that it is not to our advantage to try to separate the 'higher state of mind' from the 'lower coarse' form of the body."
+    },
+    {
+      "pathNumber": 30,
+      "connectKey": "8_9",
+      "connects": { "from": 8, "to": 9 },
+      "connectIds": { "from": "hod", "to": "yesod" },
+      "pillar": "horizontal-lower",
+      "hebrewLetter": {
+        "char": "ר",
+        "transliteration": "Resh",
+        "letterType": "double",
+        "meaning": "Head"
+      },
+      "astrology": { "type": "planet", "name": "Sol" },
+      "tarot": { "card": "The Sun", "trumpNumber": 19, "tarotId": "19" },
+      "intelligence": "Collecting Intelligence",
+      "description": "The Thirtieth Path is the Gathering Intelligence, so called because the astrologers infer from it the judgments of the stars and celestial signs, and the perfection of their learning, according to the laws of their revolutions.\n\nThrough this path, 'the one who spreads the heavens' increases control over the stars and constellations while establishing the knowledge of the chariot wheels in each realm.\n\nThis 30th route runs between Yesod and Hod. This path leads from the realm of the moon to the realm of reason, and although it is gloomy and cold, it is the coolness of the creative imagination by the power of the intellect. However, the full power of the sun shines there. The Hebrew letter Resh means 'head', and its spelling equals 510 or 15 — the same numeric value as Hod (HVD = 15). This path is a balance between mind and body, standing at the heart of the relationship between intellect and intuition. It is often described as a point of profound encounter with the inner master."
+    },
+    {
+      "pathNumber": 31,
+      "connectKey": "8_10",
+      "connects": { "from": 8, "to": 10 },
+      "connectIds": { "from": "hod", "to": "malchut" },
+      "pillar": "left",
+      "hebrewLetter": {
+        "char": "ש",
+        "transliteration": "Shin",
+        "letterType": "mother",
+        "meaning": "Tooth"
+      },
+      "astrology": { "type": "element", "name": "Fire" },
+      "tarot": { "card": "Judgement", "trumpNumber": 20, "tarotId": "20" },
+      "intelligence": "Perpetual Intelligence",
+      "description": "The Thirty-First Path is the Enduring Intelligence, so why is it called that? For it regulates the motions of the sun and moon in their own order, each in its own proper orbit.\n\nThis path manages the path of the sun and moon so that they maintain their respective optimal orbits according to the laws of nature."
+    },
+    {
+      "pathNumber": 32,
+      "connectKey": "9_10",
+      "connects": { "from": 9, "to": 10 },
+      "connectIds": { "from": "yesod", "to": "malchut" },
+      "pillar": "middle",
+      "hebrewLetter": {
+        "char": "ת",
+        "transliteration": "Tav",
+        "letterType": "double",
+        "meaning": "Cross (Tau)"
+      },
+      "astrology": { "type": "planet", "name": "Saturn" },
+      "tarot": { "card": "The Universe", "trumpNumber": 21, "tarotId": "21" },
+      "intelligence": "Administrative Intelligence",
+      "description": "The Thirty-Second Path is the Administrative Intelligence, so called because it directs and unites the seven planets in all their operations and even all of them in their proper course.\n\nThis path is given this name because it is the path that governs the passage between the formative world and the material world. The Universe card on this path is called 'The Door to the Inner Plane'."
+    }
+  ]
+}

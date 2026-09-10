@@ -1,0 +1,54 @@
+{
+  "earth": {
+    "id": "earth",
+    "title": {
+      "en": "Kerub of Earth"
+    },
+    "face": {
+      "en": "Bull",
+      "he": "שור",
+      "roman": "Shor"
+    },
+    "zodiacId": "taurus",
+    "elementId": "earth"
+  },
+  "air": {
+    "id": "air",
+    "title": {
+      "en": "Kerub of Air"
+    },
+    "face": {
+      "en": "Man",
+      "he": "אדם",
+      "roman": "Adam"
+    },
+    "zodiacId": "aquarius",
+    "elementId": "air"
+  },
+  "water": {
+    "id": "water",
+    "title": {
+      "en": "Kerub of Water"
+    },
+    "face": {
+      "en": "Eagle",
+      "he": "נשר",
+      "roman": "Nesher"
+    },
+    "zodiacId": "scorpio",
+    "elementId": "water"
+  },
+  "fire": {
+    "id": "fire",
+    "title": {
+      "en": "Kerub of Fire"
+    },
+    "face": {
+      "en": "Lion",
+      "he": "אריה",
+      "roman": "Aryeh"
+    },
+    "zodiacId": "leo",
+    "elementId": "fire"
+  }
+}

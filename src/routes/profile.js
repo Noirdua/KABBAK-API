@@ -1,0 +1,444 @@
+const { createApiRouter } = require("../lib/create-api-router");
+const { createHttpError, createNotFoundError } = require("../lib/http-errors");
+const { createLogWriter } = require("../lib/logger-utils");
+const { sanitizeRequestUrl } = require("../lib/request-url");
+const {
+  ProfileStorageError,
+  addProfileQuickNote,
+  createProfileNote,
+  deleteProfileNote,
+  deleteProfileQuickNote,
+  getProfileBio,
+  getProfileLibrary,
+  getProfileNote,
+  getProfilePluginState,
+  getProfileQuizProgress,
+  getProfileSummary,
+  listProfileNotes,
+  listProfileQuickNotes,
+  recordQuizAttempt,
+  updateProfileQuickNote,
+  updateProfileBio,
+  updateProfileDisplayName,
+  updateProfileLocation,
+  updateProfileLibrary,
+  updateProfileNote,
+  updateProfilePluginState,
+  updateProfilePreferredDeck
+} = require("../services/profile-service");
+const { readManagedApiClients } = require("../services/api-client-registry");
+const { resolveClientLimits } = require("../services/api-roles");
+
+const router = createApiRouter();
+
+function getProfileClientId(request, response) {
+  const auth = response.locals?.auth || request.auth || {};
+  return String(auth.clientId || "").trim();
+}
+
+const profileOptionsCache = new Map();
+
+function getProfileOptions(request, response) {
+  const nowMs = Date.now();
+  const auth = response.locals?.auth || request.auth || {};
+  const clientId = String(auth.clientId || "").trim();
+  const cached = profileOptionsCache.get(clientId);
+  if (cached?.value && cached.expiresAtMs > nowMs) {
+    return cached.value;
+  }
+
+  const client = readManagedApiClients().find((entry) => entry.id === clientId) || null;
+  const limits = resolveClientLimits(client);
+  const options = {
+    quotaBytes: limits.storageBytes,
+    maxNotes: limits.notes,
+    maxAttachmentsPerScene: limits.attachmentsPerScene,
+    maxAttachmentBytes: limits.attachmentBytes
+  };
+  profileOptionsCache.set(clientId, {
+    expiresAtMs: nowMs + 5000,
+    value: options
+  });
+  return options;
+}
+
+function getRequestBody(request) {
+  if (request.body == null) {
+    return {};
+  }
+
+  if (!request.body || typeof request.body !== "object" || Array.isArray(request.body)) {
+    throw createHttpError(400, "invalid_request_body", "Request body must be a JSON object.");
+  }
+
+  return request.body;
+}
+
+function mapProfileStorageError(error) {
+  if (!(error instanceof ProfileStorageError)) {
+    return error;
+  }
+
+  if (error.code === "note_not_found") {
+    return createNotFoundError("note_not_found", error.message);
+  }
+  if (error.code === "quick_note_not_found") {
+    return createNotFoundError("quick_note_not_found", error.message);
+  }
+  if (error.code === "quota_exceeded") {
+    return createHttpError(413, "profile_quota_exceeded", error.message);
+  }
+  if (error.code === "notes_limit_reached") {
+    return createHttpError(409, "notes_limit_reached", error.message);
+  }
+
+  return createHttpError(400, error.code || "invalid_profile_request", error.message);
+}
+
+function wrapProfileHandler(handler) {
+  return function profileHandler(request, response, next) {
+    try {
+      const result = handler(request, response, next);
+      Promise.resolve(result).catch((error) => next(mapProfileStorageError(error)));
+    } catch (error) {
+      next(mapProfileStorageError(error));
+    }
+  };
+}
+
+function emitProfileMutationAuditEvent(request, response, payload) {
+  const writeLog = createLogWriter(request.app?.locals?.logger || console);
+  if (!writeLog) {
+    return;
+  }
+
+  const auth = response.locals?.auth || request.auth || {};
+  writeLog(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    event: "api_profile_mutation",
+    requestId: response.locals?.requestId || request.id || "unknown",
+    method: request.method,
+    path: sanitizeRequestUrl(request.originalUrl),
+    actorClientId: auth.clientId || "",
+    ...payload
+  }));
+}
+
+router.use("/profile", (request, response, next) => {
+  if (request.method === "OPTIONS") {
+    next();
+    return;
+  }
+
+  const auth = response.locals?.auth || request.auth || {};
+  if (auth.authenticated !== true || !String(auth.clientId || "").trim()) {
+    next(createHttpError(401, "profile_requires_api_key", "A valid API key is required to access your profile."));
+    return;
+  }
+
+  next();
+});
+
+router.get("/profile", wrapProfileHandler((request, response) => {
+  const summary = getProfileSummary(getProfileClientId(request, response), getProfileOptions(request, response));
+  const auth = response.locals?.auth || request.auth || {};
+  response.apiSuccess({
+    ...summary,
+    authName: String(auth.name || "").trim()
+  });
+}));
+
+router.get("/profile/notes", wrapProfileHandler((request, response) => {
+  const notes = listProfileNotes(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess({
+    count: notes.length,
+    notes
+  });
+}));
+
+// --- Quick notes -------------------------------------------------------------
+
+router.get("/profile/quick-notes", wrapProfileHandler((request, response) => {
+  const quickNotes = listProfileQuickNotes(
+    getProfileClientId(request, response),
+    getProfileOptions(request, response)
+  );
+  response.apiSuccess({
+    count: quickNotes.length,
+    quickNotes
+  });
+}));
+
+router.post("/profile/quick-notes", wrapProfileHandler((request, response) => {
+  const body = getRequestBody(request);
+  const result = addProfileQuickNote(
+    getProfileClientId(request, response),
+    body,
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "create_quick_note",
+    quickNoteId: result.quickNote.id
+  });
+
+  response.status(201).apiSuccess(
+    { quickNote: result.quickNote, count: result.count },
+    {
+      storageUsedBytes: result.usage.usedBytes,
+      storageQuotaBytes: result.usage.quotaBytes
+    }
+  );
+}));
+
+router.put("/profile/quick-notes/:quickNoteId", wrapProfileHandler((request, response) => {
+  const body = getRequestBody(request);
+  const result = updateProfileQuickNote(
+    getProfileClientId(request, response),
+    String(request.params.quickNoteId || ""),
+    body,
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_quick_note",
+    quickNoteId: result.quickNote.id
+  });
+
+  response.apiSuccess(
+    { quickNote: result.quickNote, count: result.count },
+    {
+      storageUsedBytes: result.usage.usedBytes,
+      storageQuotaBytes: result.usage.quotaBytes
+    }
+  );
+}));
+
+router.delete("/profile/quick-notes/:quickNoteId", wrapProfileHandler((request, response) => {
+  const result = deleteProfileQuickNote(
+    getProfileClientId(request, response),
+    String(request.params.quickNoteId || ""),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "delete_quick_note",
+    quickNoteId: String(request.params.quickNoteId || ""),
+    removed: result.removed
+  });
+
+  response.apiSuccess(
+    { removed: result.removed },
+    {
+      storageUsedBytes: result.usage.usedBytes,
+      storageQuotaBytes: result.usage.quotaBytes
+    }
+  );
+}));
+
+router.get("/profile/notes/:noteId", wrapProfileHandler((request, response) => {
+  const note = getProfileNote(
+    getProfileClientId(request, response),
+    request.params.noteId,
+    getProfileOptions(request, response)
+  );
+  response.apiSuccess(note);
+}));
+
+router.post("/profile/notes", wrapProfileHandler((request, response) => {
+  const result = createProfileNote(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "create_profile_note",
+    targetNoteId: result.note.id
+  });
+
+  response.status(201).apiSuccess(result.note, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.patch("/profile/notes/:noteId", wrapProfileHandler((request, response) => {
+  const result = updateProfileNote(
+    getProfileClientId(request, response),
+    request.params.noteId,
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_note",
+    targetNoteId: result.note.id
+  });
+
+  response.apiSuccess(result.note, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.delete("/profile/notes/:noteId", wrapProfileHandler((request, response) => {
+  const result = deleteProfileNote(
+    getProfileClientId(request, response),
+    request.params.noteId,
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "delete_profile_note",
+    targetNoteId: request.params.noteId
+  });
+
+  response.apiSuccess({
+    removed: result.removed
+  }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.get("/profile/quiz-progress", wrapProfileHandler((request, response) => {
+  const progress = getProfileQuizProgress(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess(progress);
+}));
+
+router.post("/profile/quiz-progress", wrapProfileHandler((request, response) => {
+  const result = recordQuizAttempt(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "record_quiz_attempt",
+    targetAttemptId: result.attempt.id
+  });
+
+  response.status(201).apiSuccess(result.attempt, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.get("/profile/bio", wrapProfileHandler((request, response) => {
+  const bioInfo = getProfileBio(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess(bioInfo);
+}));
+
+router.patch("/profile/bio", wrapProfileHandler((request, response) => {
+  const body = getRequestBody(request);
+  const result = updateProfileBio(getProfileClientId(request, response), body, getProfileOptions(request, response));
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_bio"
+  });
+
+  response.apiSuccess({ bio: result.bio }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.patch("/profile/location", wrapProfileHandler((request, response) => {
+  const body = getRequestBody(request);
+  const result = updateProfileLocation(getProfileClientId(request, response), body, getProfileOptions(request, response));
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_location"
+  });
+
+  response.apiSuccess({ location: result.location }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.patch("/profile/preferred-deck", wrapProfileHandler((request, response) => {
+  const body = getRequestBody(request);
+  const result = updateProfilePreferredDeck(getProfileClientId(request, response), body, getProfileOptions(request, response));
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_preferred_deck"
+  });
+
+  response.apiSuccess({ preferredDeck: result.preferredDeck }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.get("/profile/library", wrapProfileHandler((request, response) => {
+  const library = getProfileLibrary(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess(library);
+}));
+
+router.put("/profile/library", wrapProfileHandler((request, response) => {
+  const result = updateProfileLibrary(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_library",
+    bookmarkCount: result.library.bookmarks.length,
+    noteCount: result.library.notes.length
+  });
+
+  response.apiSuccess(result.library, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.get("/profile/plugin-state/:pluginId", wrapProfileHandler((request, response) => {
+  const result = getProfilePluginState(
+    getProfileClientId(request, response),
+    request.params.pluginId,
+    getProfileOptions(request, response)
+  );
+  response.apiSuccess(result);
+}));
+
+router.put("/profile/plugin-state/:pluginId", wrapProfileHandler((request, response) => {
+  const result = updateProfilePluginState(
+    getProfileClientId(request, response),
+    request.params.pluginId,
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_plugin_state",
+    pluginId: result.pluginId
+  });
+
+  response.apiSuccess({
+    pluginId: result.pluginId,
+    state: result.state
+  }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.patch("/profile/display-name", wrapProfileHandler((request, response) => {
+  const body = getRequestBody(request);
+  const result = updateProfileDisplayName(getProfileClientId(request, response), body, getProfileOptions(request, response));
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_display_name"
+  });
+
+  response.apiSuccess({ displayName: result.displayName }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+module.exports = router;

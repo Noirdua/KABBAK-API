@@ -1,0 +1,228 @@
+{
+  "meta": {
+    "version": 1,
+    "notes": "Core astronomical and calendrical cycles used in astronomy, chronology, and long-term sky modeling."
+  },
+  "cycles": [
+    {
+      "id": "metonic-cycle",
+      "name": "Metonic Cycle",
+      "category": "Luni-solar Calendar",
+      "period": "19 years",
+      "periodDays": 6939.69,
+      "description": "19 tropical years are approximately equal to 235 synodic lunar months.",
+      "significance": "Foundation for lunisolar calendar reconciliation.",
+      "related": ["Callippic Cycle", "Synodic Month"]
+    },
+    {
+      "id": "callippic-cycle",
+      "name": "Callippic Cycle",
+      "category": "Luni-solar Calendar",
+      "period": "76 years",
+      "periodDays": 27758.76,
+      "description": "Refinement of four Metonic cycles with leap-day correction.",
+      "significance": "Improves long-term lunisolar alignment.",
+      "related": ["Metonic Cycle"]
+    },
+    {
+      "id": "hipparchic-cycle",
+      "name": "Hipparchic Cycle",
+      "category": "Luni-solar Calendar",
+      "period": "304 years",
+      "periodDays": 111035.04,
+      "description": "Four Callippic cycles used as a higher-order correction block.",
+      "significance": "Historical long-cycle refinement in ancient astronomy.",
+      "related": ["Callippic Cycle"]
+    },
+    {
+      "id": "synodic-month",
+      "name": "Synodic Month",
+      "category": "Lunar",
+      "period": "29.53059 days",
+      "periodDays": 29.53059,
+      "description": "Average interval between identical lunar phases, such as full moon to full moon.",
+      "significance": "Primary month unit in lunar and lunisolar systems.",
+      "related": ["Metonic Cycle"]
+    },
+    {
+      "id": "draconic-month",
+      "name": "Draconic Month",
+      "category": "Lunar",
+      "period": "27.21222 days",
+      "periodDays": 27.21222,
+      "description": "Moon's node-to-node period relative to the ecliptic.",
+      "significance": "Important for eclipse timing models.",
+      "related": ["Saros Cycle", "Eclipse Season"]
+    },
+    {
+      "id": "anomalistic-month",
+      "name": "Anomalistic Month",
+      "category": "Lunar",
+      "period": "27.55455 days",
+      "periodDays": 27.55455,
+      "description": "Perigee-to-perigee period of the Moon.",
+      "significance": "Affects supermoon timing and lunar distance patterns.",
+      "related": ["Saros Cycle"]
+    },
+    {
+      "id": "eclipse-season",
+      "name": "Eclipse Season",
+      "category": "Eclipse",
+      "period": "173.31 days",
+      "periodDays": 173.31,
+      "description": "Interval between windows when the Sun is near a lunar node.",
+      "significance": "Predicts clusters of solar/lunar eclipses.",
+      "related": ["Draconic Month", "Saros Cycle"]
+    },
+    {
+      "id": "saros-cycle",
+      "name": "Saros Cycle",
+      "category": "Eclipse",
+      "period": "18 years 11 days 8 hours",
+      "periodDays": 6585.321,
+      "description": "Near-repeat interval for similar eclipses from geometry recurrence.",
+      "significance": "Classic eclipse prediction cycle.",
+      "related": ["Draconic Month", "Anomalistic Month", "Eclipse Season"]
+    },
+    {
+      "id": "inex-cycle",
+      "name": "Inex Cycle",
+      "category": "Eclipse",
+      "period": "29 years minus about 20 days",
+      "periodDays": 10571.95,
+      "description": "Longer eclipse recurrence interval connecting different saros families.",
+      "significance": "Useful for classifying eclipse series transitions.",
+      "related": ["Saros Cycle"]
+    },
+    {
+      "id": "solar-sunspot-cycle",
+      "name": "Solar Sunspot Cycle",
+      "category": "Solar",
+      "period": "~11 years",
+      "periodDays": 4017.75,
+      "description": "Average magnetic activity cycle of the Sun seen in sunspot counts.",
+      "significance": "Drives space weather and auroral activity trends.",
+      "related": ["Hale Magnetic Cycle"]
+    },
+    {
+      "id": "hale-magnetic-cycle",
+      "name": "Hale Magnetic Cycle",
+      "category": "Solar",
+      "period": "~22 years",
+      "periodDays": 8035.5,
+      "description": "Two sunspot cycles required for solar magnetic polarity to return.",
+      "significance": "Long-form solar dynamo period.",
+      "related": ["Solar Sunspot Cycle"]
+    },
+    {
+      "id": "jupiter-saturn-great-conjunction",
+      "name": "Jupiter-Saturn Great Conjunction",
+      "category": "Planetary",
+      "period": "~19.86 years",
+      "periodDays": 7255.0,
+      "description": "Mean interval between conjunctions of Jupiter and Saturn.",
+      "significance": "Major marker in historical chronology and sky cycles.",
+      "related": ["Great Trigon"]
+    },
+    {
+      "id": "great-trigon",
+      "name": "Great Trigon",
+      "category": "Planetary",
+      "period": "~240 years",
+      "periodDays": 87658.0,
+      "description": "Successive great conjunctions cycle through similar elemental triplicity patterns over centuries.",
+      "significance": "Long-cycle structure derived from Jupiter-Saturn conjunction drift.",
+      "related": ["Jupiter-Saturn Great Conjunction"]
+    },
+    {
+      "id": "venus-pentagram-cycle",
+      "name": "Venus Pentagram Cycle",
+      "category": "Planetary",
+      "period": "8 years",
+      "periodDays": 2921.94,
+      "description": "Five synodic Venus cycles align closely with eight Earth years, tracing a pentagram-like pattern.",
+      "significance": "Famous resonance in naked-eye planetary astronomy.",
+      "related": ["Synodic Venus Cycle"]
+    },
+    {
+      "id": "synodic-venus-cycle",
+      "name": "Synodic Venus Cycle",
+      "category": "Planetary",
+      "period": "583.92 days",
+      "periodDays": 583.92,
+      "description": "Mean interval between consecutive inferior conjunctions of Venus.",
+      "significance": "Basis of Venus visibility phases and cycle work.",
+      "related": ["Venus Pentagram Cycle"]
+    },
+    {
+      "id": "halley-comet-cycle",
+      "name": "Halley Comet Cycle",
+      "category": "Comet",
+      "period": "~75-76 years",
+      "periodDays": 27759.0,
+      "description": "Orbital return interval of 1P/Halley, varying by perturbations.",
+      "significance": "Most recognized periodic comet cycle.",
+      "related": ["Comet Period Classes"]
+    },
+    {
+      "id": "encke-comet-cycle",
+      "name": "Encke Comet Cycle",
+      "category": "Comet",
+      "period": "~3.30 years",
+      "periodDays": 1205.0,
+      "description": "Orbital return interval of Comet 2P/Encke.",
+      "significance": "Classic short-period comet benchmark.",
+      "related": ["Comet Period Classes"]
+    },
+    {
+      "id": "precession-of-equinoxes",
+      "name": "Precession of the Equinoxes",
+      "category": "Axial",
+      "period": "~25,772 years",
+      "periodDays": 9413478.0,
+      "description": "Slow conical motion of Earth's rotation axis relative to fixed stars.",
+      "significance": "Shifts equinox positions through zodiacal constellations over millennia.",
+      "related": ["Great Year (Platonic)"]
+    },
+    {
+      "id": "great-year-platonic",
+      "name": "Great Year (Platonic)",
+      "category": "Axial",
+      "period": "~25,772 years",
+      "periodDays": 9413478.0,
+      "description": "Traditional term for one full precessional cycle of the equinoxes.",
+      "significance": "Long-duration epochal framing in astronomy and chronology traditions.",
+      "related": ["Precession of the Equinoxes"]
+    },
+    {
+      "id": "milankovitch-obliquity",
+      "name": "Milankovitch Obliquity Cycle",
+      "category": "Climate-Astronomy",
+      "period": "~41,000 years",
+      "periodDays": 14975775.0,
+      "description": "Variation in Earth's axial tilt angle over tens of millennia.",
+      "significance": "Major pacing component in glacial-interglacial climate structure.",
+      "related": ["Milankovitch Precession", "Milankovitch Eccentricity"]
+    },
+    {
+      "id": "milankovitch-precession",
+      "name": "Milankovitch Precession Cycle",
+      "category": "Climate-Astronomy",
+      "period": "~19,000 to 23,000 years",
+      "periodDays": 7665000.0,
+      "description": "Seasonal timing shift from axial precession interacting with orbital geometry.",
+      "significance": "Controls seasonal insolation pacing over geologic time.",
+      "related": ["Precession of the Equinoxes", "Milankovitch Obliquity"]
+    },
+    {
+      "id": "milankovitch-eccentricity",
+      "name": "Milankovitch Eccentricity Cycle",
+      "category": "Climate-Astronomy",
+      "period": "~100,000 years (plus ~405,000-year mode)",
+      "periodDays": 36524250.0,
+      "description": "Long-term change in orbital ellipse shape from near-circular to more elliptical.",
+      "significance": "Dominant long pacing in Quaternary paleoclimate archives.",
+      "related": ["Milankovitch Obliquity", "Milankovitch Precession"]
+    }
+  ]
+}

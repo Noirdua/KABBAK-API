@@ -1,0 +1,269 @@
+{
+  "meta": {
+    "source": "NASA Planetary Fact Sheet (selected values, rounded)",
+    "notes": "Core physical/orbital values are approximate and intended for educational UI display."
+  },
+  "planets": [
+    {
+      "id": "mercury",
+      "name": "Mercury",
+      "symbol": "☿︎",
+      "classification": "Terrestrial planet",
+      "summary": "The smallest planet and closest to the Sun, with extreme day/night temperature swings.",
+      "meanDistanceFromSun": {
+        "kmMillions": 57.9,
+        "au": 0.387
+      },
+      "orbitalPeriod": {
+        "days": 87.969,
+        "years": 0.241
+      },
+      "rotationPeriodHours": 1407.6,
+      "radiusKm": 2439.7,
+      "diameterKm": 4879.4,
+      "massKg": 3.3011e23,
+      "gravityMs2": 3.7,
+      "escapeVelocityKms": 4.25,
+      "axialTiltDeg": 0.03,
+      "averageTempC": 167,
+      "moons": 0,
+      "atmosphere": "Extremely thin exosphere (oxygen, sodium, hydrogen, helium, potassium).",
+      "notableFacts": [
+        "A solar day lasts about 176 Earth days.",
+        "Its surface is heavily cratered like Earth’s Moon."
+      ]
+    },
+    {
+      "id": "venus",
+      "name": "Venus",
+      "symbol": "♀︎",
+      "classification": "Terrestrial planet",
+      "summary": "Earth-sized but shrouded in dense clouds, with a runaway greenhouse effect.",
+      "meanDistanceFromSun": {
+        "kmMillions": 108.2,
+        "au": 0.723
+      },
+      "orbitalPeriod": {
+        "days": 224.701,
+        "years": 0.615
+      },
+      "rotationPeriodHours": -5832.5,
+      "radiusKm": 6051.8,
+      "diameterKm": 12103.6,
+      "massKg": 4.8675e24,
+      "gravityMs2": 8.87,
+      "escapeVelocityKms": 10.36,
+      "axialTiltDeg": 177.36,
+      "averageTempC": 464,
+      "moons": 0,
+      "atmosphere": "Very dense carbon dioxide with sulfuric acid clouds.",
+      "notableFacts": [
+        "Hottest planetary surface in the Solar System.",
+        "Rotates retrograde (east-to-west)."
+      ]
+    },
+    {
+      "id": "earth",
+      "name": "Earth",
+      "symbol": "⊕",
+      "classification": "Terrestrial planet",
+      "summary": "The only known world with stable liquid water oceans and life.",
+      "meanDistanceFromSun": {
+        "kmMillions": 149.6,
+        "au": 1.0
+      },
+      "orbitalPeriod": {
+        "days": 365.256,
+        "years": 1.0
+      },
+      "rotationPeriodHours": 23.934,
+      "radiusKm": 6371,
+      "diameterKm": 12742,
+      "massKg": 5.97237e24,
+      "gravityMs2": 9.807,
+      "escapeVelocityKms": 11.186,
+      "axialTiltDeg": 23.44,
+      "averageTempC": 15,
+      "moons": 1,
+      "atmosphere": "Mostly nitrogen and oxygen.",
+      "notableFacts": [
+        "About 71% of the surface is covered by water.",
+        "Plate tectonics helps regulate long-term climate."
+      ]
+    },
+    {
+      "id": "mars",
+      "name": "Mars",
+      "symbol": "♂︎",
+      "classification": "Terrestrial planet",
+      "summary": "A cold desert planet with the largest volcano and canyon in the Solar System.",
+      "meanDistanceFromSun": {
+        "kmMillions": 227.9,
+        "au": 1.524
+      },
+      "orbitalPeriod": {
+        "days": 686.98,
+        "years": 1.881
+      },
+      "rotationPeriodHours": 24.623,
+      "radiusKm": 3389.5,
+      "diameterKm": 6779,
+      "massKg": 6.4171e23,
+      "gravityMs2": 3.721,
+      "escapeVelocityKms": 5.03,
+      "axialTiltDeg": 25.19,
+      "averageTempC": -63,
+      "moons": 2,
+      "atmosphere": "Thin carbon dioxide atmosphere.",
+      "notableFacts": [
+        "Home to Olympus Mons and Valles Marineris.",
+        "Evidence suggests ancient liquid water on its surface."
+      ]
+    },
+    {
+      "id": "jupiter",
+      "name": "Jupiter",
+      "symbol": "♃︎",
+      "classification": "Gas giant",
+      "summary": "The largest planet, with powerful storms and a deep atmosphere of hydrogen and helium.",
+      "meanDistanceFromSun": {
+        "kmMillions": 778.6,
+        "au": 5.203
+      },
+      "orbitalPeriod": {
+        "days": 4332.59,
+        "years": 11.86
+      },
+      "rotationPeriodHours": 9.925,
+      "radiusKm": 69911,
+      "diameterKm": 139822,
+      "massKg": 1.8982e27,
+      "gravityMs2": 24.79,
+      "escapeVelocityKms": 59.5,
+      "axialTiltDeg": 3.13,
+      "averageTempC": -110,
+      "moons": 95,
+      "atmosphere": "Mostly hydrogen and helium.",
+      "notableFacts": [
+        "The Great Red Spot is a centuries-old storm.",
+        "Its magnetic field is the strongest of any planet."
+      ]
+    },
+    {
+      "id": "saturn",
+      "name": "Saturn",
+      "symbol": "♄︎",
+      "classification": "Gas giant",
+      "summary": "Known for its bright ring system made largely of ice particles.",
+      "meanDistanceFromSun": {
+        "kmMillions": 1433.5,
+        "au": 9.537
+      },
+      "orbitalPeriod": {
+        "days": 10759.22,
+        "years": 29.45
+      },
+      "rotationPeriodHours": 10.656,
+      "radiusKm": 58232,
+      "diameterKm": 116464,
+      "massKg": 5.6834e26,
+      "gravityMs2": 10.44,
+      "escapeVelocityKms": 35.5,
+      "axialTiltDeg": 26.73,
+      "averageTempC": -140,
+      "moons": 146,
+      "atmosphere": "Mostly hydrogen and helium.",
+      "notableFacts": [
+        "Its average density is lower than water.",
+        "Rings are broad but extremely thin."
+      ]
+    },
+    {
+      "id": "uranus",
+      "name": "Uranus",
+      "symbol": "♅︎",
+      "classification": "Ice giant",
+      "summary": "An ice giant that rotates on its side relative to its orbital plane.",
+      "meanDistanceFromSun": {
+        "kmMillions": 2872.5,
+        "au": 19.191
+      },
+      "orbitalPeriod": {
+        "days": 30688.5,
+        "years": 84.02
+      },
+      "rotationPeriodHours": -17.24,
+      "radiusKm": 25362,
+      "diameterKm": 50724,
+      "massKg": 8.681e25,
+      "gravityMs2": 8.69,
+      "escapeVelocityKms": 21.3,
+      "axialTiltDeg": 97.77,
+      "averageTempC": -195,
+      "moons": 28,
+      "atmosphere": "Hydrogen, helium, methane.",
+      "notableFacts": [
+        "Its sideways tilt likely comes from an ancient giant impact.",
+        "Methane in the atmosphere gives it a blue-green color."
+      ]
+    },
+    {
+      "id": "neptune",
+      "name": "Neptune",
+      "symbol": "♆︎",
+      "classification": "Ice giant",
+      "summary": "A distant, dynamic world with supersonic winds and dark storm systems.",
+      "meanDistanceFromSun": {
+        "kmMillions": 4495.1,
+        "au": 30.07
+      },
+      "orbitalPeriod": {
+        "days": 60182,
+        "years": 164.8
+      },
+      "rotationPeriodHours": 16.11,
+      "radiusKm": 24622,
+      "diameterKm": 49244,
+      "massKg": 1.02413e26,
+      "gravityMs2": 11.15,
+      "escapeVelocityKms": 23.5,
+      "axialTiltDeg": 28.32,
+      "averageTempC": -200,
+      "moons": 16,
+      "atmosphere": "Hydrogen, helium, methane.",
+      "notableFacts": [
+        "Fastest sustained winds measured on any planet.",
+        "Triton, its largest moon, orbits in retrograde."
+      ]
+    },
+    {
+      "id": "pluto",
+      "name": "Pluto",
+      "symbol": "♇︎",
+      "classification": "Dwarf planet",
+      "summary": "A Kuiper Belt dwarf planet with nitrogen ice plains and a complex seasonal cycle.",
+      "meanDistanceFromSun": {
+        "kmMillions": 5906.4,
+        "au": 39.48
+      },
+      "orbitalPeriod": {
+        "days": 90560,
+        "years": 248.0
+      },
+      "rotationPeriodHours": -153.3,
+      "radiusKm": 1188.3,
+      "diameterKm": 2376.6,
+      "massKg": 1.303e22,
+      "gravityMs2": 0.62,
+      "escapeVelocityKms": 1.21,
+      "axialTiltDeg": 122.53,
+      "averageTempC": -225,
+      "moons": 5,
+      "atmosphere": "Thin, variable nitrogen atmosphere with methane and carbon monoxide.",
+      "notableFacts": [
+        "Charon is large enough that Pluto-Charon is often described as a binary system.",
+        "First close-up images were captured by New Horizons in 2015."
+      ]
+    }
+  ]
+}

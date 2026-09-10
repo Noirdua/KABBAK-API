@@ -1,0 +1,88 @@
+{
+  "yechidah": {
+    "id": "yechidah",
+    "name": {
+      "en": "unity",
+      "he": "יחידה",
+      "roman": "yechida"
+    },
+    "title": {
+      "en": "Unity"
+    }
+  },
+  "chaya": {
+    "id": "chaya",
+    "aliases": [
+      "chiah"
+    ],
+    "name": {
+      "en": "life force",
+      "he": "חיה",
+      "roman": "chiah",
+      "altRoman": "chaya"
+    },
+    "title": {
+      "en": "Life Force"
+    },
+    "desc": {
+      "en": "The Chiah is the Life Force itself. It is our true identity, ultimately a pure reflection of the Supreme Consciousness of deity."
+    }
+  },
+  "neshama": {
+    "id": "neshama",
+    "aliases": [
+      "neshamah"
+    ],
+    "name": {
+      "en": "soul-intuition",
+      "he": "נשמה",
+      "roman": "neshamah",
+      "altRoman": "neshama"
+    },
+    "title": {
+      "en": "Soul-Intuition"
+    },
+    "desc": {
+      "en": "The Neshamah is the part of our soul that transcends our thinking processes."
+    }
+  },
+  "ruach": {
+    "id": "ruach",
+    "name": {
+      "en": "intellect",
+      "he": "רוח",
+      "roman": "ruach"
+    },
+    "title": {
+      "en": "Intellect"
+    },
+    "desc": {
+      "en": "The Ruach is the part of our soul that monopolizes attention to such a degree that we identify with the thinking process."
+    }
+  },
+  "nephesh": {
+    "id": "nephesh",
+    "name": {
+      "en": "animal soul",
+      "he": "נפש",
+      "roman": "nephesh"
+    },
+    "title": {
+      "en": "Animal Soul"
+    },
+    "desc": {
+      "en": "The Nephesh is primitive consciousness shared with animal, plant, and mineral kingdoms, expressed through instincts, appetite, emotion, sex drive, and survival mechanisms."
+    }
+  },
+  "guph": {
+    "id": "guph",
+    "name": {
+      "en": "body",
+      "he": "גוף",
+      "roman": "guph"
+    },
+    "title": {
+      "en": "Body"
+    }
+  }
+}

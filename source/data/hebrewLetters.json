@@ -1,0 +1,353 @@
+{
+  "alef": {
+    "id": "alef",
+    "letter": {
+      "he": "א",
+      "name": "Aleph",
+      "latin": "A"
+    },
+    "index": 1,
+    "value": 1,
+    "meaning": {
+      "en": "ox"
+    }
+  },
+  "bet": {
+    "id": "bet",
+    "letter": {
+      "he": "ב",
+      "name": "Bet",
+      "latin": "B"
+    },
+    "index": 2,
+    "value": 2,
+    "meaning": {
+      "en": "house"
+    }
+  },
+  "gimel": {
+    "id": "gimel",
+    "letter": {
+      "he": "ג",
+      "name": "Gimel",
+      "latin": "G"
+    },
+    "index": 3,
+    "value": 3,
+    "meaning": {
+      "en": "camel"
+    }
+  },
+  "dalet": {
+    "id": "dalet",
+    "letter": {
+      "he": "ד",
+      "name": "Dalet",
+      "latin": "D"
+    },
+    "index": 4,
+    "value": 4,
+    "meaning": {
+      "en": "door"
+    }
+  },
+  "he": {
+    "id": "he",
+    "letter": {
+      "he": "ה",
+      "name": "He",
+      "latin": "H"
+    },
+    "index": 5,
+    "value": 5,
+    "meaning": {
+      "en": "window"
+    }
+  },
+  "vav": {
+    "id": "vav",
+    "letter": {
+      "he": "ו",
+      "name": "Vav",
+      "latin": "V"
+    },
+    "index": 6,
+    "value": 6,
+    "meaning": {
+      "en": "peg, nail, pin, hook"
+    }
+  },
+  "zayin": {
+    "id": "zayin",
+    "letter": {
+      "he": "ז",
+      "name": "Zayin",
+      "latin": "Z"
+    },
+    "index": 7,
+    "value": 7,
+    "meaning": {
+      "en": "sword, armor, weapon"
+    }
+  },
+  "het": {
+    "id": "het",
+    "letter": {
+      "he": "ח",
+      "name": "Het",
+      "latin": "Ch"
+    },
+    "index": 8,
+    "value": 8,
+    "meaning": {
+      "en": "enclosure, fence"
+    }
+  },
+  "tet": {
+    "id": "tet",
+    "letter": {
+      "he": "ט",
+      "name": "Tet",
+      "latin": "T"
+    },
+    "index": 9,
+    "value": 9,
+    "meaning": {
+      "en": "serpent"
+    }
+  },
+  "yod": {
+    "id": "yod",
+    "letter": {
+      "he": "י",
+      "name": "Yod",
+      "latin": "I"
+    },
+    "index": 10,
+    "value": 10,
+    "meaning": {
+      "en": "hand"
+    }
+  },
+  "kaf": {
+    "id": "kaf",
+    "letter": {
+      "he": "כ",
+      "name": "Kaf",
+      "latin": "K"
+    },
+    "index": 11,
+    "value": 20,
+    "meaning": {
+      "en": "palm of hand"
+    }
+  },
+  "kaf-sofit": {
+    "id": "kaf-sofit",
+    "letter": {
+      "he": "ך",
+      "name": "Kaf-Sofit",
+      "latin": "K(f)"
+    },
+    "index": 11,
+    "value": 500,
+    "meaning": {
+      "en": "palm of hand"
+    }
+  },
+  "lamed": {
+    "id": "lamed",
+    "letter": {
+      "he": "ל",
+      "name": "Lamed",
+      "latin": "L"
+    },
+    "index": 12,
+    "value": 30,
+    "meaning": {
+      "en": "ox-goad"
+    }
+  },
+  "mem": {
+    "id": "mem",
+    "letter": {
+      "he": "מ",
+      "name": "Mem",
+      "latin": "M"
+    },
+    "index": 13,
+    "value": 40,
+    "meaning": {
+      "en": "water"
+    }
+  },
+  "mem-sofit": {
+    "id": "mem-sofit",
+    "letter": {
+      "he": "ם",
+      "name": "Mem-Sofit",
+      "latin": "M(f)"
+    },
+    "index": 13,
+    "value": 600,
+    "meaning": {
+      "en": "water"
+    }
+  },
+  "nun": {
+    "id": "nun",
+    "letter": {
+      "he": "נ",
+      "name": "Nun",
+      "latin": "N"
+    },
+    "index": 14,
+    "value": 50,
+    "meaning": {
+      "en": "fish"
+    }
+  },
+  "nun-sofit": {
+    "id": "nun-sofit",
+    "letter": {
+      "he": "ן",
+      "name": "Nun-Sofit",
+      "latin": "N(f)"
+    },
+    "index": 14,
+    "value": 700,
+    "meaning": {
+      "en": "fish"
+    }
+  },
+  "samekh": {
+    "id": "samekh",
+    "letter": {
+      "he": "ס",
+      "name": "Samekh",
+      "latin": "S"
+    },
+    "index": 15,
+    "value": 60,
+    "meaning": {
+      "en": "prop, support"
+    }
+  },
+  "ayin": {
+    "id": "ayin",
+    "letter": {
+      "he": "ע",
+      "name": "Ayin",
+      "latin": "O"
+    },
+    "index": 16,
+    "value": 70,
+    "meaning": {
+      "en": "eye"
+    }
+  },
+  "pe": {
+    "id": "pe",
+    "letter": {
+      "he": "פ",
+      "name": "Pe",
+      "latin": "P"
+    },
+    "index": 17,
+    "value": 80,
+    "meaning": {
+      "en": "mouth"
+    }
+  },
+  "pe-sofit": {
+    "id": "pe-sofit",
+    "letter": {
+      "he": "ף",
+      "name": "Pe-Sofit",
+      "latin": "P(f)"
+    },
+    "index": 17,
+    "value": 800,
+    "meaning": {
+      "en": "mouth"
+    }
+  },
+  "tsadi": {
+    "id": "tsadi",
+    "letter": {
+      "he": "צ",
+      "name": "Tsadi",
+      "latin": "Tz"
+    },
+    "index": 18,
+    "value": 90,
+    "meaning": {
+      "en": "fishhook"
+    }
+  },
+  "tsadi-sofit": {
+    "id": "tsadi-sofit",
+    "letter": {
+      "he": "ץ",
+      "name": "Tsadi-Sofit",
+      "latin": "Tz(f)"
+    },
+    "index": 18,
+    "value": 900,
+    "meaning": {
+      "en": "fishhook"
+    }
+  },
+  "qof": {
+    "id": "qof",
+    "letter": {
+      "he": "ק",
+      "name": "Qof",
+      "latin": "Q"
+    },
+    "index": 19,
+    "value": 100,
+    "meaning": {
+      "en": "back of the head, ear"
+    }
+  },
+  "resh": {
+    "id": "resh",
+    "letter": {
+      "he": "ר",
+      "name": "Resh",
+      "latin": "R"
+    },
+    "index": 20,
+    "value": 200,
+    "meaning": {
+      "en": "head"
+    }
+  },
+  "shin": {
+    "id": "shin",
+    "letter": {
+      "he": "ש",
+      "name": "Shin",
+      "latin": "Sh"
+    },
+    "index": 21,
+    "value": 300,
+    "meaning": {
+      "en": "tooth"
+    }
+  },
+  "tav": {
+    "id": "tav",
+    "letter": {
+      "he": "ת",
+      "name": "Tav",
+      "latin": "Th"
+    },
+    "index": 22,
+    "value": 400,
+    "meaning": {
+      "en": "cross"
+    }
+  }
+}

@@ -1,0 +1,45 @@
+node_modules/
+.env
+npm-debug.log*
+storage/
+TaroTime-api*
+tests/
+.kilo
+imports*
+.playwright-mcp
+KABBAK.code-workspace
+# Decks are add-ons — not shipped with the base distribution.
+# Install via git submodule:  npm run imports -- submodule add --deck <repo-url>
+source/assets/tarot deck/BOTA/
+source/assets/tarot deck/Golden Dawn/
+source/assets/tarot deck/Golden Dawn Cicero/
+source/assets/tarot deck/Rider Waite/
+source/assets/tarot deck/Tarot of Ceremonial Magick/
+source/assets/tarot deck/Thoth Tarot/
+
+# Deck registry is auto-generated — do not commit.
+source/assets/tarot deck/decks.json
+
+# Text sources — operator-provided content, registered by source/data/text/library.json.
+source/data/text/
+source/data/gematria-words-index.json
+
+# Text manifest folders — input files are provided by the operator, not shipped.
+source/imports/text/*
+!source/imports/text/README.md
+
+# Shared imports drop-folder.
+# Only READMEs and .gitkeep are tracked directly — content comes from the DLC
+# catalog (npm run dlc -- install) or manual drops.
+imports/text/*
+!imports/text/README.md
+!imports/text/.gitkeep
+
+imports/decks/*
+!imports/decks/README.md
+!imports/decks/.gitkeep
+
+# DLC catalog checkout — set the repository URL with KABBAK_DLC_REPO,
+# `npm run dlc -- init --repo <url>`, or Admin → DLC. Do not ship a default URL.
+imports/dlc/*
+!imports/dlc/.gitkeep

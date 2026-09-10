@@ -1,0 +1,72 @@
+{
+  "ehiyeh": {
+    "name": {
+      "he": "אהיה",
+      "roman": "Ehiyeh",
+      "en": "I am"
+    }
+  },
+  "yah": {
+    "name": {
+      "he": "יה",
+      "roman": "Yah",
+      "en": "Lord"
+    }
+  },
+  "yhvh-elohim": {
+    "name": {
+      "he": "יהוה אלוהים",
+      "roman": "YHVH Elohim",
+      "en": "The Lord God"
+    }
+  },
+  "el": {
+    "name": {
+      "he": "אל",
+      "roman": "El",
+      "en": "God"
+    }
+  },
+  "elohim-gibor": {
+    "name": {
+      "he": "אלוהים גיבור",
+      "roman": "Elohim Gibor",
+      "en": "God of Power"
+    }
+  },
+  "yhvh-eloha-vedaat": {
+    "name": {
+      "he": "יהוה אלוה ודעת",
+      "roman": "YHVH Eloah Ve-da'at",
+      "en": "Lord God of Knowledge"
+    }
+  },
+  "yhvh-tzvaot": {
+    "name": {
+      "he": "יהוה צבעות",
+      "roman": "YHVH Tzva-oht",
+      "en": "Lord of Armies"
+    }
+  },
+  "elohim-tzvaot": {
+    "name": {
+      "he": "אלוהים צבעות",
+      "roman": "Elohim Tzvaot",
+      "en": "God of Armies"
+    }
+  },
+  "shadai-el-chai": {
+    "name": {
+      "he": "שדאי אל חי",
+      "roman": "Shaddai El Chai",
+      "en": "Almighty Living God"
+    }
+  },
+  "adonai-haaretz": {
+    "name": {
+      "he": "אדוני הארץ",
+      "roman": "Adonai Ha'aretz",
+      "en": "Lord of Earth"
+    }
+  }
+}

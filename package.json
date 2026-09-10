@@ -1,0 +1,35 @@
+{
+  "name": "kabbak-api",
+  "version": "0.2.0",
+  "description": "Read-only API backend for the KABBAK frontend.",
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "scripts": {
+    "check": "npm run check:syntax && npm run check:openapi",
+    "check:openapi": "node --test tests/openapi.contract.test.js",
+    "check:syntax": "node scripts/check-syntax.js src scripts tests",
+    "clients": "node scripts/manage-api-clients.js",
+    "dlc": "node scripts/manage-imports.js dlc",
+    "imports": "node scripts/manage-imports.js",
+    "import:texts": "node scripts/import-text-sources.js",
+    "migrate:data": "node --max-old-space-size=4096 scripts/migrate-data-to-sqlite.js",
+    "smoke": "node scripts/smoke-test-api.js",
+    "test": "npm run test:integration && npm run test:clients",
+    "test:clients": "node --test tests/manage-api-clients.script.test.js",
+    "test:integration": "node --test tests/app.integration.test.js",
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "astronomy-engine": "^2.1.19",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.6.0",
+    "node-addon-api": "^7.1.1",
+    "sharp": "^0.34.5",
+    "suncalc": "^1.9.0"
+  }
+}

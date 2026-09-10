@@ -1,0 +1,86 @@
+{
+  "meta": {
+    "source": "https://github.com/gadicc/magick.ly/tree/master/data",
+    "derivedFrom": "data/astrology/planets.json5",
+    "notes": "Planet names/symbols/magick types are adapted from magick.ly; tarot correspondences are Golden Dawn style defaults."
+  },
+  "planets": {
+    "saturn": {
+      "id": "saturn",
+      "name": "Saturn",
+      "symbol": "♄︎",
+      "weekday": "Saturday",
+      "tarot": {
+        "majorArcana": "The World",
+        "number": 21
+      },
+      "magickTypes": "Performing duty, establishing balance and equilibrium, dispelling illusions, protecting the home, legal matters, developing patience and self-discipline"
+    },
+    "jupiter": {
+      "id": "jupiter",
+      "name": "Jupiter",
+      "symbol": "♃︎",
+      "weekday": "Thursday",
+      "tarot": {
+        "majorArcana": "Wheel of Fortune",
+        "number": 10
+      },
+      "magickTypes": "Career success, developing ambition and enthusiasm, improving fortune and luck, general health, acquiring honour, improving sense of humour, legal matters and dealing with the establishment, developing leadership skills"
+    },
+    "mars": {
+      "id": "mars",
+      "name": "Mars",
+      "symbol": "♂︎",
+      "weekday": "Tuesday",
+      "tarot": {
+        "majorArcana": "The Tower",
+        "number": 16
+      },
+      "magickTypes": "Controlling anger, increasing courage, enhancing energy and passion, increasing vigour and sex drive"
+    },
+    "sol": {
+      "id": "sol",
+      "name": "Sol",
+      "symbol": "☉︎",
+      "weekday": "Sunday",
+      "tarot": {
+        "majorArcana": "The Sun",
+        "number": 19
+      },
+      "magickTypes": "Career success and progression, establishing harmony, healing and improving health, leadership skills, acquiring money and resources, promotion, strengthening willpower"
+    },
+    "venus": {
+      "id": "venus",
+      "name": "Venus",
+      "symbol": "♀︎",
+      "weekday": "Friday",
+      "tarot": {
+        "majorArcana": "The Empress",
+        "number": 3
+      },
+      "magickTypes": "Increasing attractiveness and self-confidence, beauty and passion, enhancing creativity, improving fertility, developing friendships, obtaining love"
+    },
+    "mercury": {
+      "id": "mercury",
+      "name": "Mercury",
+      "symbol": "☿︎",
+      "weekday": "Wednesday",
+      "tarot": {
+        "majorArcana": "The Magician",
+        "number": 1
+      },
+      "magickTypes": "Business success, improving communication skills, developing knowledge and memory, diplomacy, exam success, divination, developing influence, protection when traveling by air and land, learning music"
+    },
+    "luna": {
+      "id": "luna",
+      "name": "Luna",
+      "symbol": "☾︎",
+      "weekday": "Monday",
+      "tarot": {
+        "majorArcana": "The High Priestess",
+        "number": 2
+      },
+      "magickTypes": "Developing clairvoyance and other psychic skills, ensuring safe childbirth, divination, glamour and illusions, lucid dreaming, protection when traveling by sea"
+    }
+  }
+}

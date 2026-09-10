@@ -1,0 +1,136 @@
+{
+  "meta": {
+    "version": 1,
+    "notes": "Islamic (Hijri) lunar calendar months with traditional associations and major observances. Holiday records are centralized in calendar-holidays.json."
+  },
+  "calendar": {
+    "id": "islamic",
+    "label": "Islamic Calendar",
+    "type": "lunar",
+    "script": "Arabic",
+    "description": "The Islamic calendar (Hijri/AH) is a purely lunar calendar of 12 months in a year of 354 or 355 days. It began with the Prophet Muhammad's migration (Hijra) from Mecca to Medina in 622 CE. Four months are considered sacred (Al-Ashhur Al-Hurum): Muharram, Rajab, Dhu al-Qada, and Dhu al-Hijja."
+  },
+  "months": [
+    {
+      "id": "muharram",
+      "order": 1,
+      "name": "Muharram",
+      "nativeName": "مُحَرَّم",
+      "meaning": "Forbidden / Sacred",
+      "days": 30,
+      "sacred": true,
+      "description": "The first month of the Islamic year and one of the four sacred months in which warfare is prohibited. Islamic New Year (Hijri New Year) begins on the 1st. Ashura falls on the 10th."
+    },
+    {
+      "id": "safar",
+      "order": 2,
+      "name": "Safar",
+      "nativeName": "صَفَر",
+      "meaning": "Empty / Yellow",
+      "days": 29,
+      "sacred": false,
+      "description": "Traditionally a month associated with misfortune in pre-Islamic Arab belief; Islam discouraged such superstition. No major holidays."
+    },
+    {
+      "id": "rabi-al-awwal",
+      "order": 3,
+      "name": "Rabi' al-Awwal",
+      "nativeName": "رَبِيع الأَوَّل",
+      "meaning": "First Spring",
+      "days": 30,
+      "sacred": false,
+      "description": "The month of the Prophet Muhammad's birth (Mawlid al-Nabi) and his migration to Medina. A month of celebration in many Muslim communities."
+    },
+    {
+      "id": "rabi-al-akhir",
+      "order": 4,
+      "name": "Rabi' al-Akhir",
+      "nativeName": "رَبِيع الآخِر",
+      "meaning": "Second Spring / Last Spring",
+      "days": 29,
+      "sacred": false,
+      "description": "Also called Rabi' al-Thani (Second Spring). No major holidays."
+    },
+    {
+      "id": "jumada-al-awwal",
+      "order": 5,
+      "name": "Jumada al-Awwal",
+      "nativeName": "جُمَادَى الأُولَى",
+      "meaning": "First of Parched Land",
+      "days": 30,
+      "sacred": false,
+      "description": "The fifth month. No major holidays. The name reflects an ancient season of early drought."
+    },
+    {
+      "id": "jumada-al-akhir",
+      "order": 6,
+      "name": "Jumada al-Akhir",
+      "nativeName": "جُمَادَى الآخِرَة",
+      "meaning": "Last of Parched Land",
+      "days": 29,
+      "sacred": false,
+      "description": "Also called Jumada al-Thani. Concludes the first half of the Islamic year."
+    },
+    {
+      "id": "rajab",
+      "order": 7,
+      "name": "Rajab",
+      "nativeName": "رَجَب",
+      "meaning": "To Respect",
+      "days": 30,
+      "sacred": true,
+      "description": "One of the four sacred months. Warfare was forbidden. Contains Laylat al-Mi'raj (Night of Ascension)."
+    },
+    {
+      "id": "shaban",
+      "order": 8,
+      "name": "Sha'ban",
+      "nativeName": "شَعْبَان",
+      "meaning": "To be Scattered / Dispersed",
+      "days": 29,
+      "sacred": false,
+      "description": "The month between Rajab and Ramadan. A time of spiritual preparation for fasting. Contains the Night of Records (Laylat al-Bara'at)."
+    },
+    {
+      "id": "ramadan",
+      "order": 9,
+      "name": "Ramadan",
+      "nativeName": "رَمَضَان",
+      "meaning": "Scorching Heat",
+      "days": 30,
+      "sacred": false,
+      "description": "The holiest month of the Islamic year. Fasting (Sawm) from dawn to sunset is obligatory for adult Muslims — one of the Five Pillars of Islam. The Quran was revealed in this month. Ends with Eid al-Fitr."
+    },
+    {
+      "id": "shawwal",
+      "order": 10,
+      "name": "Shawwal",
+      "nativeName": "شَوَّال",
+      "meaning": "Raised / Lifted",
+      "days": 29,
+      "sacred": false,
+      "description": "The month following Ramadan. Begins with Eid al-Fitr. Voluntary six-day fast (Shawwal fast) is recommended."
+    },
+    {
+      "id": "dhu-al-qada",
+      "order": 11,
+      "name": "Dhu al-Qada",
+      "nativeName": "ذُو الْقَعْدَة",
+      "meaning": "Possessor of Truce / Sitting",
+      "days": 30,
+      "sacred": true,
+      "description": "One of the four sacred months. Pilgrims begin gathering for Hajj. Warfare was traditionally prohibited."
+    },
+    {
+      "id": "dhu-al-hijja",
+      "order": 12,
+      "name": "Dhu al-Hijja",
+      "nativeName": "ذُو الْحِجَّة",
+      "meaning": "Possessor of the Pilgrimage",
+      "days": 29,
+      "daysVariant": 30,
+      "sacred": true,
+      "description": "The month of Hajj pilgrimage — the fifth Pillar of Islam. Contains Eid al-Adha, one of the two major Islamic festivals. The first ten days are especially sacred."
+    }
+  ]
+}

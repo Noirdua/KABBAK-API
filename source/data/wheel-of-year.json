@@ -1,0 +1,338 @@
+{
+  "meta": {
+    "version": 1,
+    "notes": "Celtic / Pagan Wheel of the Year — eight seasonal festivals (Sabbats) with astronomical and agricultural associations. Holiday records are centralized in calendar-holidays.json."
+  },
+  "calendar": {
+    "id": "wheel-of-year",
+    "label": "Wheel of the Year",
+    "type": "solar-cycle",
+    "script": "Latin",
+    "description": "The Wheel of the Year is an annual cycle of eight seasonal festivals (Sabbats) observed in Wicca, Druidry, and many modern Pagan traditions. Four are 'cross-quarter' fire festivals tied to agricultural seasons; four are solar festivals at the solstices and equinoxes."
+  },
+  "months": [
+    {
+      "id": "samhain",
+      "order": 1,
+      "name": "Samhain",
+      "nativeName": "Samhain",
+      "pronounce": "SOW-in",
+      "date": "October 31 / November 1",
+      "type": "cross-quarter",
+      "season": "Autumn cross-quarter",
+      "element": "Earth",
+      "description": "The Celtic New Year and the beginning of the dark half of the year. The boundary between the living and the dead is thinnest. Ancestors are honored; divination is practiced.",
+      "associations": {
+        "direction": "North / Northwest",
+        "themes": [
+          "death and rebirth",
+          "ancestors",
+          "the veil",
+          "divination",
+          "endings"
+        ],
+        "deities": [
+          "The Crone",
+          "Hecate",
+          "The Morrigan",
+          "Hades",
+          "Osiris"
+        ],
+        "colors": [
+          "black",
+          "orange",
+          "deep red",
+          "purple"
+        ],
+        "herbs": [
+          "mugwort",
+          "wormwood",
+          "dittany of Crete",
+          "nightshade"
+        ]
+      }
+    },
+    {
+      "id": "yule",
+      "order": 2,
+      "name": "Yule (Winter Solstice)",
+      "nativeName": "Yule / Alban Arthan",
+      "date": "~December 21",
+      "type": "solar",
+      "season": "Winter solstice",
+      "element": "Earth",
+      "description": "The longest night and the rebirth of the Sun. The Oak King defeats the Holly King to begin the light's return. Log-burning, evergreen decoration, and candlelight vigils mark this Solar festival.",
+      "associations": {
+        "direction": "North",
+        "themes": [
+          "rebirth of the sun",
+          "hope",
+          "inner light",
+          "return of warmth",
+          "solstice"
+        ],
+        "deities": [
+          "The Oak King",
+          "Sol Invictus",
+          "Mithras",
+          "Odin / Father Christmas"
+        ],
+        "colors": [
+          "red",
+          "green",
+          "gold",
+          "white"
+        ],
+        "herbs": [
+          "holly",
+          "ivy",
+          "mistletoe",
+          "pine",
+          "frankincense"
+        ]
+      }
+    },
+    {
+      "id": "imbolc",
+      "order": 3,
+      "name": "Imbolc",
+      "nativeName": "Imbolc / Oimelc",
+      "date": "February 1–2",
+      "type": "cross-quarter",
+      "season": "Late winter cross-quarter",
+      "element": "Fire / Earth",
+      "description": "The first stirrings of spring. A festival of the returning light, purification, and the goddess Brigid. Corresponds to Candlemas in Christian tradition.",
+      "associations": {
+        "direction": "Northeast",
+        "themes": [
+          "new beginnings",
+          "purification",
+          "inspiration",
+          "hearth",
+          "healing"
+        ],
+        "deities": [
+          "Brigid / Bride",
+          "St. Brigid",
+          "The Maiden"
+        ],
+        "colors": [
+          "white",
+          "silver",
+          "pale yellow",
+          "pink"
+        ],
+        "herbs": [
+          "snowdrop",
+          "rosemary",
+          "angelica",
+          "basil"
+        ]
+      }
+    },
+    {
+      "id": "ostara",
+      "order": 4,
+      "name": "Ostara (Spring Equinox)",
+      "nativeName": "Ostara / Alban Eilir",
+      "date": "~March 20–21",
+      "type": "solar",
+      "season": "Spring equinox",
+      "element": "Air",
+      "description": "The Spring Equinox; equal day and night, balance of light and dark. Seeds of spring are planted, hares and eggs symbolize fertility. Named for the Germanic dawn goddess Ēostre.",
+      "associations": {
+        "direction": "East",
+        "themes": [
+          "balance",
+          "rebirth",
+          "fertility",
+          "dawn",
+          "new beginnings"
+        ],
+        "deities": [
+          "Ēostre",
+          "Persephone",
+          "The Maiden",
+          "Green Man"
+        ],
+        "colors": [
+          "pale green",
+          "yellow",
+          "lilac",
+          "pastel"
+        ],
+        "herbs": [
+          "violet",
+          "jasmine",
+          "daffodil",
+          "lavender"
+        ]
+      }
+    },
+    {
+      "id": "beltane",
+      "order": 5,
+      "name": "Beltane",
+      "nativeName": "Beltane / Bealtainn",
+      "date": "May 1",
+      "type": "cross-quarter",
+      "season": "Spring cross-quarter",
+      "element": "Fire",
+      "description": "The great Celtic fire festival celebrating the peak of spring and the beginning of summer. Union of the God and Goddess. Maypole dancing, bonfires, and the gathering of hawthorn (may) blossom.",
+      "associations": {
+        "direction": "Southeast",
+        "themes": [
+          "fertility",
+          "passion",
+          "union",
+          "abundance",
+          "sexuality",
+          "vitality"
+        ],
+        "deities": [
+          "The Green Man",
+          "Flora",
+          "Cernunnos",
+          "Aphrodite",
+          "Beltane Fire"
+        ],
+        "colors": [
+          "red",
+          "white",
+          "green",
+          "gold"
+        ],
+        "herbs": [
+          "hawthorn",
+          "rose",
+          "rowan",
+          "meadowsweet",
+          "woodruff"
+        ]
+      }
+    },
+    {
+      "id": "litha",
+      "order": 6,
+      "name": "Litha (Summer Solstice)",
+      "nativeName": "Litha / Alban Hefin / Midsummer",
+      "date": "~June 21",
+      "type": "solar",
+      "season": "Summer solstice",
+      "element": "Fire",
+      "description": "The longest day; the sun is at its zenith. The Holly King begins to reclaim power from the Oak King. A time of peak solar energy, magic, and celebration. Corresponds to Midsummer (Shakespeare's A Midsummer Night's Dream).",
+      "associations": {
+        "direction": "South",
+        "themes": [
+          "peak power",
+          "fullness",
+          "solar magic",
+          "fae",
+          "courage",
+          "strength"
+        ],
+        "deities": [
+          "Sol / Sun God",
+          "Lugh (early)",
+          "Ra",
+          "Apollo"
+        ],
+        "colors": [
+          "gold",
+          "yellow",
+          "orange",
+          "blue"
+        ],
+        "herbs": [
+          "St. John's Wort",
+          "lavender",
+          "chamomile",
+          "elderflower",
+          "fern seed"
+        ]
+      }
+    },
+    {
+      "id": "lughnasadh",
+      "order": 7,
+      "name": "Lughnasadh",
+      "nativeName": "Lughnasadh / Lammas",
+      "date": "August 1",
+      "type": "cross-quarter",
+      "season": "Autumn cross-quarter (first harvest)",
+      "element": "Earth / Fire",
+      "description": "The first harvest festival, celebrating grain and abundance. Named for the Celtic sun god Lugh, who ordained funeral games for his foster-mother Tailtiu. The first loaf of bread is baked from the new grain.",
+      "associations": {
+        "direction": "West / Southwest",
+        "themes": [
+          "first harvest",
+          "grain",
+          "sacrifice",
+          "abundance",
+          "skill",
+          "games"
+        ],
+        "deities": [
+          "Lugh",
+          "The Corn King",
+          "John Barleycorn",
+          "Demeter"
+        ],
+        "colors": [
+          "gold",
+          "orange",
+          "brown",
+          "yellow"
+        ],
+        "herbs": [
+          "wheat",
+          "sunflower",
+          "corn",
+          "calendula",
+          "nasturtium"
+        ]
+      }
+    },
+    {
+      "id": "mabon",
+      "order": 8,
+      "name": "Mabon (Autumn Equinox)",
+      "nativeName": "Mabon / Alban Elfed",
+      "date": "~September 22–23",
+      "type": "solar",
+      "season": "Autumn equinox",
+      "element": "Earth / Water",
+      "description": "The Autumn Equinox and second harvest. A time of balance and thanksgiving; day and night are equal. The God begins his descent into the Underworld. Grapes, corn, and root vegetables are harvested.",
+      "associations": {
+        "direction": "West",
+        "themes": [
+          "harvest",
+          "balance",
+          "gratitude",
+          "preparation for darkness",
+          "completion"
+        ],
+        "deities": [
+          "Mabon ap Modron",
+          "Persephone descending",
+          "The Morrigan",
+          "Dionysus"
+        ],
+        "colors": [
+          "deep red",
+          "brown",
+          "russet",
+          "purple",
+          "gold"
+        ],
+        "herbs": [
+          "ivy",
+          "oak",
+          "blackberry",
+          "rosehip",
+          "sage"
+        ]
+      }
+    }
+  ]
+}

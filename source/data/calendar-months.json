@@ -1,0 +1,379 @@
+{
+  "meta": {
+    "version": 1,
+    "notes": "Month-level correspondences and observances for the Calendar section.",
+    "links": "holidayIds map to entries in celestial-holidays.json"
+  },
+  "months": [
+    {
+      "id": "january",
+      "order": 1,
+      "name": "January",
+      "start": "01-01",
+      "end": "01-31",
+      "seasonNorth": "Winter",
+      "seasonSouth": "Summer",
+      "coreTheme": "Beginnings, thresholds, planning",
+      "associations": {
+        "planetId": "saturn",
+        "zodiacSignId": "capricorn",
+        "tarotCard": "The Devil",
+        "godId": "janus"
+      },
+      "events": [
+        {
+          "id": "january-threshold-rite",
+          "name": "Threshold Rite",
+          "date": "01-01",
+          "description": "Set year intentions and define a boundary/structure for one major goal.",
+          "associations": {
+            "godId": "janus",
+            "planetId": "saturn",
+            "tarotCard": "The Fool"
+          }
+        }
+      ],
+      "holidayIds": ["perihelion"]
+    },
+    {
+      "id": "february",
+      "order": 2,
+      "name": "February",
+      "start": "02-01",
+      "end": "02-28",
+      "seasonNorth": "Winter",
+      "seasonSouth": "Summer",
+      "coreTheme": "Purification, preparation, hidden momentum",
+      "associations": {
+        "planetId": "saturn",
+        "zodiacSignId": "aquarius",
+        "tarotCard": "The Star",
+        "godId": "uranus"
+      },
+      "events": [
+        {
+          "id": "february-clearing-work",
+          "name": "Cleansing & Clearing",
+          "date": "02-11",
+          "description": "Remove one recurring distraction and reset practical systems.",
+          "associations": {
+            "planetId": "saturn",
+            "tarotCard": "The Star",
+            "godId": "maat"
+          }
+        }
+      ],
+      "holidayIds": ["imbolc-cross-quarter"]
+    },
+    {
+      "id": "march",
+      "order": 3,
+      "name": "March",
+      "start": "03-01",
+      "end": "03-31",
+      "seasonNorth": "Spring",
+      "seasonSouth": "Autumn",
+      "coreTheme": "Initiation, momentum, first fire",
+      "associations": {
+        "planetId": "mars",
+        "zodiacSignId": "aries",
+        "tarotCard": "The Emperor",
+        "godId": "ares"
+      },
+      "events": [
+        {
+          "id": "march-action-cycle",
+          "name": "Action Cycle Start",
+          "date": "03-21",
+          "description": "Launch a focused 30-day push with daily effort tracking.",
+          "associations": {
+            "planetId": "mars",
+            "zodiacSignId": "aries",
+            "tarotCard": "The Emperor",
+            "godId": "ares"
+          }
+        }
+      ],
+      "holidayIds": ["march-equinox", "spring-eclipse-window"]
+    },
+    {
+      "id": "april",
+      "order": 4,
+      "name": "April",
+      "start": "04-01",
+      "end": "04-30",
+      "seasonNorth": "Spring",
+      "seasonSouth": "Autumn",
+      "coreTheme": "Grounding growth, material cultivation",
+      "associations": {
+        "planetId": "venus",
+        "zodiacSignId": "taurus",
+        "tarotCard": "The Hierophant",
+        "godId": "aphrodite"
+      },
+      "events": [
+        {
+          "id": "april-earth-offering",
+          "name": "Earth Offering",
+          "date": "04-18",
+          "description": "Dedicate one practical act to long-term stability and abundance.",
+          "associations": {
+            "planetId": "venus",
+            "zodiacSignId": "taurus",
+            "tarotCard": "The Hierophant",
+            "godId": "demeter"
+          }
+        }
+      ],
+      "holidayIds": ["spring-eclipse-window"]
+    },
+    {
+      "id": "may",
+      "order": 5,
+      "name": "May",
+      "start": "05-01",
+      "end": "05-31",
+      "seasonNorth": "Spring",
+      "seasonSouth": "Autumn",
+      "coreTheme": "Connection, exchange, and curiosity",
+      "associations": {
+        "planetId": "mercury",
+        "zodiacSignId": "gemini",
+        "tarotCard": "The Lovers",
+        "godId": "hermes"
+      },
+      "events": [
+        {
+          "id": "may-message-working",
+          "name": "Message Working",
+          "date": "05-14",
+          "description": "Refine communication in one key relationship or collaboration.",
+          "associations": {
+            "planetId": "mercury",
+            "zodiacSignId": "gemini",
+            "tarotCard": "The Lovers",
+            "godId": "hermes"
+          }
+        }
+      ],
+      "holidayIds": ["beltane-cross-quarter"]
+    },
+    {
+      "id": "june",
+      "order": 6,
+      "name": "June",
+      "start": "06-01",
+      "end": "06-30",
+      "seasonNorth": "Summer",
+      "seasonSouth": "Winter",
+      "coreTheme": "Nourishment, protection, emotional coherence",
+      "associations": {
+        "planetId": "luna",
+        "zodiacSignId": "cancer",
+        "tarotCard": "The Chariot",
+        "godId": "artemis"
+      },
+      "events": [
+        {
+          "id": "june-hearth-vow",
+          "name": "Hearth Vow",
+          "date": "06-20",
+          "description": "Commit to one practice that protects your inner and outer home.",
+          "associations": {
+            "planetId": "luna",
+            "zodiacSignId": "cancer",
+            "tarotCard": "The Chariot",
+            "godId": "isis"
+          }
+        }
+      ],
+      "holidayIds": ["june-solstice"]
+    },
+    {
+      "id": "july",
+      "order": 7,
+      "name": "July",
+      "start": "07-01",
+      "end": "07-31",
+      "seasonNorth": "Summer",
+      "seasonSouth": "Winter",
+      "coreTheme": "Radiance, leadership, visibility",
+      "associations": {
+        "planetId": "sol",
+        "zodiacSignId": "leo",
+        "tarotCard": "Strength",
+        "godId": "ra"
+      },
+      "events": [
+        {
+          "id": "july-solar-crowning",
+          "name": "Solar Crowning",
+          "date": "07-19",
+          "description": "Present one visible work publicly and receive clear feedback.",
+          "associations": {
+            "planetId": "sol",
+            "zodiacSignId": "leo",
+            "tarotCard": "Strength",
+            "godId": "ra"
+          }
+        }
+      ],
+      "holidayIds": ["sirius-rising-window"]
+    },
+    {
+      "id": "august",
+      "order": 8,
+      "name": "August",
+      "start": "08-01",
+      "end": "08-31",
+      "seasonNorth": "Summer",
+      "seasonSouth": "Winter",
+      "coreTheme": "Refinement, discipline, service",
+      "associations": {
+        "planetId": "mercury",
+        "zodiacSignId": "virgo",
+        "tarotCard": "The Hermit",
+        "godId": "thoth"
+      },
+      "events": [
+        {
+          "id": "august-harvest-ledger",
+          "name": "Harvest Ledger",
+          "date": "08-12",
+          "description": "Audit progress and simplify tools before the autumn cycle.",
+          "associations": {
+            "planetId": "mercury",
+            "zodiacSignId": "virgo",
+            "tarotCard": "The Hermit",
+            "godId": "thoth"
+          }
+        }
+      ],
+      "holidayIds": ["sirius-rising-window", "lughnasadh-cross-quarter"]
+    },
+    {
+      "id": "september",
+      "order": 9,
+      "name": "September",
+      "start": "09-01",
+      "end": "09-30",
+      "seasonNorth": "Autumn",
+      "seasonSouth": "Spring",
+      "coreTheme": "Balance, agreements, calibration",
+      "associations": {
+        "planetId": "venus",
+        "zodiacSignId": "libra",
+        "tarotCard": "Justice",
+        "godId": "maat"
+      },
+      "events": [
+        {
+          "id": "september-balance-work",
+          "name": "Balance Working",
+          "date": "09-23",
+          "description": "Rebalance effort across work, body, and relationships.",
+          "associations": {
+            "planetId": "venus",
+            "zodiacSignId": "libra",
+            "tarotCard": "Justice",
+            "godId": "maat"
+          }
+        }
+      ],
+      "holidayIds": ["september-equinox", "autumn-eclipse-window"]
+    },
+    {
+      "id": "october",
+      "order": 10,
+      "name": "October",
+      "start": "10-01",
+      "end": "10-31",
+      "seasonNorth": "Autumn",
+      "seasonSouth": "Spring",
+      "coreTheme": "Depth work, release, transformation",
+      "associations": {
+        "planetId": "mars",
+        "zodiacSignId": "scorpio",
+        "tarotCard": "Death",
+        "godId": "hades"
+      },
+      "events": [
+        {
+          "id": "october-shadow-ledger",
+          "name": "Shadow Ledger",
+          "date": "10-27",
+          "description": "Name one pattern to end and one to transmute.",
+          "associations": {
+            "planetId": "mars",
+            "zodiacSignId": "scorpio",
+            "tarotCard": "Death",
+            "godId": "hades"
+          }
+        }
+      ],
+      "holidayIds": ["autumn-eclipse-window", "samhain-cross-quarter"]
+    },
+    {
+      "id": "november",
+      "order": 11,
+      "name": "November",
+      "start": "11-01",
+      "end": "11-30",
+      "seasonNorth": "Autumn",
+      "seasonSouth": "Spring",
+      "coreTheme": "Meaning, direction, vision",
+      "associations": {
+        "planetId": "jupiter",
+        "zodiacSignId": "sagittarius",
+        "tarotCard": "Temperance",
+        "godId": "zeus"
+      },
+      "events": [
+        {
+          "id": "november-vision-arrow",
+          "name": "Vision Arrow",
+          "date": "11-22",
+          "description": "Choose one long-range objective and align this week to it.",
+          "associations": {
+            "planetId": "jupiter",
+            "zodiacSignId": "sagittarius",
+            "tarotCard": "Temperance",
+            "godId": "zeus"
+          }
+        }
+      ],
+      "holidayIds": ["samhain-cross-quarter", "leonids-peak"]
+    },
+    {
+      "id": "december",
+      "order": 12,
+      "name": "December",
+      "start": "12-01",
+      "end": "12-31",
+      "seasonNorth": "Winter",
+      "seasonSouth": "Summer",
+      "coreTheme": "Closure, stillness, and renewal",
+      "associations": {
+        "planetId": "saturn",
+        "zodiacSignId": "capricorn",
+        "tarotCard": "The Devil",
+        "godId": "kronos"
+      },
+      "events": [
+        {
+          "id": "december-year-seal",
+          "name": "Year Seal",
+          "date": "12-31",
+          "description": "Consolidate lessons, close open loops, and define the next threshold.",
+          "associations": {
+            "planetId": "saturn",
+            "zodiacSignId": "capricorn",
+            "tarotCard": "The World",
+            "godId": "saturn"
+          }
+        }
+      ],
+      "holidayIds": ["december-solstice", "geminids-peak"]
+    }
+  ]
+}

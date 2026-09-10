@@ -1,0 +1,54 @@
+{
+  "meta": {
+    "notes": "Decans reference sign IDs from signs.json to avoid duplicated sign metadata. Tarot-specific date ranges are stored here so tarot card timing does not depend on auto-generated zodiac slices."
+  },
+  "decans": [
+    { "id": "aries-1", "signId": "aries", "index": 1, "rulerPlanetId": "mars", "tarotMinorArcana": "2 of Wands", "dateStart": "03-21", "dateEnd": "03-30" },
+    { "id": "aries-2", "signId": "aries", "index": 2, "rulerPlanetId": "sol", "tarotMinorArcana": "3 of Wands", "dateStart": "03-31", "dateEnd": "04-10" },
+    { "id": "aries-3", "signId": "aries", "index": 3, "rulerPlanetId": "venus", "tarotMinorArcana": "4 of Wands", "dateStart": "04-11", "dateEnd": "04-20" },
+
+    { "id": "taurus-1", "signId": "taurus", "index": 1, "rulerPlanetId": "mercury", "tarotMinorArcana": "5 of Pentacles", "dateStart": "04-21", "dateEnd": "04-30" },
+    { "id": "taurus-2", "signId": "taurus", "index": 2, "rulerPlanetId": "luna", "tarotMinorArcana": "6 of Pentacles", "dateStart": "05-01", "dateEnd": "05-10" },
+    { "id": "taurus-3", "signId": "taurus", "index": 3, "rulerPlanetId": "saturn", "tarotMinorArcana": "7 of Pentacles", "dateStart": "05-11", "dateEnd": "05-20" },
+
+    { "id": "gemini-1", "signId": "gemini", "index": 1, "rulerPlanetId": "jupiter", "tarotMinorArcana": "8 of Swords", "dateStart": "05-21", "dateEnd": "05-31" },
+    { "id": "gemini-2", "signId": "gemini", "index": 2, "rulerPlanetId": "mars", "tarotMinorArcana": "9 of Swords", "dateStart": "06-01", "dateEnd": "06-10" },
+    { "id": "gemini-3", "signId": "gemini", "index": 3, "rulerPlanetId": "sol", "tarotMinorArcana": "10 of Swords", "dateStart": "06-11", "dateEnd": "06-20" },
+
+    { "id": "cancer-1", "signId": "cancer", "index": 1, "rulerPlanetId": "venus", "tarotMinorArcana": "2 of Cups", "dateStart": "06-21", "dateEnd": "07-01" },
+    { "id": "cancer-2", "signId": "cancer", "index": 2, "rulerPlanetId": "mercury", "tarotMinorArcana": "3 of Cups", "dateStart": "07-02", "dateEnd": "07-11" },
+    { "id": "cancer-3", "signId": "cancer", "index": 3, "rulerPlanetId": "luna", "tarotMinorArcana": "4 of Cups", "dateStart": "07-12", "dateEnd": "07-21" },
+
+    { "id": "leo-1", "signId": "leo", "index": 1, "rulerPlanetId": "saturn", "tarotMinorArcana": "5 of Wands", "dateStart": "07-22", "dateEnd": "08-01" },
+    { "id": "leo-2", "signId": "leo", "index": 2, "rulerPlanetId": "jupiter", "tarotMinorArcana": "6 of Wands", "dateStart": "08-02", "dateEnd": "08-11" },
+    { "id": "leo-3", "signId": "leo", "index": 3, "rulerPlanetId": "mars", "tarotMinorArcana": "7 of Wands", "dateStart": "08-12", "dateEnd": "08-22" },
+
+    { "id": "virgo-1", "signId": "virgo", "index": 1, "rulerPlanetId": "sol", "tarotMinorArcana": "8 of Pentacles", "dateStart": "08-23", "dateEnd": "09-01" },
+    { "id": "virgo-2", "signId": "virgo", "index": 2, "rulerPlanetId": "venus", "tarotMinorArcana": "9 of Pentacles", "dateStart": "09-02", "dateEnd": "09-11" },
+    { "id": "virgo-3", "signId": "virgo", "index": 3, "rulerPlanetId": "mercury", "tarotMinorArcana": "10 of Pentacles", "dateStart": "09-12", "dateEnd": "09-22" },
+
+    { "id": "libra-1", "signId": "libra", "index": 1, "rulerPlanetId": "luna", "tarotMinorArcana": "2 of Swords", "dateStart": "09-23", "dateEnd": "10-02" },
+    { "id": "libra-2", "signId": "libra", "index": 2, "rulerPlanetId": "saturn", "tarotMinorArcana": "3 of Swords", "dateStart": "10-03", "dateEnd": "10-12" },
+    { "id": "libra-3", "signId": "libra", "index": 3, "rulerPlanetId": "jupiter", "tarotMinorArcana": "4 of Swords", "dateStart": "10-13", "dateEnd": "10-22" },
+
+    { "id": "scorpio-1", "signId": "scorpio", "index": 1, "rulerPlanetId": "mars", "tarotMinorArcana": "5 of Cups", "dateStart": "10-23", "dateEnd": "11-01" },
+    { "id": "scorpio-2", "signId": "scorpio", "index": 2, "rulerPlanetId": "sol", "tarotMinorArcana": "6 of Cups", "dateStart": "11-02", "dateEnd": "11-12" },
+    { "id": "scorpio-3", "signId": "scorpio", "index": 3, "rulerPlanetId": "venus", "tarotMinorArcana": "7 of Cups", "dateStart": "11-13", "dateEnd": "11-22" },
+
+    { "id": "sagittarius-1", "signId": "sagittarius", "index": 1, "rulerPlanetId": "mercury", "tarotMinorArcana": "8 of Wands", "dateStart": "11-23", "dateEnd": "12-02" },
+    { "id": "sagittarius-2", "signId": "sagittarius", "index": 2, "rulerPlanetId": "luna", "tarotMinorArcana": "9 of Wands", "dateStart": "12-03", "dateEnd": "12-12" },
+    { "id": "sagittarius-3", "signId": "sagittarius", "index": 3, "rulerPlanetId": "saturn", "tarotMinorArcana": "10 of Wands", "dateStart": "12-13", "dateEnd": "12-21" },
+
+    { "id": "capricorn-1", "signId": "capricorn", "index": 1, "rulerPlanetId": "jupiter", "tarotMinorArcana": "2 of Pentacles", "dateStart": "12-22", "dateEnd": "12-30" },
+    { "id": "capricorn-2", "signId": "capricorn", "index": 2, "rulerPlanetId": "mars", "tarotMinorArcana": "3 of Pentacles", "dateStart": "12-31", "dateEnd": "01-09" },
+    { "id": "capricorn-3", "signId": "capricorn", "index": 3, "rulerPlanetId": "sol", "tarotMinorArcana": "4 of Pentacles", "dateStart": "01-10", "dateEnd": "01-19" },
+
+    { "id": "aquarius-1", "signId": "aquarius", "index": 1, "rulerPlanetId": "venus", "tarotMinorArcana": "5 of Swords", "dateStart": "01-20", "dateEnd": "01-29" },
+    { "id": "aquarius-2", "signId": "aquarius", "index": 2, "rulerPlanetId": "mercury", "tarotMinorArcana": "6 of Swords", "dateStart": "01-30", "dateEnd": "02-08" },
+    { "id": "aquarius-3", "signId": "aquarius", "index": 3, "rulerPlanetId": "luna", "tarotMinorArcana": "7 of Swords", "dateStart": "02-09", "dateEnd": "02-18" },
+
+    { "id": "pisces-1", "signId": "pisces", "index": 1, "rulerPlanetId": "saturn", "tarotMinorArcana": "8 of Cups", "dateStart": "02-19", "dateEnd": "02-28" },
+    { "id": "pisces-2", "signId": "pisces", "index": 2, "rulerPlanetId": "jupiter", "tarotMinorArcana": "9 of Cups", "dateStart": "03-01", "dateEnd": "03-11" },
+    { "id": "pisces-3", "signId": "pisces", "index": 3, "rulerPlanetId": "mars", "tarotMinorArcana": "10 of Cups", "dateStart": "03-11", "dateEnd": "03-20" }
+  ]
+}

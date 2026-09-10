@@ -1,0 +1,230 @@
+{
+  "meta": {
+    "description": "Cube of Space wall and edge correspondences adapted from the cube Python module.",
+    "sources": [
+      "cube/attributes.py",
+      "Hermetic Qabalah"
+    ],
+    "notes": "The twelve simple letters map to the 12 edges of the Cube of Space. Walls retain elemental and planetary correspondences."
+  },
+  "center": {
+    "name": "Primal Point",
+    "letter": "Tav",
+    "hebrewLetterId": "tav",
+    "element": "Spirit",
+    "keywords": [
+      "Unity",
+      "Source",
+      "All"
+    ],
+    "description": "Primal point at the center of the Cube of Space - synthesis of all forces",
+    "associations": {
+      "hebrewLetterId": "tav",
+      "kabbalahPathNumber": 32,
+      "tarotCard": "The World",
+      "tarotTrumpNumber": 21
+    }
+  },
+  "edges": [
+    {
+      "id": "north-east",
+      "name": "North East",
+      "walls": ["north", "east"],
+      "hebrewLetterId": "he"
+    },
+    {
+      "id": "south-east",
+      "name": "South East",
+      "walls": ["south", "east"],
+      "hebrewLetterId": "vav"
+    },
+    {
+      "id": "east-above",
+      "name": "East Above",
+      "walls": ["east", "above"],
+      "hebrewLetterId": "zayin"
+    },
+    {
+      "id": "east-below",
+      "name": "East Below",
+      "walls": ["east", "below"],
+      "hebrewLetterId": "het"
+    },
+    {
+      "id": "north-above",
+      "name": "North Above",
+      "walls": ["north", "above"],
+      "hebrewLetterId": "tet"
+    },
+    {
+      "id": "north-below",
+      "name": "North Below",
+      "walls": ["north", "below"],
+      "hebrewLetterId": "yod"
+    },
+    {
+      "id": "north-west",
+      "name": "North West",
+      "walls": ["north", "west"],
+      "hebrewLetterId": "lamed"
+    },
+    {
+      "id": "south-west",
+      "name": "South West",
+      "walls": ["south", "west"],
+      "hebrewLetterId": "nun"
+    },
+    {
+      "id": "west-above",
+      "name": "West Above",
+      "walls": ["west", "above"],
+      "hebrewLetterId": "samekh"
+    },
+    {
+      "id": "west-below",
+      "name": "West Below",
+      "walls": ["west", "below"],
+      "hebrewLetterId": "ayin"
+    },
+    {
+      "id": "south-above",
+      "name": "South Above",
+      "walls": ["south", "above"],
+      "hebrewLetterId": "tsadi"
+    },
+    {
+      "id": "south-below",
+      "name": "South Below",
+      "walls": ["south", "below"],
+      "hebrewLetterId": "qof"
+    }
+  ],
+  "walls": [
+    {
+      "id": "north",
+      "name": "North",
+      "hebrewLetterId": "pe",
+      "side": "north",
+      "opposite": "South",
+      "oppositeWallId": "south",
+      "element": "Air",
+      "planet": "Mars",
+      "archangel": "Samael",
+      "keywords": ["Thought", "Communication", "Intellect"],
+      "description": "Northern Wall - Air element, Mars correspondence",
+      "associations": {
+        "planetId": "mars",
+        "godName": "Samael",
+        "hebrewLetterId": "pe",
+        "kabbalahPathNumber": 27,
+        "tarotCard": "The Tower",
+        "tarotTrumpNumber": 16
+      }
+    },
+    {
+      "id": "south",
+      "name": "South",
+      "hebrewLetterId": "resh",
+      "side": "south",
+      "opposite": "North",
+      "oppositeWallId": "north",
+      "element": "Fire",
+      "planet": "Sun",
+      "archangel": "Michael",
+      "keywords": ["Will", "Action", "Passion"],
+      "description": "Southern Wall - Fire element, Sun correspondence",
+      "associations": {
+        "planetId": "sol",
+        "godName": "Michael",
+        "hebrewLetterId": "resh",
+        "kabbalahPathNumber": 30,
+        "tarotCard": "The Sun",
+        "tarotTrumpNumber": 19
+      }
+    },
+    {
+      "id": "east",
+      "name": "East",
+      "hebrewLetterId": "dalet",
+      "side": "east",
+      "opposite": "West",
+      "oppositeWallId": "west",
+      "element": "Air",
+      "planet": "Venus",
+      "archangel": "Haniel",
+      "keywords": ["Dawn", "Beginning", "Ascent"],
+      "description": "Eastern Wall - Air element, new beginnings",
+      "associations": {
+        "planetId": "venus",
+        "godName": "Haniel",
+        "hebrewLetterId": "dalet",
+        "kabbalahPathNumber": 14,
+        "tarotCard": "The Empress",
+        "tarotTrumpNumber": 3
+      }
+    },
+    {
+      "id": "west",
+      "name": "West",
+      "hebrewLetterId": "kaf",
+      "side": "west",
+      "opposite": "East",
+      "oppositeWallId": "east",
+      "element": "Water",
+      "planet": "Jupiter",
+      "archangel": "Tzadkiel",
+      "keywords": ["Emotion", "Decline", "Closure"],
+      "description": "Western Wall - Water element, Jupiter correspondence",
+      "associations": {
+        "planetId": "jupiter",
+        "godName": "Tzadkiel",
+        "hebrewLetterId": "kaf",
+        "kabbalahPathNumber": 21,
+        "tarotCard": "Wheel of Fortune",
+        "tarotTrumpNumber": 10
+      }
+    },
+    {
+      "id": "above",
+      "name": "Above",
+      "hebrewLetterId": "bet",
+      "side": "above",
+      "opposite": "Below",
+      "oppositeWallId": "below",
+      "element": "Fire",
+      "planet": "Mercury",
+      "archangel": "Raphael",
+      "keywords": ["Heaven", "Spirit", "Light"],
+      "description": "Upper Wall - Fire element, Mercury correspondence",
+      "associations": {
+        "planetId": "mercury",
+        "godName": "Raphael",
+        "hebrewLetterId": "bet",
+        "kabbalahPathNumber": 12,
+        "tarotCard": "The Magician",
+        "tarotTrumpNumber": 1
+      }
+    },
+    {
+      "id": "below",
+      "name": "Below",
+      "hebrewLetterId": "gimel",
+      "side": "below",
+      "opposite": "Above",
+      "oppositeWallId": "above",
+      "element": "Earth",
+      "planet": "Luna",
+      "archangel": "Gabriel",
+      "keywords": ["Matter", "Foundation", "Manifestation"],
+      "description": "Lower Wall - Earth element, Luna correspondence",
+      "associations": {
+        "planetId": "luna",
+        "godName": "Gabriel",
+        "hebrewLetterId": "gimel",
+        "kabbalahPathNumber": 13,
+        "tarotCard": "The High Priestess",
+        "tarotTrumpNumber": 2
+      }
+    }
+  ]
+}

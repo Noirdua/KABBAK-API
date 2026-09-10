@@ -1,0 +1,1673 @@
+{
+  "meta": {
+    "version": 1,
+    "notes": "Unified holiday repository across Gregorian, Hebrew, Islamic, and Wheel calendars. Convert via selected Gregorian reference year."
+  },
+  "holidays": [
+    {
+      "id": "gregorian-lughnasadh-cross-quarter",
+      "calendarId": "gregorian",
+      "monthId": "august",
+      "name": "Lughnasadh Cross-Quarter",
+      "dateText": "08-01 to 08-02",
+      "day": 1,
+      "monthDayStart": "08-01",
+      "description": "Harvest threshold between solstice and equinox.",
+      "associations": {
+        "planetId": "mercury",
+        "zodiacSignId": "leo",
+        "tarotCard": "The Hermit",
+        "godId": "thoth"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "gregorian-december-solstice",
+      "calendarId": "gregorian",
+      "monthId": "december",
+      "name": "December Solstice",
+      "dateText": "12-21",
+      "day": 21,
+      "monthDayStart": "12-21",
+      "description": "Shortest day in the northern hemisphere; longest in the southern hemisphere.",
+      "associations": {
+        "planetId": "sol",
+        "zodiacSignId": "capricorn",
+        "tarotCard": "The World",
+        "godId": "saturn"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-geminids-peak",
+      "calendarId": "gregorian",
+      "monthId": "december",
+      "name": "Geminids Meteor Peak",
+      "dateText": "12-14",
+      "day": 14,
+      "monthDayStart": "12-14",
+      "description": "Peak activity of the Geminids meteor shower.",
+      "associations": {
+        "planetId": "mercury",
+        "zodiacSignId": "gemini",
+        "tarotCard": "The Lovers",
+        "godId": "hermes"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-imbolc-cross-quarter",
+      "calendarId": "gregorian",
+      "monthId": "february",
+      "name": "Imbolc Cross-Quarter",
+      "dateText": "02-01 to 02-02",
+      "day": 1,
+      "monthDayStart": "02-01",
+      "description": "Seasonal threshold between winter solstice and spring equinox.",
+      "associations": {
+        "planetId": "luna",
+        "zodiacSignId": "aquarius",
+        "tarotCard": "The Star",
+        "godId": "hecate"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "gregorian-perihelion",
+      "calendarId": "gregorian",
+      "monthId": "january",
+      "name": "Earth Perihelion",
+      "dateText": "01-03",
+      "day": 3,
+      "monthDayStart": "01-03",
+      "description": "Earth reaches its closest orbital point to the Sun.",
+      "associations": {
+        "planetId": "sol",
+        "tarotCard": "The Sun",
+        "godId": "ra"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-sirius-rising-window",
+      "calendarId": "gregorian",
+      "monthId": "july",
+      "name": "Sirius Rising Window",
+      "dateText": "07-20 to 08-12",
+      "day": 20,
+      "monthDayStart": "07-20",
+      "description": "Heliacal rising period of Sirius in many northern latitudes.",
+      "associations": {
+        "planetId": "sol",
+        "zodiacSignId": "leo",
+        "tarotCard": "Strength",
+        "godId": "isis"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "gregorian-june-solstice",
+      "calendarId": "gregorian",
+      "monthId": "june",
+      "name": "June Solstice",
+      "dateText": "06-21",
+      "day": 21,
+      "monthDayStart": "06-21",
+      "description": "Longest day in the northern hemisphere; shortest in the southern hemisphere.",
+      "associations": {
+        "planetId": "sol",
+        "zodiacSignId": "cancer",
+        "tarotCard": "The Sun",
+        "godId": "ra"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-march-equinox",
+      "calendarId": "gregorian",
+      "monthId": "march",
+      "name": "March Equinox",
+      "dateText": "03-20",
+      "day": 20,
+      "monthDayStart": "03-20",
+      "description": "Equal day and night; marks spring in the north and autumn in the south.",
+      "associations": {
+        "planetId": "sol",
+        "zodiacSignId": "aries",
+        "tarotCard": "The Emperor",
+        "godId": "maat"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-spring-eclipse-window",
+      "calendarId": "gregorian",
+      "monthId": "march",
+      "name": "Spring Eclipse Window",
+      "dateText": "03-15 to 04-15",
+      "day": 15,
+      "monthDayStart": "03-15",
+      "description": "Typical annual window for paired solar/lunar eclipses near nodal alignments.",
+      "associations": {
+        "planetId": "luna",
+        "zodiacSignId": "aries",
+        "tarotCard": "The Moon",
+        "godId": "thoth"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "gregorian-beltane-cross-quarter",
+      "calendarId": "gregorian",
+      "monthId": "may",
+      "name": "Beltane Cross-Quarter",
+      "dateText": "05-01 to 05-02",
+      "day": 1,
+      "monthDayStart": "05-01",
+      "description": "Fertility and fire threshold between equinox and solstice.",
+      "associations": {
+        "planetId": "venus",
+        "zodiacSignId": "taurus",
+        "tarotCard": "The Empress",
+        "godId": "aphrodite"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "gregorian-leonids-peak",
+      "calendarId": "gregorian",
+      "monthId": "november",
+      "name": "Leonids Meteor Peak",
+      "dateText": "11-17",
+      "day": 17,
+      "monthDayStart": "11-17",
+      "description": "Peak of the Leonids meteor shower under dark skies.",
+      "associations": {
+        "planetId": "jupiter",
+        "zodiacSignId": "sagittarius",
+        "tarotCard": "Temperance",
+        "godId": "zeus"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-samhain-cross-quarter",
+      "calendarId": "gregorian",
+      "monthId": "october",
+      "name": "Samhain Cross-Quarter",
+      "dateText": "10-31 to 11-01",
+      "day": 31,
+      "monthDayStart": "10-31",
+      "description": "Threshold of deep autumn and ancestral observance in many traditions.",
+      "associations": {
+        "planetId": "saturn",
+        "zodiacSignId": "scorpio",
+        "tarotCard": "Death",
+        "godId": "hades"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "gregorian-autumn-eclipse-window",
+      "calendarId": "gregorian",
+      "monthId": "september",
+      "name": "Autumn Eclipse Window",
+      "dateText": "09-15 to 10-15",
+      "day": 15,
+      "monthDayStart": "09-15",
+      "description": "Typical annual window for eclipse pairings near opposite nodal season.",
+      "associations": {
+        "planetId": "luna",
+        "zodiacSignId": "libra",
+        "tarotCard": "The Moon",
+        "godId": "anubis"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "gregorian-september-equinox",
+      "calendarId": "gregorian",
+      "monthId": "september",
+      "name": "September Equinox",
+      "dateText": "09-22",
+      "day": 22,
+      "monthDayStart": "09-22",
+      "description": "Equal day and night; marks autumn in the north and spring in the south.",
+      "associations": {
+        "planetId": "sol",
+        "zodiacSignId": "libra",
+        "tarotCard": "Justice",
+        "godId": "maat"
+      },
+      "source": "celestial-holidays.holidays[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-new-year-day",
+      "calendarId": "gregorian",
+      "monthId": "january",
+      "name": "New Year's Day",
+      "dateText": "01-01",
+      "day": 1,
+      "monthDayStart": "01-01",
+      "description": "First day of the Gregorian civil year.",
+      "associations": {},
+      "source": "popular-holidays.curated",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-good-friday",
+      "calendarId": "gregorian",
+      "monthId": "movable",
+      "name": "Good Friday",
+      "dateText": "Moveable Friday before Easter (March/April)",
+      "day": null,
+      "dateRule": "gregorian-good-friday",
+      "description": "Christian observance commemorating the crucifixion of Jesus.",
+      "associations": {},
+      "source": "popular-holidays.curated",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-easter-sunday",
+      "calendarId": "gregorian",
+      "monthId": "movable",
+      "name": "Easter Sunday",
+      "dateText": "Moveable Sunday (March/April)",
+      "day": null,
+      "dateRule": "gregorian-easter-sunday",
+      "description": "Christian feast celebrating the resurrection of Jesus.",
+      "associations": {},
+      "source": "popular-holidays.curated",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-halloween",
+      "calendarId": "gregorian",
+      "monthId": "october",
+      "name": "Halloween",
+      "dateText": "10-31",
+      "day": 31,
+      "monthDayStart": "10-31",
+      "description": "Popular autumn festival observed on October 31.",
+      "associations": {},
+      "source": "popular-holidays.curated",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-thanksgiving-us",
+      "calendarId": "gregorian",
+      "monthId": "movable",
+      "name": "Thanksgiving (US)",
+      "dateText": "4th Thursday of November",
+      "day": null,
+      "dateRule": "gregorian-thanksgiving-us",
+      "description": "US harvest holiday observed on the fourth Thursday in November.",
+      "associations": {},
+      "source": "popular-holidays.curated",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-christmas-eve",
+      "calendarId": "gregorian",
+      "monthId": "december",
+      "name": "Christmas Eve",
+      "dateText": "12-24",
+      "day": 24,
+      "monthDayStart": "12-24",
+      "description": "Evening before Christmas Day, widely observed globally.",
+      "associations": {},
+      "source": "popular-holidays.curated",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-christmas-day",
+      "calendarId": "gregorian",
+      "monthId": "december",
+      "name": "Christmas Day",
+      "dateText": "12-25",
+      "day": 25,
+      "monthDayStart": "12-25",
+      "description": "Widely observed Christian and cultural holiday on December 25.",
+      "associations": {},
+      "source": "popular-holidays.curated",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-boxing-day",
+      "calendarId": "gregorian",
+      "monthId": "december",
+      "name": "Boxing Day",
+      "dateText": "12-26",
+      "day": 26,
+      "monthDayStart": "12-26",
+      "description": "Public holiday observed in many countries on December 26.",
+      "associations": {},
+      "source": "popular-holidays.curated",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "gregorian-new-years-eve",
+      "calendarId": "gregorian",
+      "monthId": "december",
+      "name": "New Year's Eve",
+      "dateText": "12-31",
+      "day": 31,
+      "monthDayStart": "12-31",
+      "description": "Last day of the Gregorian civil year.",
+      "associations": {},
+      "source": "popular-holidays.curated",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-adar-ii-2-purim",
+      "calendarId": "hebrew",
+      "monthId": "adar-ii",
+      "name": "Purim",
+      "dateText": "14 Adar II",
+      "day": 14,
+      "description": "Purim celebrations in leap years.",
+      "associations": {
+        "zodiacSignId": "pisces",
+        "hebrewLetterId": "qof"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-adar-ii-1-ta-anit-esther",
+      "calendarId": "hebrew",
+      "monthId": "adar-ii",
+      "name": "Ta'anit Esther",
+      "dateText": "13 Adar II",
+      "day": 13,
+      "description": "Fast of Esther.",
+      "associations": {
+        "zodiacSignId": "pisces",
+        "hebrewLetterId": "qof"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-adar-2-purim",
+      "calendarId": "hebrew",
+      "monthId": "adar",
+      "name": "Purim",
+      "dateText": "14 Adar",
+      "day": 14,
+      "description": "Joyful holiday celebrating the salvation of the Jews in Persia; megillah reading, costumes, gifts.",
+      "associations": {
+        "zodiacSignId": "pisces",
+        "hebrewLetterId": "qof"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-adar-3-shushan-purim",
+      "calendarId": "hebrew",
+      "monthId": "adar",
+      "name": "Shushan Purim",
+      "dateText": "15 Adar",
+      "day": 15,
+      "description": "Purim as celebrated in walled cities.",
+      "associations": {
+        "zodiacSignId": "pisces",
+        "hebrewLetterId": "qof"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-adar-1-ta-anit-esther",
+      "calendarId": "hebrew",
+      "monthId": "adar",
+      "name": "Ta'anit Esther",
+      "dateText": "13 Adar",
+      "day": 13,
+      "description": "Fast of Esther, the day before Purim.",
+      "associations": {
+        "zodiacSignId": "pisces",
+        "hebrewLetterId": "qof"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-av-1-tisha-b-av",
+      "calendarId": "hebrew",
+      "monthId": "av",
+      "name": "Tisha B'Av",
+      "dateText": "9 Av",
+      "day": 9,
+      "description": "Saddest day on the Jewish calendar; mourns destruction of both Temples and other calamities.",
+      "associations": {
+        "zodiacSignId": "leo",
+        "hebrewLetterId": "tet"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-av-2-tu-b-av",
+      "calendarId": "hebrew",
+      "monthId": "av",
+      "name": "Tu B'Av",
+      "dateText": "15 Av",
+      "day": 15,
+      "description": "Minor holiday; traditionally a day for finding one's soulmate.",
+      "associations": {
+        "zodiacSignId": "leo",
+        "hebrewLetterId": "tet"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-elul-2-daily-shofar-blowing",
+      "calendarId": "hebrew",
+      "monthId": "elul",
+      "name": "Daily Shofar blowing",
+      "dateText": "1–29 Elul",
+      "day": 1,
+      "description": "Shofar sounded every morning to call to repentance.",
+      "associations": {
+        "zodiacSignId": "virgo",
+        "hebrewLetterId": "yod"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "hebrew-elul-1-selichot-penitential-prayers",
+      "calendarId": "hebrew",
+      "monthId": "elul",
+      "name": "Selichot (penitential prayers)",
+      "dateText": "Throughout Elul",
+      "day": null,
+      "description": "Prayers of forgiveness recited in preparation for Rosh Hashanah.",
+      "associations": {
+        "zodiacSignId": "virgo",
+        "hebrewLetterId": "yod"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "hebrew-iyar-3-lag-baomer",
+      "calendarId": "hebrew",
+      "monthId": "iyar",
+      "name": "Lag BaOmer",
+      "dateText": "18 Iyar",
+      "day": 18,
+      "description": "33rd day of the Omer count; bonfire celebrations.",
+      "associations": {
+        "zodiacSignId": "taurus",
+        "hebrewLetterId": "vav"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-iyar-2-yom-ha-atzmaut",
+      "calendarId": "hebrew",
+      "monthId": "iyar",
+      "name": "Yom Ha'atzmaut",
+      "dateText": "5 Iyar",
+      "day": 5,
+      "description": "Israeli Independence Day.",
+      "associations": {
+        "zodiacSignId": "taurus",
+        "hebrewLetterId": "vav"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-iyar-1-yom-hashoah",
+      "calendarId": "hebrew",
+      "monthId": "iyar",
+      "name": "Yom HaShoah",
+      "dateText": "27 Nisan / early Iyar",
+      "day": 27,
+      "description": "Holocaust Remembrance Day.",
+      "associations": {
+        "zodiacSignId": "taurus",
+        "hebrewLetterId": "vav"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "hebrew-kislev-1-hanukkah-begins",
+      "calendarId": "hebrew",
+      "monthId": "kislev",
+      "name": "Hanukkah begins",
+      "dateText": "25 Kislev",
+      "day": 25,
+      "description": "Eight-day festival of lights commemorating rededication of the Temple; lighting the Hanukkiah.",
+      "associations": {
+        "zodiacSignId": "sagittarius",
+        "hebrewLetterId": "samekh"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-nisan-2-counting-of-the-omer-begins",
+      "calendarId": "hebrew",
+      "monthId": "nisan",
+      "name": "Counting of the Omer begins",
+      "dateText": "16 Nisan",
+      "day": 16,
+      "description": "49-day count linking Passover to Shavuot.",
+      "associations": {
+        "zodiacSignId": "aries",
+        "hebrewLetterId": "he"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-nisan-3-last-day-of-passover",
+      "calendarId": "hebrew",
+      "monthId": "nisan",
+      "name": "Last day of Passover",
+      "dateText": "22 Nisan",
+      "day": 22,
+      "description": "Concludes the Passover festival.",
+      "associations": {
+        "zodiacSignId": "aries",
+        "hebrewLetterId": "he"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-nisan-1-passover-pesach-seder",
+      "calendarId": "hebrew",
+      "monthId": "nisan",
+      "name": "Passover (Pesach) — Seder",
+      "dateText": "15 Nisan",
+      "day": 15,
+      "description": "Eight-day festival commemorating the Exodus from Egypt.",
+      "associations": {
+        "zodiacSignId": "aries",
+        "hebrewLetterId": "he"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-shvat-1-tu-b-shvat",
+      "calendarId": "hebrew",
+      "monthId": "shvat",
+      "name": "Tu B'Shvat",
+      "dateText": "15 Shvat",
+      "day": 15,
+      "description": "New Year of the Trees; fruit trees wake; associated with Kabbalistic 'Seder of the Four Worlds.'",
+      "associations": {
+        "zodiacSignId": "aquarius",
+        "hebrewLetterId": "tsadi"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-sivan-1-shavuot",
+      "calendarId": "hebrew",
+      "monthId": "sivan",
+      "name": "Shavuot",
+      "dateText": "6 Sivan",
+      "day": 6,
+      "description": "Feast of Weeks; celebrates the giving of the Torah and the first fruits harvest.",
+      "associations": {
+        "zodiacSignId": "gemini",
+        "hebrewLetterId": "zayin"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-tammuz-1-17th-of-tammuz",
+      "calendarId": "hebrew",
+      "monthId": "tammuz",
+      "name": "17th of Tammuz",
+      "dateText": "17 Tammuz",
+      "day": 17,
+      "description": "Fast day commemorating the breaching of Jerusalem's walls. Begins the Three Weeks of mourning.",
+      "associations": {
+        "zodiacSignId": "cancer",
+        "hebrewLetterId": "het"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-tevet-2-10th-of-tevet",
+      "calendarId": "hebrew",
+      "monthId": "tevet",
+      "name": "10th of Tevet",
+      "dateText": "10 Tevet",
+      "day": 10,
+      "description": "Fast day marking the Babylonian siege of Jerusalem.",
+      "associations": {
+        "zodiacSignId": "capricorn",
+        "hebrewLetterId": "ayin"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "hebrew-tevet-1-hanukkah-concludes",
+      "calendarId": "hebrew",
+      "monthId": "tevet",
+      "name": "Hanukkah concludes",
+      "dateText": "2–3 Tevet",
+      "day": 2,
+      "description": "Final days of the Festival of Lights.",
+      "associations": {
+        "zodiacSignId": "capricorn",
+        "hebrewLetterId": "ayin"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "hebrew-tishrei-1-rosh-hashanah",
+      "calendarId": "hebrew",
+      "monthId": "tishrei",
+      "name": "Rosh Hashanah",
+      "dateText": "1–2 Tishrei",
+      "day": 1,
+      "description": "Jewish New Year; beginning of the Ten Days of Repentance.",
+      "associations": {
+        "zodiacSignId": "libra",
+        "hebrewLetterId": "lamed"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "hebrew-tishrei-4-shemini-atzeret-simchat-torah",
+      "calendarId": "hebrew",
+      "monthId": "tishrei",
+      "name": "Shemini Atzeret / Simchat Torah",
+      "dateText": "22–23 Tishrei",
+      "day": 22,
+      "description": "Conclusion of Sukkot; celebrates completing the annual Torah reading cycle.",
+      "associations": {
+        "zodiacSignId": "libra",
+        "hebrewLetterId": "lamed"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "hebrew-tishrei-3-sukkot",
+      "calendarId": "hebrew",
+      "monthId": "tishrei",
+      "name": "Sukkot",
+      "dateText": "15–21 Tishrei",
+      "day": 15,
+      "description": "Feast of Tabernacles; seven-day harvest festival in temporary booths.",
+      "associations": {
+        "zodiacSignId": "libra",
+        "hebrewLetterId": "lamed"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "hebrew-tishrei-2-yom-kippur",
+      "calendarId": "hebrew",
+      "monthId": "tishrei",
+      "name": "Yom Kippur",
+      "dateText": "10 Tishrei",
+      "day": 10,
+      "description": "Day of Atonement; holiest day of the year. Full-day fast.",
+      "associations": {
+        "zodiacSignId": "libra",
+        "hebrewLetterId": "lamed"
+      },
+      "source": "hebrew-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "islamic-dhu-al-hijja-1-day-of-arafah",
+      "calendarId": "islamic",
+      "monthId": "dhu-al-hijja",
+      "name": "Day of Arafah",
+      "dateText": "9 Dhu al-Hijja",
+      "day": 9,
+      "description": "Most important day of Hajj; pilgrims stand in prayer at the plain of Arafah. Voluntary fasting recommended for non-pilgrims.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "islamic-dhu-al-hijja-3-days-of-tashriq",
+      "calendarId": "islamic",
+      "monthId": "dhu-al-hijja",
+      "name": "Days of Tashriq",
+      "dateText": "11–13 Dhu al-Hijja",
+      "day": 11,
+      "description": "Final days of the Hajj rites; pilgrims complete the Stoning of the Devil ritual.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "islamic-dhu-al-hijja-2-eid-al-adha",
+      "calendarId": "islamic",
+      "monthId": "dhu-al-hijja",
+      "name": "Eid al-Adha",
+      "dateText": "10 Dhu al-Hijja",
+      "day": 10,
+      "description": "Festival of Sacrifice commemorating Ibrahim's willingness to sacrifice his son. Animal sacrifice and sharing of meat with the poor.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "islamic-dhu-al-qada-1-pilgrims-travel-to-mecca",
+      "calendarId": "islamic",
+      "monthId": "dhu-al-qada",
+      "name": "Pilgrims travel to Mecca",
+      "dateText": "Throughout Dhu al-Qada",
+      "day": null,
+      "description": "Preparation month for the Hajj pilgrimage in Dhu al-Hijja.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "islamic-muharram-2-ashura",
+      "calendarId": "islamic",
+      "monthId": "muharram",
+      "name": "Ashura",
+      "dateText": "10 Muharram",
+      "day": 10,
+      "description": "For Sunni Muslims: Moses' fast of gratitude; recommended fast. For Shia Muslims: day of mourning for the martyrdom of Husayn ibn Ali at Karbala.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "islamic-muharram-1-islamic-new-year-ras-as-sana",
+      "calendarId": "islamic",
+      "monthId": "muharram",
+      "name": "Islamic New Year (Ras as-Sana)",
+      "dateText": "1 Muharram",
+      "day": 1,
+      "description": "Beginning of the Hijri new year.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "islamic-rabi-al-awwal-1-mawlid-al-nabi",
+      "calendarId": "islamic",
+      "monthId": "rabi-al-awwal",
+      "name": "Mawlid al-Nabi",
+      "dateText": "12 Rabi' al-Awwal",
+      "day": 12,
+      "description": "Celebration of the birth of the Prophet Muhammad. Widely observed with prayers, gatherings, and processions.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "islamic-rajab-1-laylat-al-mi-raj-isra-wal-mi-raj",
+      "calendarId": "islamic",
+      "monthId": "rajab",
+      "name": "Laylat al-Mi'raj (Isra wal Mi'raj)",
+      "dateText": "27 Rajab",
+      "day": 27,
+      "description": "Commemorates the Prophet Muhammad's miraculous night journey to Jerusalem and ascension to the heavens.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "islamic-ramadan-3-eid-al-fitr",
+      "calendarId": "islamic",
+      "monthId": "ramadan",
+      "name": "Eid al-Fitr",
+      "dateText": "1 Shawwal (end of Ramadan)",
+      "day": 1,
+      "description": "Festival of Breaking the Fast; begins at the sighting of the new moon after Ramadan.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "islamic-ramadan-2-laylat-al-qadr-night-of-power",
+      "calendarId": "islamic",
+      "monthId": "ramadan",
+      "name": "Laylat al-Qadr (Night of Power)",
+      "dateText": "One of the last 10 odd nights",
+      "day": 10,
+      "description": "Night on which the Quran was first revealed; considered the most blessed night of the year.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "islamic-ramadan-1-ramadan-fast-begins",
+      "calendarId": "islamic",
+      "monthId": "ramadan",
+      "name": "Ramadan Fast begins",
+      "dateText": "1 Ramadan",
+      "day": 1,
+      "description": "Month-long obligatory fast from dawn to sunset; intensified prayer, Quran recitation, charity.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "islamic-shaban-1-laylat-al-bara-at-night-of-records",
+      "calendarId": "islamic",
+      "monthId": "shaban",
+      "name": "Laylat al-Bara'at (Night of Records)",
+      "dateText": "15 Sha'ban",
+      "day": 15,
+      "description": "Night believed to be when God decrees the fate of each person for the coming year; many observe voluntary fasting and prayer.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "islamic-shawwal-1-eid-al-fitr",
+      "calendarId": "islamic",
+      "monthId": "shawwal",
+      "name": "Eid al-Fitr",
+      "dateText": "1 Shawwal",
+      "day": 1,
+      "description": "Three-day celebration ending Ramadan; prayers, feasting, gifts, and charity.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "islamic-shawwal-2-six-days-of-shawwal-optional-fast",
+      "calendarId": "islamic",
+      "monthId": "shawwal",
+      "name": "Six Days of Shawwal (optional fast)",
+      "dateText": "2–7 Shawwal",
+      "day": 2,
+      "description": "Recommended voluntary fast of six days which completes a full year of fasting in reward.",
+      "associations": {},
+      "source": "islamic-calendar.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "wheel-beltane-1-beltane-bonfire",
+      "calendarId": "wheel-of-year",
+      "monthId": "beltane",
+      "name": "Beltane Bonfire",
+      "dateText": "May 1",
+      "day": 1,
+      "monthDayStart": "05-01",
+      "description": "Leap over or dance around a bonfire for purification and vitality.",
+      "associations": {
+        "direction": "Southeast",
+        "themes": [
+          "fertility",
+          "passion",
+          "union",
+          "abundance",
+          "sexuality",
+          "vitality"
+        ],
+        "deities": [
+          "The Green Man",
+          "Flora",
+          "Cernunnos",
+          "Aphrodite",
+          "Beltane Fire"
+        ],
+        "colors": [
+          "red",
+          "white",
+          "green",
+          "gold"
+        ],
+        "herbs": [
+          "hawthorn",
+          "rose",
+          "rowan",
+          "meadowsweet",
+          "woodruff"
+        ],
+        "element": "Fire"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "wheel-beltane-2-maypole-dance",
+      "calendarId": "wheel-of-year",
+      "monthId": "beltane",
+      "name": "Maypole dance",
+      "dateText": "May 1",
+      "day": 1,
+      "monthDayStart": "05-01",
+      "description": "Weaving ribbons around a May pole; ceremony of union and fertility.",
+      "associations": {
+        "direction": "Southeast",
+        "themes": [
+          "fertility",
+          "passion",
+          "union",
+          "abundance",
+          "sexuality",
+          "vitality"
+        ],
+        "deities": [
+          "The Green Man",
+          "Flora",
+          "Cernunnos",
+          "Aphrodite",
+          "Beltane Fire"
+        ],
+        "colors": [
+          "red",
+          "white",
+          "green",
+          "gold"
+        ],
+        "herbs": [
+          "hawthorn",
+          "rose",
+          "rowan",
+          "meadowsweet",
+          "woodruff"
+        ],
+        "element": "Fire"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "wheel-imbolc-1-brigid-s-cross",
+      "calendarId": "wheel-of-year",
+      "monthId": "imbolc",
+      "name": "Brigid's Cross",
+      "dateText": "February 1–2",
+      "day": 1,
+      "monthDayStart": "02-01",
+      "description": "Weave a Brigid's Cross from rushes to invite protection and blessing for the year.",
+      "associations": {
+        "direction": "Northeast",
+        "themes": [
+          "new beginnings",
+          "purification",
+          "inspiration",
+          "hearth",
+          "healing"
+        ],
+        "deities": [
+          "Brigid / Bride",
+          "St. Brigid",
+          "The Maiden"
+        ],
+        "colors": [
+          "white",
+          "silver",
+          "pale yellow",
+          "pink"
+        ],
+        "herbs": [
+          "snowdrop",
+          "rosemary",
+          "angelica",
+          "basil"
+        ],
+        "element": "Fire / Earth"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "wheel-imbolc-2-candle-dedication",
+      "calendarId": "wheel-of-year",
+      "monthId": "imbolc",
+      "name": "Candle dedication",
+      "dateText": "February 1–2",
+      "day": 1,
+      "monthDayStart": "02-01",
+      "description": "Light and bless candles for the coming season's work.",
+      "associations": {
+        "direction": "Northeast",
+        "themes": [
+          "new beginnings",
+          "purification",
+          "inspiration",
+          "hearth",
+          "healing"
+        ],
+        "deities": [
+          "Brigid / Bride",
+          "St. Brigid",
+          "The Maiden"
+        ],
+        "colors": [
+          "white",
+          "silver",
+          "pale yellow",
+          "pink"
+        ],
+        "herbs": [
+          "snowdrop",
+          "rosemary",
+          "angelica",
+          "basil"
+        ],
+        "element": "Fire / Earth"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "wheel-litha-2-bonfire-leaping",
+      "calendarId": "wheel-of-year",
+      "monthId": "litha",
+      "name": "Bonfire leaping",
+      "dateText": "~June 21",
+      "day": 21,
+      "monthDayStart": "06-21",
+      "description": "Solstice fires ward off evil and bless crops and animals.",
+      "associations": {
+        "direction": "South",
+        "themes": [
+          "peak power",
+          "fullness",
+          "solar magic",
+          "fae",
+          "courage",
+          "strength"
+        ],
+        "deities": [
+          "Sol / Sun God",
+          "Lugh (early)",
+          "Ra",
+          "Apollo"
+        ],
+        "colors": [
+          "gold",
+          "yellow",
+          "orange",
+          "blue"
+        ],
+        "herbs": [
+          "St. John's Wort",
+          "lavender",
+          "chamomile",
+          "elderflower",
+          "fern seed"
+        ],
+        "element": "Fire"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "wheel-litha-1-midsummer-vigil",
+      "calendarId": "wheel-of-year",
+      "monthId": "litha",
+      "name": "Midsummer vigil",
+      "dateText": "~June 21",
+      "day": 21,
+      "monthDayStart": "06-21",
+      "description": "Watch the sunrise on the solstice; gather herbs at dawn for maximum potency.",
+      "associations": {
+        "direction": "South",
+        "themes": [
+          "peak power",
+          "fullness",
+          "solar magic",
+          "fae",
+          "courage",
+          "strength"
+        ],
+        "deities": [
+          "Sol / Sun God",
+          "Lugh (early)",
+          "Ra",
+          "Apollo"
+        ],
+        "colors": [
+          "gold",
+          "yellow",
+          "orange",
+          "blue"
+        ],
+        "herbs": [
+          "St. John's Wort",
+          "lavender",
+          "chamomile",
+          "elderflower",
+          "fern seed"
+        ],
+        "element": "Fire"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "wheel-lughnasadh-1-first-loaf-ritual",
+      "calendarId": "wheel-of-year",
+      "monthId": "lughnasadh",
+      "name": "First loaf ritual",
+      "dateText": "August 1",
+      "day": 1,
+      "monthDayStart": "08-01",
+      "description": "Bake bread from the harvest grain; offer a portion back to the earth.",
+      "associations": {
+        "direction": "West / Southwest",
+        "themes": [
+          "first harvest",
+          "grain",
+          "sacrifice",
+          "abundance",
+          "skill",
+          "games"
+        ],
+        "deities": [
+          "Lugh",
+          "The Corn King",
+          "John Barleycorn",
+          "Demeter"
+        ],
+        "colors": [
+          "gold",
+          "orange",
+          "brown",
+          "yellow"
+        ],
+        "herbs": [
+          "wheat",
+          "sunflower",
+          "corn",
+          "calendula",
+          "nasturtium"
+        ],
+        "element": "Earth / Fire"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "wheel-lughnasadh-2-funeral-games",
+      "calendarId": "wheel-of-year",
+      "monthId": "lughnasadh",
+      "name": "Funeral games",
+      "dateText": "August 1",
+      "day": 1,
+      "monthDayStart": "08-01",
+      "description": "Physical contests and games honoring Tailtiu (Teltown Games tradition).",
+      "associations": {
+        "direction": "West / Southwest",
+        "themes": [
+          "first harvest",
+          "grain",
+          "sacrifice",
+          "abundance",
+          "skill",
+          "games"
+        ],
+        "deities": [
+          "Lugh",
+          "The Corn King",
+          "John Barleycorn",
+          "Demeter"
+        ],
+        "colors": [
+          "gold",
+          "orange",
+          "brown",
+          "yellow"
+        ],
+        "herbs": [
+          "wheat",
+          "sunflower",
+          "corn",
+          "calendula",
+          "nasturtium"
+        ],
+        "element": "Earth / Fire"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "exact",
+      "conversionConfidence": "exact"
+    },
+    {
+      "id": "wheel-mabon-2-balance-meditation",
+      "calendarId": "wheel-of-year",
+      "monthId": "mabon",
+      "name": "Balance meditation",
+      "dateText": "~September 22–23",
+      "day": 22,
+      "monthDayStart": "09-22",
+      "description": "Reflect on what you are releasing as you move into the dark half of the year.",
+      "associations": {
+        "direction": "West",
+        "themes": [
+          "harvest",
+          "balance",
+          "gratitude",
+          "preparation for darkness",
+          "completion"
+        ],
+        "deities": [
+          "Mabon ap Modron",
+          "Persephone descending",
+          "The Morrigan",
+          "Dionysus"
+        ],
+        "colors": [
+          "deep red",
+          "brown",
+          "russet",
+          "purple",
+          "gold"
+        ],
+        "herbs": [
+          "ivy",
+          "oak",
+          "blackberry",
+          "rosehip",
+          "sage"
+        ],
+        "element": "Earth / Water"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "wheel-mabon-1-second-harvest-feast",
+      "calendarId": "wheel-of-year",
+      "monthId": "mabon",
+      "name": "Second Harvest feast",
+      "dateText": "~September 22–23",
+      "day": 22,
+      "monthDayStart": "09-22",
+      "description": "Give thanks and share the abundance of the harvest.",
+      "associations": {
+        "direction": "West",
+        "themes": [
+          "harvest",
+          "balance",
+          "gratitude",
+          "preparation for darkness",
+          "completion"
+        ],
+        "deities": [
+          "Mabon ap Modron",
+          "Persephone descending",
+          "The Morrigan",
+          "Dionysus"
+        ],
+        "colors": [
+          "deep red",
+          "brown",
+          "russet",
+          "purple",
+          "gold"
+        ],
+        "herbs": [
+          "ivy",
+          "oak",
+          "blackberry",
+          "rosehip",
+          "sage"
+        ],
+        "element": "Earth / Water"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "wheel-ostara-2-balance-ritual",
+      "calendarId": "wheel-of-year",
+      "monthId": "ostara",
+      "name": "Balance ritual",
+      "dateText": "~March 20–21",
+      "day": 20,
+      "monthDayStart": "03-20",
+      "description": "Meditate on and balance opposing forces in your life at the equinox point.",
+      "associations": {
+        "direction": "East",
+        "themes": [
+          "balance",
+          "rebirth",
+          "fertility",
+          "dawn",
+          "new beginnings"
+        ],
+        "deities": [
+          "Ēostre",
+          "Persephone",
+          "The Maiden",
+          "Green Man"
+        ],
+        "colors": [
+          "pale green",
+          "yellow",
+          "lilac",
+          "pastel"
+        ],
+        "herbs": [
+          "violet",
+          "jasmine",
+          "daffodil",
+          "lavender"
+        ],
+        "element": "Air"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "wheel-ostara-1-seed-blessing",
+      "calendarId": "wheel-of-year",
+      "monthId": "ostara",
+      "name": "Seed blessing",
+      "dateText": "~March 20–21",
+      "day": 20,
+      "monthDayStart": "03-20",
+      "description": "Bless seeds or intentions for what you wish to grow this season.",
+      "associations": {
+        "direction": "East",
+        "themes": [
+          "balance",
+          "rebirth",
+          "fertility",
+          "dawn",
+          "new beginnings"
+        ],
+        "deities": [
+          "Ēostre",
+          "Persephone",
+          "The Maiden",
+          "Green Man"
+        ],
+        "colors": [
+          "pale green",
+          "yellow",
+          "lilac",
+          "pastel"
+        ],
+        "herbs": [
+          "violet",
+          "jasmine",
+          "daffodil",
+          "lavender"
+        ],
+        "element": "Air"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "wheel-samhain-1-ancestor-altar",
+      "calendarId": "wheel-of-year",
+      "monthId": "samhain",
+      "name": "Ancestor Altar",
+      "dateText": "October 31 / November 1",
+      "day": 31,
+      "monthDayStart": "10-31",
+      "description": "Set a dumb supper or ancestor altar to honor the beloved dead.",
+      "associations": {
+        "direction": "North / Northwest",
+        "themes": [
+          "death and rebirth",
+          "ancestors",
+          "the veil",
+          "divination",
+          "endings"
+        ],
+        "deities": [
+          "The Crone",
+          "Hecate",
+          "The Morrigan",
+          "Hades",
+          "Osiris"
+        ],
+        "colors": [
+          "black",
+          "orange",
+          "deep red",
+          "purple"
+        ],
+        "herbs": [
+          "mugwort",
+          "wormwood",
+          "dittany of Crete",
+          "nightshade"
+        ],
+        "element": "Earth"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "wheel-samhain-2-divination-work",
+      "calendarId": "wheel-of-year",
+      "monthId": "samhain",
+      "name": "Divination Work",
+      "dateText": "October 31 / November 1",
+      "day": 31,
+      "monthDayStart": "10-31",
+      "description": "Thin veil makes scrying, tarot, and astral work potent tonight.",
+      "associations": {
+        "direction": "North / Northwest",
+        "themes": [
+          "death and rebirth",
+          "ancestors",
+          "the veil",
+          "divination",
+          "endings"
+        ],
+        "deities": [
+          "The Crone",
+          "Hecate",
+          "The Morrigan",
+          "Hades",
+          "Osiris"
+        ],
+        "colors": [
+          "black",
+          "orange",
+          "deep red",
+          "purple"
+        ],
+        "herbs": [
+          "mugwort",
+          "wormwood",
+          "dittany of Crete",
+          "nightshade"
+        ],
+        "element": "Earth"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "wheel-yule-2-sun-vigil",
+      "calendarId": "wheel-of-year",
+      "monthId": "yule",
+      "name": "Sun Vigil",
+      "dateText": "~December 21",
+      "day": 21,
+      "monthDayStart": "12-21",
+      "description": "Stay up through the night or rise at dawn to greet the reborn sun.",
+      "associations": {
+        "direction": "North",
+        "themes": [
+          "rebirth of the sun",
+          "hope",
+          "inner light",
+          "return of warmth",
+          "solstice"
+        ],
+        "deities": [
+          "The Oak King",
+          "Sol Invictus",
+          "Mithras",
+          "Odin / Father Christmas"
+        ],
+        "colors": [
+          "red",
+          "green",
+          "gold",
+          "white"
+        ],
+        "herbs": [
+          "holly",
+          "ivy",
+          "mistletoe",
+          "pine",
+          "frankincense"
+        ],
+        "element": "Earth"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    },
+    {
+      "id": "wheel-yule-1-yule-log-burning",
+      "calendarId": "wheel-of-year",
+      "monthId": "yule",
+      "name": "Yule Log burning",
+      "dateText": "~December 21",
+      "day": 21,
+      "monthDayStart": "12-21",
+      "description": "Oak log burned through the night to welcome the sun's return.",
+      "associations": {
+        "direction": "North",
+        "themes": [
+          "rebirth of the sun",
+          "hope",
+          "inner light",
+          "return of warmth",
+          "solstice"
+        ],
+        "deities": [
+          "The Oak King",
+          "Sol Invictus",
+          "Mithras",
+          "Odin / Father Christmas"
+        ],
+        "colors": [
+          "red",
+          "green",
+          "gold",
+          "white"
+        ],
+        "herbs": [
+          "holly",
+          "ivy",
+          "mistletoe",
+          "pine",
+          "frankincense"
+        ],
+        "element": "Earth"
+      },
+      "source": "wheel-of-year.months[].observances[]",
+      "datePrecision": "approximate",
+      "conversionConfidence": "approximate"
+    }
+  ]
+}

@@ -1,0 +1,770 @@
+{
+  "majorCards": [
+    {
+      "number": 0,
+      "name": "The Fool",
+      "summary": "Open-hearted beginnings, leap of faith, and the sacred unknown.",
+      "upright": "Fresh starts, trust in the path, and inspired spontaneity.",
+      "reversed": "Recklessness, fear of risk, or resistance to a needed new beginning.",
+      "keywords": [
+        "beginnings",
+        "faith",
+        "innocence",
+        "freedom",
+        "journey"
+      ],
+      "relations": [
+        "Element: Air",
+        "Hebrew Letter: Aleph"
+      ]
+    },
+    {
+      "number": 1,
+      "name": "The Magus",
+      "summary": "Focused will and conscious manifestation through aligned tools.",
+      "upright": "Skill, initiative, concentration, and transforming intent into action.",
+      "reversed": "Scattered power, manipulation, or blocked self-belief.",
+      "keywords": [
+        "will",
+        "manifestation",
+        "focus",
+        "skill",
+        "agency"
+      ],
+      "relations": [
+        "Planet: Mercury",
+        "Hebrew Letter: Beth"
+      ]
+    },
+    {
+      "number": 2,
+      "name": "The High Priestess",
+      "summary": "Inner knowing, sacred silence, and intuitive perception.",
+      "upright": "Intuition, subtle insight, patience, and hidden wisdom.",
+      "reversed": "Disconnection from inner voice or confusion around truth.",
+      "keywords": [
+        "intuition",
+        "mystery",
+        "stillness",
+        "inner-voice",
+        "receptivity"
+      ],
+      "relations": [
+        "Planet: Luna",
+        "Hebrew Letter: Gimel"
+      ]
+    },
+    {
+      "number": 3,
+      "name": "The Empress",
+      "summary": "Creative abundance, nurture, and embodied growth.",
+      "upright": "Fertility, care, beauty, comfort, and creative flourishing.",
+      "reversed": "Creative drought, overgiving, or neglecting self-nourishment.",
+      "keywords": [
+        "abundance",
+        "creation",
+        "nurture",
+        "beauty",
+        "growth"
+      ],
+      "relations": [
+        "Planet: Venus",
+        "Hebrew Letter: Daleth"
+      ]
+    },
+    {
+      "number": 4,
+      "name": "The Emperor",
+      "summary": "Structure, authority, and stable leadership.",
+      "upright": "Order, discipline, protection, and strategic direction.",
+      "reversed": "Rigidity, domination, or weak boundaries.",
+      "keywords": [
+        "structure",
+        "authority",
+        "stability",
+        "leadership",
+        "boundaries"
+      ],
+      "relations": [
+        "Zodiac: Aries",
+        "Hebrew Letter: He"
+      ]
+    },
+    {
+      "number": 5,
+      "name": "The Hierophant",
+      "summary": "Tradition, spiritual instruction, and shared values.",
+      "upright": "Learning from lineage, ritual, ethics, and mentorship.",
+      "reversed": "Dogma, rebellion without grounding, or spiritual stagnation.",
+      "keywords": [
+        "tradition",
+        "teaching",
+        "ritual",
+        "ethics",
+        "lineage"
+      ],
+      "relations": [
+        "Zodiac: Taurus",
+        "Hebrew Letter: Vav"
+      ]
+    },
+    {
+      "number": 6,
+      "name": "The Lovers",
+      "summary": "Union, alignment, and value-centered choices.",
+      "upright": "Harmony, connection, and conscious commitment.",
+      "reversed": "Misalignment, indecision, or disconnection in relationship.",
+      "keywords": [
+        "union",
+        "choice",
+        "alignment",
+        "connection",
+        "values"
+      ],
+      "relations": [
+        "Zodiac: Gemini",
+        "Hebrew Letter: Zayin"
+      ]
+    },
+    {
+      "number": 7,
+      "name": "The Chariot",
+      "summary": "Directed momentum and mastery through discipline.",
+      "upright": "Determination, movement, and victory through control.",
+      "reversed": "Loss of direction, conflict of will, or stalled progress.",
+      "keywords": [
+        "drive",
+        "control",
+        "momentum",
+        "victory",
+        "direction"
+      ],
+      "relations": [
+        "Zodiac: Cancer",
+        "Hebrew Letter: Cheth"
+      ]
+    },
+    {
+      "number": 8,
+      "name": "Lust",
+      "summary": "Courageous life-force, passionate integrity, and heart-led power.",
+      "upright": "Vitality, confidence, and wholehearted creative expression.",
+      "reversed": "Self-doubt, depletion, or misdirected desire.",
+      "keywords": [
+        "vitality",
+        "passion",
+        "courage",
+        "magnetism",
+        "heart-power"
+      ],
+      "relations": [
+        "Zodiac: Leo",
+        "Hebrew Letter: Teth"
+      ]
+    },
+    {
+      "number": 9,
+      "name": "The Hermit",
+      "summary": "Inner pilgrimage, discernment, and sacred solitude.",
+      "upright": "Reflection, guidance, and deepening wisdom.",
+      "reversed": "Isolation, avoidance, or overanalysis.",
+      "keywords": [
+        "solitude",
+        "wisdom",
+        "search",
+        "reflection",
+        "discernment"
+      ],
+      "relations": [
+        "Zodiac: Virgo",
+        "Hebrew Letter: Yod"
+      ]
+    },
+    {
+      "number": 10,
+      "name": "Fortune",
+      "summary": "Cycles, timing, and turning points guided by greater rhythms.",
+      "upright": "Opportunity, momentum, and fated change.",
+      "reversed": "Resistance to cycles, delay, or repeating old patterns.",
+      "keywords": [
+        "cycles",
+        "timing",
+        "change",
+        "destiny",
+        "turning-point"
+      ],
+      "relations": [
+        "Planet: Jupiter",
+        "Hebrew Letter: Kaph"
+      ]
+    },
+    {
+      "number": 11,
+      "name": "Justice",
+      "summary": "Balance, accountability, and clear consequence.",
+      "upright": "Fairness, truth, and ethical alignment.",
+      "reversed": "Bias, denial, or avoidance of responsibility.",
+      "keywords": [
+        "balance",
+        "truth",
+        "accountability",
+        "law",
+        "clarity"
+      ],
+      "relations": [
+        "Zodiac: Libra",
+        "Hebrew Letter: Lamed"
+      ]
+    },
+    {
+      "number": 12,
+      "name": "The Hanged Man",
+      "summary": "Sacred pause, surrender, and transformed perspective.",
+      "upright": "Release, contemplation, and spiritual reframing.",
+      "reversed": "Stagnation, martyrdom, or refusing to let go.",
+      "keywords": [
+        "surrender",
+        "pause",
+        "perspective",
+        "suspension",
+        "release"
+      ],
+      "relations": [
+        "Element: Water",
+        "Hebrew Letter: Mem"
+      ]
+    },
+    {
+      "number": 13,
+      "name": "Death",
+      "summary": "Endings that clear space for rebirth and renewal.",
+      "upright": "Transformation, completion, and deep release.",
+      "reversed": "Clinging, fear of change, or prolonged transition.",
+      "keywords": [
+        "transformation",
+        "ending",
+        "renewal",
+        "release",
+        "rebirth"
+      ],
+      "relations": [
+        "Zodiac: Scorpio",
+        "Hebrew Letter: Nun"
+      ]
+    },
+    {
+      "number": 14,
+      "name": "Art",
+      "summary": "Alchemy, integration, and harmonizing opposites.",
+      "upright": "Balance through blending, refinement, and patience.",
+      "reversed": "Imbalance, excess, or fragmented energies.",
+      "keywords": [
+        "alchemy",
+        "integration",
+        "balance",
+        "blending",
+        "refinement"
+      ],
+      "relations": [
+        "Zodiac: Sagittarius",
+        "Hebrew Letter: Samekh"
+      ]
+    },
+    {
+      "number": 15,
+      "name": "The Devil",
+      "summary": "Attachment, shadow desire, and material entanglement.",
+      "upright": "Confronting bondage, ambition, and raw instinct.",
+      "reversed": "Liberation, breaking chains, or denial of shadow.",
+      "keywords": [
+        "attachment",
+        "shadow",
+        "instinct",
+        "temptation",
+        "bondage"
+      ],
+      "relations": [
+        "Zodiac: Capricorn",
+        "Hebrew Letter: Ayin"
+      ]
+    },
+    {
+      "number": 16,
+      "name": "The Tower",
+      "summary": "Sudden revelation that dismantles false structures.",
+      "upright": "Shock, breakthrough, and necessary collapse.",
+      "reversed": "Delayed upheaval, denial, or internal crisis.",
+      "keywords": [
+        "upheaval",
+        "revelation",
+        "breakthrough",
+        "collapse",
+        "truth"
+      ],
+      "relations": [
+        "Planet: Mars",
+        "Hebrew Letter: Pe"
+      ]
+    },
+    {
+      "number": 17,
+      "name": "The Star",
+      "summary": "Healing hope, guidance, and spiritual renewal.",
+      "upright": "Inspiration, serenity, and trust in the future.",
+      "reversed": "Discouragement, doubt, or loss of faith.",
+      "keywords": [
+        "hope",
+        "healing",
+        "guidance",
+        "renewal",
+        "faith"
+      ],
+      "relations": [
+        "Zodiac: Aquarius",
+        "Hebrew Letter: Tzaddi"
+      ]
+    },
+    {
+      "number": 18,
+      "name": "The Moon",
+      "summary": "Dream, uncertainty, and passage through the subconscious.",
+      "upright": "Intuition, mystery, and emotional depth.",
+      "reversed": "Confusion clearing, projection, or fear illusions.",
+      "keywords": [
+        "dream",
+        "mystery",
+        "intuition",
+        "subconscious",
+        "illusion"
+      ],
+      "relations": [
+        "Zodiac: Pisces",
+        "Hebrew Letter: Qoph"
+      ]
+    },
+    {
+      "number": 19,
+      "name": "The Sun",
+      "summary": "Radiance, confidence, and vital life affirmation.",
+      "upright": "Joy, clarity, success, and openness.",
+      "reversed": "Temporary clouding, ego glare, or delayed confidence.",
+      "keywords": [
+        "joy",
+        "clarity",
+        "vitality",
+        "success",
+        "radiance"
+      ],
+      "relations": [
+        "Planet: Sol",
+        "Hebrew Letter: Resh"
+      ]
+    },
+    {
+      "number": 20,
+      "name": "Aeon",
+      "summary": "Awakening call, reckoning, and soul-level renewal.",
+      "upright": "Judgment, liberation, and answering purpose.",
+      "reversed": "Self-judgment, hesitation, or resistance to calling.",
+      "keywords": [
+        "awakening",
+        "reckoning",
+        "calling",
+        "renewal",
+        "release"
+      ],
+      "relations": [
+        "Element: Fire",
+        "Hebrew Letter: Shin"
+      ]
+    },
+    {
+      "number": 21,
+      "name": "Universe",
+      "summary": "Completion, integration, and embodied wholeness.",
+      "upright": "Fulfillment, mastery, and successful closure.",
+      "reversed": "Incomplete cycle, loose ends, or delayed completion.",
+      "keywords": [
+        "completion",
+        "wholeness",
+        "integration",
+        "mastery",
+        "closure"
+      ],
+      "relations": [
+        "Planet: Saturn",
+        "Hebrew Letter: Tav"
+      ]
+    }
+  ],
+  "suits": [
+    "Cups",
+    "Wands",
+    "Swords",
+    "Disks"
+  ],
+  "numberRanks": [
+    "Ace",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten"
+  ],
+  "courtRanks": [
+    "Knight",
+    "Queen",
+    "Prince",
+    "Princess"
+  ],
+  "suitInfo": {
+    "cups": {
+      "element": "Water",
+      "domain": "emotion, intuition, relationship",
+      "keywords": [
+        "emotion",
+        "intuition",
+        "connection"
+      ]
+    },
+    "wands": {
+      "element": "Fire",
+      "domain": "will, creativity, drive",
+      "keywords": [
+        "will",
+        "drive",
+        "inspiration"
+      ]
+    },
+    "swords": {
+      "element": "Air",
+      "domain": "mind, truth, communication",
+      "keywords": [
+        "mind",
+        "truth",
+        "clarity"
+      ]
+    },
+    "disks": {
+      "element": "Earth",
+      "domain": "body, craft, material life",
+      "keywords": [
+        "resources",
+        "craft",
+        "stability"
+      ]
+    }
+  },
+  "rankInfo": {
+    "ace": {
+      "number": 1,
+      "upright": "Seed-force, pure potential, and concentrated essence.",
+      "reversed": "Blocked potential, delay, or difficulty beginning.",
+      "keywords": [
+        "seed",
+        "potential",
+        "spark"
+      ]
+    },
+    "two": {
+      "number": 2,
+      "upright": "Polarity seeking balance, exchange, and response.",
+      "reversed": "Imbalance, friction, or uncertain choices.",
+      "keywords": [
+        "duality",
+        "balance",
+        "exchange"
+      ]
+    },
+    "three": {
+      "number": 3,
+      "upright": "Initial growth, expansion, and expression.",
+      "reversed": "Scattered growth or stalled development.",
+      "keywords": [
+        "growth",
+        "expansion",
+        "expression"
+      ]
+    },
+    "four": {
+      "number": 4,
+      "upright": "Structure, boundaries, and stabilizing form.",
+      "reversed": "Rigidity, inertia, or unstable foundations.",
+      "keywords": [
+        "structure",
+        "stability",
+        "foundation"
+      ]
+    },
+    "five": {
+      "number": 5,
+      "upright": "Challenge, disruption, and catalytic conflict.",
+      "reversed": "Lingering tension or fear of needed change.",
+      "keywords": [
+        "challenge",
+        "conflict",
+        "change"
+      ]
+    },
+    "six": {
+      "number": 6,
+      "upright": "Rebalancing, harmony, and restorative flow.",
+      "reversed": "Partial recovery or unresolved imbalance.",
+      "keywords": [
+        "harmony",
+        "repair",
+        "flow"
+      ]
+    },
+    "seven": {
+      "number": 7,
+      "upright": "Testing, strategy, and spiritual/mental refinement.",
+      "reversed": "Doubt, overdefense, or poor strategy.",
+      "keywords": [
+        "test",
+        "strategy",
+        "refinement"
+      ]
+    },
+    "eight": {
+      "number": 8,
+      "upright": "Adjustment, movement, and disciplined power.",
+      "reversed": "Restriction, frustration, or scattered effort.",
+      "keywords": [
+        "movement",
+        "discipline",
+        "adjustment"
+      ]
+    },
+    "nine": {
+      "number": 9,
+      "upright": "Intensity, culmination, and mature force.",
+      "reversed": "Excess, overload, or unresolved pressure.",
+      "keywords": [
+        "culmination",
+        "intensity",
+        "maturity"
+      ]
+    },
+    "ten": {
+      "number": 10,
+      "upright": "Completion, overflow, and transition into a new cycle.",
+      "reversed": "Overextension, depletion, or difficulty releasing.",
+      "keywords": [
+        "completion",
+        "threshold",
+        "transition"
+      ]
+    }
+  },
+  "courtInfo": {
+    "knight": {
+      "role": "active catalyst and questing force",
+      "elementalFace": "Fire of",
+      "upright": "Bold pursuit, direct action, and forward momentum.",
+      "reversed": "Impulsiveness, burnout, or unfocused drive.",
+      "keywords": [
+        "action",
+        "drive",
+        "initiative"
+      ]
+    },
+    "queen": {
+      "role": "magnetic vessel and emotional intelligence",
+      "elementalFace": "Water of",
+      "upright": "Receptive mastery, mature feeling, and embodied wisdom.",
+      "reversed": "Withholding, moodiness, or passive control.",
+      "keywords": [
+        "receptivity",
+        "maturity",
+        "depth"
+      ]
+    },
+    "prince": {
+      "role": "strategic mediator and organizing mind",
+      "elementalFace": "Air of",
+      "upright": "Insight, communication, and adaptive coordination.",
+      "reversed": "Overthinking, detachment, or mixed signals.",
+      "keywords": [
+        "strategy",
+        "communication",
+        "adaptability"
+      ]
+    },
+    "princess": {
+      "role": "manifesting ground and practical seed-force",
+      "elementalFace": "Earth of",
+      "upright": "Practical growth, devotion, and tangible follow-through.",
+      "reversed": "Stagnation, timidity, or blocked growth.",
+      "keywords": [
+        "manifestation",
+        "grounding",
+        "devotion"
+      ]
+    }
+  },
+  "courtDecanWindows": {
+    "Knight of Wands": [
+      "scorpio-3",
+      "sagittarius-1",
+      "sagittarius-2"
+    ],
+    "Queen of Disks": [
+      "sagittarius-3",
+      "capricorn-1",
+      "capricorn-2"
+    ],
+    "Prince of Swords": [
+      "capricorn-3",
+      "aquarius-1",
+      "aquarius-2"
+    ],
+    "Knight of Cups": [
+      "aquarius-3",
+      "pisces-1",
+      "pisces-2"
+    ],
+    "Queen of Wands": [
+      "pisces-3",
+      "aries-1",
+      "aries-2"
+    ],
+    "Prince of Disks": [
+      "aries-3",
+      "taurus-1",
+      "taurus-2"
+    ],
+    "Knight of Swords": [
+      "taurus-3",
+      "gemini-1",
+      "gemini-2"
+    ],
+    "Queen of Cups": [
+      "gemini-3",
+      "cancer-1",
+      "cancer-2"
+    ],
+    "Prince of Wands": [
+      "cancer-3",
+      "leo-1",
+      "leo-2"
+    ],
+    "Knight of Disks": [
+      "leo-3",
+      "virgo-1",
+      "virgo-2"
+    ],
+    "Queen of Swords": [
+      "virgo-3",
+      "libra-1",
+      "libra-2"
+    ],
+    "Prince of Cups": [
+      "libra-3",
+      "scorpio-1",
+      "scorpio-2"
+    ]
+  },
+  "courtDateRanges": {
+    "Knight of Wands": { "start": "11-13", "end": "12-12" },
+    "Queen of Disks": { "start": "12-13", "end": "01-09" },
+    "Prince of Swords": { "start": "01-10", "end": "02-08" },
+    "Knight of Cups": { "start": "02-09", "end": "03-11" },
+    "Queen of Wands": { "start": "03-11", "end": "04-10" },
+    "Prince of Disks": { "start": "04-11", "end": "05-10" },
+    "Knight of Swords": { "start": "05-11", "end": "06-10" },
+    "Queen of Cups": { "start": "06-11", "end": "07-11" },
+    "Prince of Wands": { "start": "07-12", "end": "08-11" },
+    "Knight of Disks": { "start": "08-12", "end": "09-11" },
+    "Queen of Swords": { "start": "09-12", "end": "10-12" },
+    "Prince of Cups": { "start": "10-13", "end": "11-12" }
+  },
+  "meanings": {
+    "majorByTrumpNumber": {
+      "0": "Beginning of the Great Work, innocence; a fool for love; divine madness. Reason is transcended. Take the leap. Gain or loss through foolish actions.",
+      "1": "Communication; Conscious Will; the process of continuous creation; ambiguity; deception. Things may not be as they appear. Concentration; meditation; mind used to direct the Will. Manipulation; crafty maneuverings.",
+      "2": "Symbol of highest initiation; link between the Archetypal and Formative Worlds. An initiatrix. Wooing by enchantment. Possibility. The Idea behind the Form. Fluctuation. Time may not be right for a decision concerning mundane matters.",
+      "3": "The Holy Grail. Love unites the Will. Love; beauty; friendship; success; passive balance. The feminine point of view. The door is open. Disregard the details and concentrate on the big picture.",
+      "4": "Creative wisdom radiating upon the organized man and woman. Domination after conquest; quarrelsomeness; paternal love; ambition. Thought ruled by creative, masculine, fiery energy. Stubbornness; war; authority; energy in its most temporal form. Swift impermanent action over confidence.",
+      "5": "The Holy Guardian Angel. The uniting of that which is above with that which is below. Love is indicated, but the nature of that love is not yet to be revealed. Inspiration; teaching; organization; discipline; strength; endurance; toil; help from superiors.",
+      "6": "Intuition. Be open to your own inner voice. A well-intended, arranged marriage. An artificial union; analysis followed by synthesis; indecision; instability; superficiality.",
+      "7": "Light in the darkness. The burden you carry may be the Holy Grail. Faithfulness; hope; obedience; a protective relationship; firm, even violent adherence to dogma or tradition. Glory; riches; enlightened civilization; victory; triumph; chain of command.",
+      "8": "Equilibrium; karmic law; the dance of life; all possibilities. The woman satisfied. Balance; weigh each thought against its opposite. Lawsuits; treaties. Pause and look before you leap.",
+      "9": "Divine seed of all things. By silence comes inspiration and wisdom. Wandering alone; temporary solitude; creative contemplation; a virgin. Retirement from involvement in current events.",
+      "10": "Continual change. In the midst of revolving phenomena, reach joyously the motionless center. Carefree love; wanton pleasure; amusement; fun; change of fortune, usually good.",
+      "11": "Understanding; the Will of the New Aeon; passion; sense smitten with ecstasy. Let love devour all. Energy independent of reason. Strength; courage; utilization of magical power.",
+      "12": "Redemption, sacrifice, annihilation in the beloved; martyrdom; loss; torment; suspension; death; suffering.",
+      "13": "End of a cycle; transformation; raw sexuality. Sex is death. Stress becomes intolerable. Any change is welcome. Time; age; unexpected change; death.",
+      "14": "Transmutation through union of opposites. A perfect marriage exalts and transforms each partner. The scientific method. Success follows complex maneuvers.",
+      "15": "“Thou hast no right but to do thy will.” Obsession; temptation; ecstasy found in every phenomenon; creative action, yet sublimely careless of result; unscrupulous ambition; strength.",
+      "16": "Escape from the prison of organized life; renunciation of love; quarreling. Plans are destroyed. War; danger; sudden death.",
+      "17": "Clairvoyance; visions; dreams; hope; love; yearning; realization of inexhaustible possibilities; dreaminess; unexpected help; renewal.",
+      "18": "The Dark Night of the Soul; deception; falsehood; illusion; madness; the threshold of significant change.",
+      "19": "Lord of the New Aeon. Spiritual emancipation. Pleasure; shamelessness; vanity; frankness. Freedom brings sanity. Glory; riches; enlightened civilization.",
+      "20": "Let every act be an act of Worship; let every act be an act of Love. Final decision; judgement. Learn from the past. Prepare for the future.",
+      "21": "Completion of the Great Work; patience; perseverance; stubbornness; serious meditation. Work accomplished."
+    },
+    "byCardName": {
+      "ace of wands": "Primordial energy as yet unmanifest. Seed of the Will. Masculine archetype. Natural force.",
+      "knight of wands": "He is active, generous, fierce, sudden, impetuous. If ill-dignified, he is evil-minded, cruel, bigoted, brutal.",
+      "queen of wands": "Adaptability, steady force applied to an object, steady rule, great attractive power, power of command, yet liked. Kind and generous when not opposed. If ill-dignified, obstinate, revengeful, domineering, tyrannical, and apt to turn against another without a cause.",
+      "prince of wands": "Swift, strong, hasty; rather violent, yet just and generous; noble and scorning meanness. If ill-dignified, cruel, intolerant, prejudiced, and ill-natured.",
+      "princess of wands": "Brilliance, courage, beauty, force, sudden in anger or love, desire of power, enthusiasm, revenge. If ill dignified, she is superficial, theatrical, cruel, unstable, domineering.",
+      "two of wands": "Dominion. First manifestation of Fire. Ideal will, independent and creative. Control over circumstances.",
+      "three of wands": "Pride, arrogance, self-assertion. Established force, strength, realization of hope. Completion of labor. Success after struggle. Pride, nobility, wealth, power, conceit. Rude self-assumption and insolence. Generosity, obstinacy, etc.",
+      "four of wands": "Settlement, arrangement, completion. Perfection or completion of a thing built up with trouble and labor. Rest after labor, subtlety, cleverness, beauty, mirth, success in completion. Reasoning faculty, conclusions drawnfrom previous knowledge. Unreadiness, unreliable and unsteady through overanxiety and hurriedness of action. Graceful in manner, at times insincere, etc.",
+      "five of wands": "Quarreling and fighting. Violent strife and boldness, rashness, cruelty, violence, lust, desire, prodigality and generosity, depending on whether the card is well- or ill-dignified.",
+      "six of wands": "Gain. Victory after strife. Love; pleasure gained by labor; carefulness, sociability and avoiding of strife, yet victory therein; also insolence and pride of riches and success, etc. The whole is dependent on the dignity.",
+      "seven of wands": "Opposition, yet courage. Possible victory, depending on the energy and courage exercised; valor; opposition, obstacles and difficulties, yet courage to meet them; quarreling, ignorance, pretense, wrangling, and threatening; also victory in small and unimportant things and influence upon subordinates.",
+      "eight of wands": "Hasty communications and messages; swiftness. Too much force applied too suddenly. Very rapid rush, but quickly passed and expended. Violent, but not lasting. Swiftness, rapidity, courage, boldness, confidence, freedom, warfare, violence; love of open air, field sports, gardens, and meadows. Generous, subtle, eloquent, yet somewhat untrustworthy; rapacious, insolent, oppressive. Theft and robbery. According to dignity.",
+      "nine of wands": "Strength, power, health, recovery from sickness. Tremendous and steady force that cannot be shaken. Herculean strength, yet sometimes scientifically applied. Great success, but with strife and energy. Victory, preceded by apprehension and fear. Health good, and recovery not in doubt. Generous, questioning and curious; fond of external appearances; intractable, obstinate.",
+      "ten of wands": "Cruelty, malice, revenge, injustice. Cruel and overbearing force and energy, but applied only to material and selfish ends. Sometimes shows failure in a matter and the opposition too strong to be controlled, arising from the person’s too great selfishness at the beginning. Ill will, levity, lying, malice, slander, envy, obstinacy; swiftness in evil and deceit, if ill-dignified. Also generosity, disinterestedness, and self-sacrifice, when well dignified. CUPS",
+      "ace of cups": "It symbolizes fertility—productiveness, beauty, pleasure, happiness, etc.",
+      "knight of cups": "Graceful, poetic, Venusian, indolent, but enthusiastic if roused. Ill-dignified, he is sensual, idle, and untruthful.",
+      "queen of cups": "She is imaginative, poetic, kind, yet not willing to take much trouble for another. Coquettish, good-natured, and underneath a dreamy appearance. Imagination stronger than feeling. Very much affected by other influences, and therefore more dependent upon dignity than most symbols.",
+      "prince of cups": "He is subtle, violent, crafty and artistic; a fierce nature with calm exterior. Powerful for good or evil but more attracted by the evil if allied with apparent Power or Wisdom. If ill-dignified, he is intensely evil and merciless.",
+      "princess of cups": "Sweetness, poetry, gentleness, and kindness. Imaginative, dreamy, at times indolent, yet courageous if roused. When ill-dignified, she is selfish and luxurious.",
+      "two of cups": "Marriage, love, pleasure. Harmony of masculine and feminine united. Harmony, pleasure, mirth, subtlety; but if",
+      "three of cups": "Plenty, hospitality, eating and drinking, pleasure, dancing, new clothes, merriment. Abundance, plenty, success, pleasure, sensuality, passive success, good luck and fortune; love, gladness, kindness, liberality.",
+      "four of cups": "Receiving pleasure or kindness from others, but some discomfort therewith. Success or pleasure approaching their end. A stationary period in happiness, which may, or may not, continue. It does not mean love and marriage so much as the previous symbol. It is too passive a symbol to represent perfectly completehappiness. Swiftness, hunting and pursuing. Acquisition by contention; injustice sometimes; some drawbacks to pleasure implied.",
+      "five of cups": "Disappointment in love, marriage broken off, unkindness of a friend; loss of friendship. Death, or end of pleasure; disappointment, sorrow, and loss in those things from which pleasure is expected. Sadness, treachery, deceit; ill will, detraction; charity and kindness ill-requited; all kinds of anxieties and troubles from unsuspected and unexpected sources.",
+      "six of cups": "Beginning of wish, happiness, success, or enjoyment. Commencement of steady increase, gain and pleasure; but commencement only. Also affront, detection, knowledge, and in some instances contention and strife arising from unwarranted self-assertion and vanity. Sometimes thankless and presumptuous; sometimes amiable and patient. According to dignity as usual.",
+      "seven of cups": "Lying, promises unfulfilled; illusion, deception, error; slight success at outset, not retained. Possible victory, but neutralized by the supineness of the person: illusionary success, deception in the moment of apparent victory. Lying, error, promises unfulfilled. Drunkenness, wrath, vanity. Lust, fornication, violence against women, selfish dissipation, deception in love and friendship. Often success gained, but not followed up. Modified as usual by dignity.",
+      "eight of cups": "Success abandoned; decline of interest. Temporary success, but without further results. Thing thrown aside as soon as gained. Not lasting, even in the matter in hand. Indolence in success. Journeying from place to place. Misery and repining without cause. Seeking after riches. Instability.",
+      "nine of cups": "Complete success, pleasure and happiness, wishes fulfilled. Complete and perfect realization of pleasure and happiness, almost perfect; self-praise, vanity, conceit, much talking of self, yet kind and lovable, and may be self-denying therewith. High-minded, not easily satisfied with small and limited ideas. Apt to be maligned through too much self-assumption. A good and generous, but sometimes foolish nature.",
+      "ten of cups": "Matter settled; complete good fortune. Permanent and lasting success and happiness, because inspired from above. Not so sensual as “Lord of Material Happiness,” yet almost more truly happy. Pleasure, dissipation,debauchery, quietness, peacemaking. Kindness, pity, generosity, wantonness, waste, etc., according to dignity.",
+      "ace of swords": "It symbolizes “invoked,” as contrasted with natural force: for it is the Invocation of the Sword. Raised upward, it invokes the divine crown of spiritual brightness, but reversed it is the invocation of demonic force and becomes a fearfully evil symbol. It represents, therefore, very great power for good or evil, but invoked; and it also represents whirling force and strength through trouble. It is the affirmation of Justice upholding divine authority; and it may become the Sword of Wrath, Punishment, and Affliction.",
+      "knight of swords": "He is active, clever, subtle, fierce, delicate, courageous, skillful, but inclined to domineer. Also to overvalue small things, unless well-dignified. If ill-dignified, deceitful, tyrannical, and crafty.",
+      "queen of swords": "Intensely perceptive, keen observation, subtle, quick and confident; often persevering, accurate in superficial things, graceful, fond of dancing and balancing. If ill-dignified, cruel, sly, deceitful, unreliable, though with a good exterior.",
+      "prince of swords": "Full of ideas and thoughts and designs, distrustful, suspicious, firm in friendship and enmity; careful, observant, slow, overcautious. Symbolizes Alpha and Omega; he slays as fast as he creates. If ill-dignified: harsh, malicious, plotting; obstinate, yet hesitating; unreliable.",
+      "princess of swords": "Wisdom, strength, acuteness; subtlety in material things; grace and dexterity. If ill-dignified, she is frivolous and cunning.",
+      "two of swords": "Quarrel made up, yet still some tension in relations: actions sometimes selfish, sometimes unselfish. Contradictory characters in the same nature; strength through suffering, pleasure after pain. Sacrifice and trouble, yet strength arising therefrom, symbolized by the position of the rose, as though the pain itself had brought forth beauty. Arrangement, peace restored; truce; truth and untruth; sorrow and sympathy. Aid to the weak; justice; unselfishness; also a tendency to repetition of affronts on being pardoned; injury when meaning well; given to petitions; also a want of tact and asking questions of little moment; talkative.",
+      "three of swords": "Unhappiness, sorrow, and tears. Disruption, interruption, separation, quarreling; sowing of discord and strife, mischief-making, sorrow and tears; yet mirth in platonic pleasures; singing, faithfulness in promises, honesty in money transactions, selfish and dissipated, yet sometimes generous; deceitful in words and repetitions; the whole according to dignity.",
+      "four of swords": "Convalescence, recovery from sickness; change for the better. Rest from sorrow, yet after and through it. Peace from and after war. Relaxation of anxiety. Quietness, rest, ease and plenty, yet after struggle. Goods of this life; abundance; modified by dignity as usual.",
+      "five of swords": "Defeat, loss, malice, spite, slander, evil-speaking. Contest finished and decided against the person; failure, defeat, anxiety, trouble, poverty, avarice, grieving after gain; laborious, unresting; loss and vileness of nature; malicious, slanderous, lying, spiteful and tale-bearing. A busybody and separator of friends, hating to see peace and love between others. Cruel, yet cowardly, thankless and unreliable. Clever and quick in thought and speech. Feelings of pity easily roused, but unenduring.",
+      "six of swords": "Labor, work, journey by water. Success after anxiety and trouble; self-esteem, beauty, conceit, but sometimes modesty therewith; dominance, patience, labor, etc.",
+      "seven of swords": "Journey by land; in character untrustworthy. Partial success. Yielding when victory is within grasp, as if the last reserves of strength were used up. Inclination to lose when on the point of gaining through not continuing the effort. Love of abundance; fascinated by display; given to compliments, affronts, and insolences and to spy upon others. Inclined to betray confidences, not always intentionally. Rather vacillatory and unreliable.",
+      "eight of swords": "Narrow, restricted, petty, a prison. Too much force applied to small things; too much attention to detail at the expense of the principal and more important points. When ill-dignified, these qualities produce malice, pettiness, and domineering characteristics. Patience in detail of study; great care in some things, counterbalanced by equal disorder in others. Impulsive; equally fond of giving or receiving money or presents; generous, clever, acute, selfish and without strong feeling of affection. Admires wisdom, yet applies it to small and unworthy objects.",
+      "nine of swords": "Illness, suffering, malice, cruelty, pain. Despair, cruelty, pitilessness, malice, suffering, want, loss, misery. Burden, oppression, labor; subtlety and craft, dishonesty, lying and slander. Yet also obedience, faithfulness, patience, unselfishness, etc., according to dignity.",
+      "ten of swords": "Ruin, death, defeat, disruption. Almost a worse symbol than the Nine of Swords. Undisciplined, warring force, complete disruption and failure. Ruin of all plans and projects. Disdain, insolence, and impertinence, yet mirth and jollity therewith. A marplot, loving to overthrow the happiness of others; a repeater of things; given to much unprofitable speech, and of many words. Yet clever, eloquent, etc., according to dignity.",
+      "ace of disks": "It represents materiality in all senses, good and evil, and is, therefore, in a sense, illusionary. It shows material gain, labor, power, wealth, etc.",
+      "knight of disks": "Unless very well-dignified he is heavy, dull, and material. Laborious, clever, and patient in material matters. If",
+      "queen of disks": "She is impetuous, kind, timid, rather charming, greathearted, intelligent, melancholy, truthful, yet of many moods. If ill-dignified, she is undecided, capricious, changeable, foolish.",
+      "prince of disks": "Increase of matter. Increases good or evil, solidifies; practically applies things. Steady, reliable. If ill-dignified, he is selfish, animal and material, stupid. In either case slow to anger, but furious if roused.",
+      "princess of disks": "She is generous, kind, diligent, benevolent, careful, courageous, persevering, pitiful. If ill-dignified, she is wasteful and prodigal.",
+      "two of disks": "Pleasant change; visit to friends. The harmony of change; alternation of gain and loss, weakness and strength; ever-changing occupation; wandering, discontented with any fixed condition of things; now elated, then melancholy; industrious, yet unreliable; fortunate through prudence of management, yet sometimes unaccountably foolish; alternatively talkative and suspicious. Kind, yet wavering and inconsistent. Fortunate in journeying. Argumentative.",
+      "three of disks": "Business, paid employment, commercial transaction. Working and constructive force, building up, creation, erection; realization and increase of material things; gain in commercial transactions, rank; increase of substance, influence, cleverness in business, selfishness. Commencement of matters to be established later. Narrow and prejudiced. Keen in matters of gain; sometimes given to seeking after impossibilities.",
+      "four of disks": "Gain of money or influence; a present. Assured material gain: success, rank, dominion, earthy power, completed but leading to nothing beyond. Prejudicial, covetous, suspicious, careful and orderly, but discontented. Little enterprise or originality. According to dignity as usual.",
+      "five of disks": "Loss of profession; loss of money; monetary anxiety. Loss of money or position. Trouble about material things. Labor, toil, land cultivation; building, knowledge and acuteness of earthly things; poverty; carefulness, kindness; sometimes money regained after severe toil and labor. Unimaginative, harsh, stern, determined, obstinate.",
+      "six of disks": "Success in material things, prosperity in business. Success and gain in material undertakings. Power, influence, rank, nobility, rule over the people. Fortunate, successful, liberal, and just. If ill-dignified, may be purse-proud, insolent from excess, or prodigal.",
+      "seven of disks": "Unprofitable speculations and employments; little gain for much labor. Promises of success unfulfilled (shown, as it were, by the fact that the rosebuds do not come to anything). Loss of apparently promising fortune. Hopes deceived and crushed. Disappointment, misery, slavery, necessity, and baseness. A cultivator of land, yet a loser thereby. Sometimes it denotes slight and isolated gains with no fruits resulting therefrom, and of no further account, though seeming to promise well.",
+      "eight of disks": "Skill; prudence; cunning. Overcareful in small things at the expense of great. Penny wise and pound foolish. Gain of ready money in small sums; mean, avaricious; industrious; cultivation of land; hoarding; lacking in enterprise.",
+      "nine of disks": "Inheritance; much increase of goods. Complete realization of material gain, good, riches; inheritance; covetous, treasuring of goods, and sometimes theft and knavery. The whole according to dignity.",
+      "ten of disks": "Riches and wealth. Completion of material gain and fortune; but nothing beyond; as it were, at the very pinnacle of success. Old age, slothfulness; great wealth, yet sometimes loss in part; heaviness; dullness of mind, yet clever and prosperous in money transactions."
+    }
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "atzilut": {
+    "id": "atzilut",
+    "name": {
+      "en": "Nobility",
+      "roman": "Atziluth",
+      "he": "אצילות"
+    },
+    "desc": {
+      "en": "Archetypal"
+    },
+    "residentsTitle": {
+      "en": "Pure Deity"
+    },
+    "tetragrammaton": {
+      "slot": "Yod",
+      "letterChar": "י",
+      "hebrewLetterId": "yod",
+      "position": 1
+    },
+    "worldLayer": {
+      "en": "Archetypal World (God's Will)"
+    },
+    "worldDescription": {
+      "en": "World of gods or specific facets or divine qualities."
+    },
+    "soulId": "chaya"
+  },
+  "briah": {
+    "id": "briah",
+    "name": {
+      "en": "Creation",
+      "roman": "Briah",
+      "he": "בריאה"
+    },
+    "desc": {
+      "en": "Creative"
+    },
+    "residentsTitle": {
+      "en": "Archangelic"
+    },
+    "tetragrammaton": {
+      "slot": "Heh",
+      "letterChar": "ה",
+      "hebrewLetterId": "he",
+      "position": 2,
+      "isFinal": false
+    },
+    "worldLayer": {
+      "en": "Creative World (God's Love)"
+    },
+    "worldDescription": {
+      "en": "World of archangels, executors of divine qualities."
+    },
+    "soulId": "neshama"
+  },
+  "yetzirah": {
+    "id": "yetzirah",
+    "name": {
+      "en": "Formation",
+      "roman": "Yetzirah",
+      "he": "יצירה"
+    },
+    "desc": {
+      "en": "Formative"
+    },
+    "residentsTitle": {
+      "en": "Angelic"
+    },
+    "tetragrammaton": {
+      "slot": "Vav",
+      "letterChar": "ו",
+      "hebrewLetterId": "vav",
+      "position": 3
+    },
+    "worldLayer": {
+      "en": "Formative World (God's Mind)"
+    },
+    "worldDescription": {
+      "en": "World of angels, who work under the direction of archangels."
+    },
+    "soulId": "ruach"
+  },
+  "assiah": {
+    "id": "assiah",
+    "name": {
+      "en": "Doing",
+      "roman": "Assiah",
+      "he": "עשייה"
+    },
+    "desc": {
+      "en": "Action"
+    },
+    "residentsTitle": {
+      "en": "Man, Matter, Shells, Demons"
+    },
+    "tetragrammaton": {
+      "slot": "Heh",
+      "letterChar": "ה",
+      "hebrewLetterId": "he",
+      "position": 4,
+      "isFinal": true
+    },
+    "worldLayer": {
+      "en": "Material World (God's Creation)"
+    },
+    "worldDescription": {
+      "en": "World of spirits, who focus the specialized duties of their ruling angel to infuse matter and energy."
+    },
+    "soulId": "nephesh"
+  }
+}

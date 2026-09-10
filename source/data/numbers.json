@@ -1,0 +1,120 @@
+{
+  "meta": {
+    "description": "Digital root number correspondences for values 0 through 9, including arithmetic opposites that sum to 9.",
+    "notes": "Use this dataset to attach future number meanings, keywords, tarot links, and kabbalah links without changing UI code.",
+    "version": 1
+  },
+  "entries": [
+    {
+      "value": 0,
+      "label": "Zero",
+      "opposite": 9,
+      "digitalRoot": 0,
+      "summary": "Potential, void, and the unmanifest source before form.",
+      "keywords": [],
+      "associations": {
+        "kabbalahNode": 10,
+        "tarotTrumpNumbers": [0]
+      }
+    },
+    {
+      "value": 1,
+      "label": "One",
+      "opposite": 8,
+      "digitalRoot": 1,
+      "summary": "Initiation, identity, and singular will.",
+      "keywords": [],
+      "associations": {
+        "kabbalahNode": 1
+      }
+    },
+    {
+      "value": 2,
+      "label": "Two",
+      "opposite": 7,
+      "digitalRoot": 2,
+      "summary": "Polarity, reflection, and relationship.",
+      "keywords": [],
+      "associations": {
+        "kabbalahNode": 2
+      }
+    },
+    {
+      "value": 3,
+      "label": "Three",
+      "opposite": 6,
+      "digitalRoot": 3,
+      "summary": "Formation, synthesis, and creative expression.",
+      "keywords": [],
+      "associations": {
+        "kabbalahNode": 3
+      }
+    },
+    {
+      "value": 4,
+      "label": "Four",
+      "opposite": 5,
+      "digitalRoot": 4,
+      "summary": "Order, structure, and stable foundation.",
+      "keywords": [],
+      "associations": {
+        "kabbalahNode": 4
+      }
+    },
+    {
+      "value": 5,
+      "label": "Five",
+      "opposite": 4,
+      "digitalRoot": 5,
+      "summary": "Motion, adaptation, and dynamic change.",
+      "keywords": [],
+      "associations": {
+        "kabbalahNode": 5
+      }
+    },
+    {
+      "value": 6,
+      "label": "Six",
+      "opposite": 3,
+      "digitalRoot": 6,
+      "summary": "Balance, harmony, and reciprocal flow.",
+      "keywords": [],
+      "associations": {
+        "kabbalahNode": 6
+      }
+    },
+    {
+      "value": 7,
+      "label": "Seven",
+      "opposite": 2,
+      "digitalRoot": 7,
+      "summary": "Insight, analysis, and inner seeking.",
+      "keywords": [],
+      "associations": {
+        "kabbalahNode": 7
+      }
+    },
+    {
+      "value": 8,
+      "label": "Eight",
+      "opposite": 1,
+      "digitalRoot": 8,
+      "summary": "Power, momentum, and cyclical force.",
+      "keywords": [],
+      "associations": {
+        "kabbalahNode": 8
+      }
+    },
+    {
+      "value": 9,
+      "label": "Nine",
+      "opposite": 0,
+      "digitalRoot": 9,
+      "summary": "Completion, integration, and return.",
+      "keywords": [],
+      "associations": {
+        "kabbalahNode": 9
+      }
+    }
+  ]
+}

@@ -1,0 +1,239 @@
+{
+  "meta": {
+    "version": 1,
+    "notes": "Hebrew (Jewish) lunisolar calendar months with traditional associations. Holiday records are centralized in calendar-holidays.json."
+  },
+  "calendar": {
+    "id": "hebrew",
+    "label": "Hebrew Calendar",
+    "type": "lunisolar",
+    "script": "Hebrew",
+    "description": "The Hebrew calendar is a lunisolar calendar used for Jewish religious observances. The religious year begins with Nisan (month of Passover); the civil year begins with Tishrei. A leap year adds a second Adar (Adar II), making 13 months."
+  },
+  "months": [
+    {
+      "id": "nisan",
+      "order": 1,
+      "name": "Nisan",
+      "nativeName": "נִיסָן",
+      "days": 30,
+      "season": "Spring",
+      "zodiacSign": "aries",
+      "tribe": "Judah",
+      "sense": "Speech",
+      "hebrewLetter": "He (ה)",
+      "associations": {
+        "zodiacSignId": "aries",
+        "hebrewLetterId": "he"
+      },
+      "description": "The first month of the religious year. Called the 'month of redemption.' Passover (Pesach) commemorates the Exodus from Egypt."
+    },
+    {
+      "id": "iyar",
+      "order": 2,
+      "name": "Iyar",
+      "nativeName": "אִיָּר",
+      "days": 29,
+      "season": "Spring",
+      "zodiacSign": "taurus",
+      "tribe": "Issachar",
+      "sense": "Thought",
+      "hebrewLetter": "Vav (ו)",
+      "associations": {
+        "zodiacSignId": "taurus",
+        "hebrewLetterId": "vav"
+      },
+      "description": "A month of counting and transition between Passover and Shavuot. Yom HaShoah and Yom Ha'atzmaut fall here."
+    },
+    {
+      "id": "sivan",
+      "order": 3,
+      "name": "Sivan",
+      "nativeName": "סִיוָן",
+      "days": 30,
+      "season": "Late Spring",
+      "zodiacSign": "gemini",
+      "tribe": "Zebulun",
+      "sense": "Walking",
+      "hebrewLetter": "Zayin (ז)",
+      "associations": {
+        "zodiacSignId": "gemini",
+        "hebrewLetterId": "zayin"
+      },
+      "description": "Month of the giving of the Torah at Sinai. Shavuot (Festival of Weeks) falls on the 6th."
+    },
+    {
+      "id": "tammuz",
+      "order": 4,
+      "name": "Tammuz",
+      "nativeName": "תַּמּוּז",
+      "days": 29,
+      "season": "Summer",
+      "zodiacSign": "cancer",
+      "tribe": "Reuben",
+      "sense": "Sight",
+      "hebrewLetter": "Het (ח)",
+      "associations": {
+        "zodiacSignId": "cancer",
+        "hebrewLetterId": "het"
+      },
+      "description": "A month associated with mourning. The Golden Calf was made and the Tablets were broken on the 17th."
+    },
+    {
+      "id": "av",
+      "order": 5,
+      "name": "Av",
+      "nativeName": "אָב",
+      "days": 30,
+      "season": "Summer",
+      "zodiacSign": "leo",
+      "tribe": "Simeon",
+      "sense": "Hearing",
+      "hebrewLetter": "Tet (ט)",
+      "associations": {
+        "zodiacSignId": "leo",
+        "hebrewLetterId": "tet"
+      },
+      "description": "A month of mourning that ends with celebration. Tisha B'Av commemorates the destruction of both Temples."
+    },
+    {
+      "id": "elul",
+      "order": 6,
+      "name": "Elul",
+      "nativeName": "אֱלוּל",
+      "days": 29,
+      "season": "Late Summer",
+      "zodiacSign": "virgo",
+      "tribe": "Gad",
+      "sense": "Action",
+      "hebrewLetter": "Yod (י)",
+      "associations": {
+        "zodiacSignId": "virgo",
+        "hebrewLetterId": "yod"
+      },
+      "description": "A month of preparation and teshuva (repentance) before the High Holy Days. The shofar is blown daily."
+    },
+    {
+      "id": "tishrei",
+      "order": 7,
+      "name": "Tishrei",
+      "nativeName": "תִּשְׁרֵי",
+      "days": 30,
+      "season": "Autumn",
+      "zodiacSign": "libra",
+      "tribe": "Ephraim",
+      "sense": "Coition",
+      "hebrewLetter": "Lamed (ל)",
+      "associations": {
+        "zodiacSignId": "libra",
+        "hebrewLetterId": "lamed"
+      },
+      "description": "The holiest month of the year. Contains Rosh Hashanah (New Year), Yom Kippur (Day of Atonement), and Sukkot."
+    },
+    {
+      "id": "cheshvan",
+      "order": 8,
+      "name": "Cheshvan",
+      "nativeName": "חֶשְׁוָן",
+      "days": 29,
+      "daysVariant": 30,
+      "season": "Autumn",
+      "zodiacSign": "scorpio",
+      "tribe": "Manasseh",
+      "sense": "Smell",
+      "hebrewLetter": "Nun (נ)",
+      "associations": {
+        "zodiacSignId": "scorpio",
+        "hebrewLetterId": "nun"
+      },
+      "description": "Also called Marcheshvan. The only month with no Jewish holidays. Day count varies between 29–30 in different years."
+    },
+    {
+      "id": "kislev",
+      "order": 9,
+      "name": "Kislev",
+      "nativeName": "כִּסְלֵו",
+      "days": 30,
+      "daysVariant": 29,
+      "season": "Early Winter",
+      "zodiacSign": "sagittarius",
+      "tribe": "Benjamin",
+      "sense": "Sleep",
+      "hebrewLetter": "Samekh (ס)",
+      "associations": {
+        "zodiacSignId": "sagittarius",
+        "hebrewLetterId": "samekh"
+      },
+      "description": "Month of Hanukkah (Festival of Lights), which begins on the 25th. Day count varies 29–30."
+    },
+    {
+      "id": "tevet",
+      "order": 10,
+      "name": "Tevet",
+      "nativeName": "טֵבֵת",
+      "days": 29,
+      "season": "Winter",
+      "zodiacSign": "capricorn",
+      "tribe": "Dan",
+      "sense": "Anger",
+      "hebrewLetter": "Ayin (ע)",
+      "associations": {
+        "zodiacSignId": "capricorn",
+        "hebrewLetterId": "ayin"
+      },
+      "description": "Hanukkah continues into the early days of Tevet. The 10th is a fast day marking the siege of Jerusalem."
+    },
+    {
+      "id": "shvat",
+      "order": 11,
+      "name": "Shvat",
+      "nativeName": "שְׁבָט",
+      "days": 30,
+      "season": "Late Winter",
+      "zodiacSign": "aquarius",
+      "tribe": "Asher",
+      "sense": "Taste",
+      "hebrewLetter": "Tzaddi (צ)",
+      "associations": {
+        "zodiacSignId": "aquarius",
+        "hebrewLetterId": "tsadi"
+      },
+      "description": "The month of Tu B'Shvat, the 'New Year for Trees.' Trees begin to wake in the Land of Israel."
+    },
+    {
+      "id": "adar",
+      "order": 12,
+      "name": "Adar (Adar I)",
+      "nativeName": "אֲדָר",
+      "days": 29,
+      "season": "Late Winter / Early Spring",
+      "zodiacSign": "pisces",
+      "tribe": "Naphtali",
+      "sense": "Laughter",
+      "hebrewLetter": "Qof (ק)",
+      "associations": {
+        "zodiacSignId": "pisces",
+        "hebrewLetterId": "qof"
+      },
+      "description": "A month of joy. Purim falls on the 14th. In a leap year this becomes Adar I and Purim is celebrated in Adar II."
+    },
+    {
+      "id": "adar-ii",
+      "order": 13,
+      "name": "Adar II",
+      "nativeName": "אֲדָר ב",
+      "days": 29,
+      "leapYearOnly": true,
+      "season": "Early Spring",
+      "zodiacSign": "pisces",
+      "tribe": "Naphtali",
+      "sense": "Laughter",
+      "hebrewLetter": "Qof (ק)",
+      "associations": {
+        "zodiacSignId": "pisces",
+        "hebrewLetterId": "qof"
+      },
+      "description": "Added in a Hebrew leap year (7 times in every 19-year Metonic cycle). Purim is celebrated in Adar II in leap years."
+    }
+  ]
+}

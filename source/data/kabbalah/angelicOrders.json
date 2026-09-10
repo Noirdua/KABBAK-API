@@ -1,0 +1,79 @@
+{
+  "chayot-hakodesh": {
+    "name": {
+      "he": "חיות הקודש",
+      "en": "Holy Living Creatures",
+      "roman": "Chayot Hakodesh"
+    }
+  },
+  "auphanim": {
+    "name": {
+      "he": "אופנים",
+      "en": "Wheels",
+      "roman": "Auphaneem"
+    }
+  },
+  "aralim": {
+    "name": {
+      "he": "אראלים",
+      "en": "Thrones",
+      "roman": "Ar'aleem"
+    }
+  },
+  "chashmalim": {
+    "name": {
+      "he": "חשמלים",
+      "en": "Shining Ones",
+      "roman": "Chashmaleem"
+    }
+  },
+  "seraphim": {
+    "name": {
+      "he": "שרפים",
+      "en": "Flaming Ones",
+      "roman": "Seraphim"
+    }
+  },
+  "malachim": {
+    "name": {
+      "he": "מלאכים",
+      "en": "Messengers",
+      "roman": "Malecheem"
+    }
+  },
+  "elohim": {
+    "name": {
+      "he": "אלוהים",
+      "en": "Gods & Goddesses",
+      "roman": "Eloheem"
+    }
+  },
+  "bnei-elohim": {
+    "name": {
+      "he": "בני אלוהים",
+      "en": "Children of the Gods",
+      "roman": "Bnei Eloheem"
+    }
+  },
+  "kerubim": {
+    "name": {
+      "he": "כרובים",
+      "en": "Strong Ones",
+      "roman": "Kerubeem"
+    }
+  },
+  "ishim": {
+    "name": {
+      "he": "אישים",
+      "en": "Souls of Fire",
+      "roman": "Isheem"
+    }
+  },
+  "": {
+    "name": {
+      "he": "",
+      "en": "",
+      "roman": ""
+    }
+  }
+}

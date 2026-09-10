@@ -1,0 +1,120 @@
+{
+  "root": {
+    "id": "root",
+    "name": {
+      "en": "Root",
+      "sa": "मूलाधार",
+      "roman": "Muladhara"
+    },
+    "meaning": {
+      "en": "Root"
+    },
+    "location": "base-of-spine",
+    "petals": 4,
+    "color": "red",
+    "seed": "Lam",
+    "seedMeaning": {
+      "en": "earth"
+    }
+  },
+  "sacral": {
+    "id": "sacral",
+    "name": {
+      "en": "Sacral",
+      "sa": "स्वाधिष्ठान",
+      "roman": "Svadhishthana"
+    },
+    "meaning": {
+      "en": "Where the self is established"
+    },
+    "location": "genitals",
+    "petals": 6,
+    "color": "orange",
+    "seed": "Vam",
+    "seedMeaning": {
+      "en": "water"
+    }
+  },
+  "solar-plexus": {
+    "id": "solar-plexus",
+    "name": {
+      "en": "Solar Plexus",
+      "sa": "मणिपूर",
+      "roman": "Manipura"
+    },
+    "meaning": {
+      "en": "Jewel city"
+    },
+    "location": "navel",
+    "petals": 10,
+    "color": "yellow",
+    "seed": "Ram",
+    "seedMeaning": {
+      "en": "fire"
+    }
+  },
+  "heart": {
+    "id": "heart",
+    "name": {
+      "en": "Heart",
+      "sa": "अनाहत",
+      "roman": "Anahata"
+    },
+    "meaning": {
+      "en": "Unstruck"
+    },
+    "location": "heart",
+    "petals": 12,
+    "color": "green",
+    "seed": "Yam",
+    "seedMeaning": {
+      "en": "air"
+    }
+  },
+  "throat": {
+    "id": "throat",
+    "name": {
+      "en": "Throat",
+      "sa": "विशुद्ध",
+      "roman": "Vishuddha"
+    },
+    "meaning": {
+      "en": "Purest"
+    },
+    "location": "throat",
+    "petals": 16,
+    "color": "blue",
+    "seed": "Ham",
+    "seedMeaning": {
+      "en": "space"
+    }
+  },
+  "third-eye": {
+    "id": "third-eye",
+    "name": {
+      "en": "Third Eye",
+      "sa": "आज्ञा",
+      "roman": "Ajna"
+    },
+    "meaning": {
+      "en": "Command"
+    },
+    "location": "third-eye",
+    "petals": 2,
+    "color": "indigo"
+  },
+  "crown": {
+    "id": "crown",
+    "name": {
+      "en": "Crown",
+      "sa": "सहस्रार",
+      "roman": "Sahasrara"
+    },
+    "meaning": {
+      "en": "Thousand-petaled"
+    },
+    "location": "crown",
+    "petals": 1000,
+    "color": "violet"
+  }
+}

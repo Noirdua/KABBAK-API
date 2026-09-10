@@ -1,0 +1,156 @@
+# KABBAK — agent reference
+
+KABBAK is a correspondence encyclopedia (tarot, kabbalah, astrology, alphabets, I Ching, etc.). This repo is the **API**. The browser app is a sibling checkout: `../KABBAK-GUI`.
+
+Do not invent a bundler or framework. API is Express + SQLite JSON blobs. GUI is static HTML + IIFE scripts on `window.*`.
+
+## Repos
+
+| Repo | Role |
+|---|---|
+| `KABBAK-API` (this) | HTTP API, SQLite snapshot, DLC/plugin serving, admin, profiles |
+| `KABBAK-GUI` | Static SPA (`index.html` + `app/*.js`), no build step |
+| `KABBAK-DLC` | Operator-provided DLC catalog (plugins, packs). No default URL; live checkout is `imports/dlc/` |
+
+Local run order:
+
+1. API: `npm install && npm start` → `http://127.0.0.1:3100` (override bind with `HOST`)
+2. GUI: `cd ../KABBAK-GUI && npx http-server .` → `http://127.0.0.1:8080`
+3. Browser: connection gate asks for API base URL + key
+
+## API layout
+
+```
+src/server.js          listen, storage bootstrap
+src/app.js             middleware order, route mount
+src/config/            env, paths, access policy
+src/middleware/        api-key, access levels, rate limit, errors
+src/routes/            HTTP only
+src/routes/domains/    thin slices over magick/reference blobs
+src/services/          domain logic (tarot, dlc-catalog, profile, …)
+src/lib/               envelopes, pagination, http errors
+source/                canonical data + runtime JS copied into the snapshot
+imports/               DLC checkout, decks, texts, references
+storage/               kabbak.db, assets, config, runtime copy of GUI tarot JS
+```
+
+Layering: **routes → services → data-loader (SQLite documents)**. Do not query SQLite ad hoc; documents are JSON blobs (`magickDataset`, `referenceData`, decks, texts).
+
+### Middleware order (`src/app.js`)
+
+Compression → request id → IP ban → observability → security headers → CORS → JSON body (runtime limit) → **health + public assets** → `requireApiKey` → rate limit → access level → protected routers.
+
+Public without a key: `/api/v1/health*`, `/branding`, `/demo-access` (loopback or `KABBAK_DEMO_ACCESS=1`), non-tarot `/assets/img`.
+
+### Success envelope
+
+```json
+{ "data": <payload>, "meta": { "requestId", "version", "total?", "offset?", "limit?" } }
+```
+
+Use `response.apiSuccess(data)` or `response.apiPaginated(items, { offset, limit })`. Errors: `{ error, message, requestId, details? }`. GUI `TarotDataService.requestJson` unwraps `.data`.
+
+### Auth
+
+Keys: `x-api-key` or `Authorization: Bearer`. Query `apiKey` still works for `<img>`/`<audio>` tags; prefer headers. Precedence: managed `storage/config/api-clients.json` → env clients → `KABBAK_API_KEYS` → `KABBAK_API_KEY`. `KABBAK_NO_AUTH=1` opens routes. Access levels (`basic` / `premium` / …) are hardcoded in `src/config/api-access.js`; admin “tiers” UI does not remap routes. Admin mutations need role `admin` or scope `api:admin`.
+
+### Data
+
+- First boot: `KABBAK_AUTO_MIGRATE` (default true) builds `storage/kabbak.db` from `source/` via `scripts/migrate-data-to-sqlite.js` (needs ~4GB heap).
+- Hot reload after DLC install: `POST /api/v1/admin/dlc/reload` → `storage-bootstrap` resets data-loader **and** tarot/quiz/VM caches.
+- Domain routes load the whole magick/reference document then slice in JS.
+
+### DLC / plugins (API)
+
+Catalog + install: `src/services/dlc-catalog.js` + `src/routes/dlc.js`. Installed plugins live under `imports/dlc/plugins/<name>/` (or extra sources).
+
+Plugin list: `GET /api/v1/plugins` → `{ plugins[], uploadLimitBytes }`. Fields the GUI host needs: `name`, `kind`, `id`, `title`, `entry`, `css`, `section`, `role`, `preserveChrome`.
+
+`role`: `widget` (top bar), `section` / `kind: "api"` (extra page), `skin` (layout overhaul). `preserveChrome: true` = official default layout (do not hide the top bar).
+
+Plugin JS/CSS: `GET /plugins/:name/:file` (`Cache-Control: no-cache` for code). Nested files: `/plugins/:name/files/:dir/:file`. Config GET redacts `*key*` / `*secret*` fields; POST is admin-only.
+
+**Do not delete `source/` on uninstall.** Shop uninstall removes import/checkout copies only. Plugin I/O must go through `resolvePluginRoot` (multi-source).
+
+Layout skins currently in the DLC checkout:
+
+| id | What |
+|---|---|
+| `layout-default` | Built-in top bar (`preserveChrome`) |
+| `layout-dock` | Left dock + HUD |
+| `mindmap-layout` | Correspondence mindmap; tools/admin/plugin pages stay real screens |
+
+Only one skin is active (`kabbak-active-skin` in the browser). Default if unset: `layout-default`.
+
+## GUI layout (`KABBAK-GUI`)
+
+No modules, no bundler. Scripts are IIFEs that assign `window.TarotDataService`, `window.TaroTimePluginHost`, `window.TarotSectionStateUi`, etc.
+
+| Path | Role |
+|---|---|
+| `index.html` | Full chrome + every section shell (large) |
+| `app.js` | Boot: gate, reconnect, visibility, init orchestration |
+| `app/data-service.js` | API client, caches, `requestJson` unwraps `{ data }` |
+| `app/plugins-host.js` | Load/mount widgets, section plugins, skins |
+| `app/ui-section-state.js` | `VALID_SECTIONS`, show/hide, history |
+| `app/ui-navigation.js` | Top-bar clicks + `nav:*` custom events |
+| `app/ui-settings.js` | User prefs; UI Overhaul `<select id="ui-skin">` |
+| `app/ui-admin.js` | Admin panel (lazy) |
+| `app/ui-dlc-shop.js` | Plugin settings editors (eager) |
+| `app/lazy-sections.js` | Injects section JS on first open; bump `?v=` when editing those files |
+| `app/styles.css` | Global CSS; bump `index.html` query when changing |
+
+Navigation is **DOM id coupling**: `#open-tarot-cards` → `setActiveSection("tarot")`. Skins call `helpers.ui.openNav("open-tarot-cards")` which `.click()`s the original (possibly hidden) button. Do not rename those ids lightly.
+
+### Skin host contract
+
+`window.TaroTimePluginHost.register({ id, role, preserveChrome, mount })`.
+
+Skins that replace chrome must call `helpers.ui.hideDefaultChrome()` **inside** `mount` (host hides chrome only after mount succeeds). `attachPages(el)` moves `body > section` + `#home-welcome` into the skin. Unmount restores parents. Widget `mount` return value is `_pluginUnmount` (not a `"remove"` event).
+
+JS/CSS for plugins are fetched with `x-api-key` and injected as blob URLs. `<audio>`/`<img>` helpers may still put `apiKey` on the query string.
+
+Mindmap: correspondence catalogs stay graphs; Admin, Settings, Quiz, Scriber, Spread, Frame, House, plugin API pages (`data-plugin-section-open`) open the real page drawer.
+
+## Conventions
+
+- **Package manager:** npm + `package-lock.json` on API and GUI. Do not switch to pnpm — GUI is unbundled and serves `node_modules/` (fonts, calendar, astronomy, html2canvas, jspdf) as static files; pnpm’s symlink layout breaks that on Windows/`http-server`. Trees are tiny (~9–11 direct deps); npm ships with Node.
+- **JS:** Node 18+, `"use strict"` IIFEs in the GUI, no new comments unless asked.
+- **Cache-bust GUI** script tags in `index.html` and `lazy-sections.js` when you change those files.
+- **Do not commit secrets.** Managed keys live in `storage/config/api-clients.json` (plaintext today).
+- **Do not `rm` `source/`** from DLC uninstall/install paths.
+- **One skin at a time.** Add overhauls as `role: "skin"` plugins, not forks of `index.html`.
+- Prefer `response.apiSuccess` on new routes. Keep `{ data, meta }` in tests.
+
+## Commands
+
+API (this repo):
+
+```text
+npm start                 # src/server.js
+npm test                  # integration + client CLI
+npm run check:syntax
+npm run migrate:data      # rebuild SQLite snapshot
+npm run dlc               # DLC checkout helpers
+```
+
+GUI:
+
+```text
+npm start                 # http-server
+npm run check:syntax
+npm run check:html        # untagged innerHTML linter
+```
+
+## Pitfalls
+
+- Bind default is `127.0.0.1`. LAN access needs `HOST=0.0.0.0` and matching `KABBAK_ALLOWED_ORIGINS`.
+- No default DLC/plugin catalog URL. Set `KABBAK_DLC_REPO`, `npm run dlc -- init --repo <url>`, or Admin → DLC.
+- Demo user is opt-in (Admin create). Demo gate key is **not** public unless loopback or `KABBAK_DEMO_ACCESS=1`.
+- Hydrus has no hardcoded key; plugin config GET redacts secrets; file URLs are proxied through `/api/v1/integrations/hydrus-network/…`.
+- Failed skin `mount` must not leave `html[data-plugin-skin]` set (host restores chrome on throw).
+- `unregisterSection` must not delete builtin ids (`home`, `tarot`, `admin`, …).
+- Magick dataset is large; first paint should not wait on it (cache loader idles it).
+- Query-string API keys leak; do not add new ones except media tags that cannot send headers.
+- `dlc-catalog.js` is a god module — extend carefully; invalidate catalog cache on install/uninstall.
+)

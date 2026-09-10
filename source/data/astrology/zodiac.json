@@ -1,0 +1,326 @@
+{
+  "aries": {
+    "id": "aries",
+    "no": 1,
+    "symbol": "♈︎",
+    "emoji": "♈️",
+    "name": {
+      "en": "Aries"
+    },
+    "meaning": {
+      "en": "Ram"
+    },
+    "rulesFrom": [
+      [
+        3,
+        21
+      ],
+      [
+        4,
+        19
+      ]
+    ],
+    "planetId": "mars",
+    "elementId": "fire",
+    "quadruplicity": "cardinal",
+    "tribeOfIsraelId": "gad",
+    "tetragrammatonPermutation": "yhvH"
+  },
+  "taurus": {
+    "id": "taurus",
+    "no": 2,
+    "symbol": "♉︎",
+    "emoji": "♉",
+    "name": {
+      "en": "Taurus"
+    },
+    "meaning": {
+      "en": "Bullm"
+    },
+    "rulesFrom": [
+      [
+        4,
+        20
+      ],
+      [
+        5,
+        20
+      ]
+    ],
+    "planetId": "venus",
+    "elementId": "earth",
+    "quadruplicity": "kerubic",
+    "tribeOfIsraelId": "ephraim",
+    "tetragrammatonPermutation": "yhHv"
+  },
+  "gemini": {
+    "id": "gemini",
+    "no": 3,
+    "symbol": "♊︎",
+    "emoji": "♊",
+    "name": {
+      "en": "Gemini"
+    },
+    "meaning": {
+      "en": "Twins"
+    },
+    "rulesFrom": [
+      [
+        5,
+        21
+      ],
+      [
+        6,
+        20
+      ]
+    ],
+    "planetId": "mercury",
+    "elementId": "air",
+    "quadruplicity": "mutable",
+    "tribeOfIsraelId": "manasseh",
+    "tetragrammatonPermutation": "yvhH"
+  },
+  "cancer": {
+    "id": "cancer",
+    "no": 4,
+    "symbol": "♋︎",
+    "emoji": "♋",
+    "name": {
+      "en": "Cancer"
+    },
+    "meaning": {
+      "en": "Crab"
+    },
+    "rulesFrom": [
+      [
+        6,
+        21
+      ],
+      [
+        7,
+        22
+      ]
+    ],
+    "planetId": "sol",
+    "elementId": "water",
+    "quadruplicity": "cardinal",
+    "tribeOfIsraelId": "issachar",
+    "tetragrammatonPermutation": "hvyH"
+  },
+  "leo": {
+    "id": "leo",
+    "no": 5,
+    "symbol": "♌︎",
+    "emoji": "♌",
+    "name": {
+      "en": "Leo"
+    },
+    "meaning": {
+      "en": "Lion"
+    },
+    "rulesFrom": [
+      [
+        7,
+        23
+      ],
+      [
+        8,
+        22
+      ]
+    ],
+    "planetId": "sol",
+    "elementId": "fire",
+    "quadruplicity": "kerubic",
+    "tribeOfIsraelId": "judah",
+    "tetragrammatonPermutation": "hvyH"
+  },
+  "virgo": {
+    "id": "virgo",
+    "no": 6,
+    "symbol": "♍︎",
+    "emoji": "♍",
+    "name": {
+      "en": "Virgo"
+    },
+    "meaning": {
+      "en": "Virgin"
+    },
+    "rulesFrom": [
+      [
+        8,
+        23
+      ],
+      [
+        9,
+        22
+      ]
+    ],
+    "planetId": "mercury",
+    "elementId": "earth",
+    "quadruplicity": "mutable",
+    "tribeOfIsraelId": "naphtali",
+    "tetragrammatonPermutation": "hHvy"
+  },
+  "libra": {
+    "id": "libra",
+    "no": 7,
+    "symbol": "♎︎",
+    "emoji": "♎",
+    "name": {
+      "en": "Libra"
+    },
+    "meaning": {
+      "en": "Scales"
+    },
+    "rulesFrom": [
+      [
+        9,
+        23
+      ],
+      [
+        10,
+        22
+      ]
+    ],
+    "planetId": "venus",
+    "elementId": "air",
+    "quadruplicity": "cardinal",
+    "tribeOfIsraelId": "asher",
+    "tetragrammatonPermutation": "vHyh"
+  },
+  "scorpio": {
+    "id": "scorpio",
+    "no": 8,
+    "symbol": "♏︎",
+    "emoji": "♏",
+    "name": {
+      "en": "Scorpio"
+    },
+    "meaning": {
+      "en": "Scorpion"
+    },
+    "rulesFrom": [
+      [
+        10,
+        23
+      ],
+      [
+        11,
+        21
+      ]
+    ],
+    "planetId": "jupiter",
+    "elementId": "water",
+    "quadruplicity": "kerubic",
+    "tribeOfIsraelId": "dan",
+    "tetragrammatonPermutation": "vHhy"
+  },
+  "sagittarius": {
+    "id": "sagittarius",
+    "no": 9,
+    "symbol": "♐︎",
+    "emoji": "♐",
+    "name": {
+      "en": "Sagittarius"
+    },
+    "meaning": {
+      "en": "Archer"
+    },
+    "rulesFrom": [
+      [
+        11,
+        22
+      ],
+      [
+        12,
+        21
+      ]
+    ],
+    "planetId": "jupiter",
+    "elementId": "fire",
+    "quadruplicity": "mutable",
+    "tribeOfIsraelId": "benjamin",
+    "tetragrammatonPermutation": "Hyhv"
+  },
+  "capricorn": {
+    "id": "capricorn",
+    "no": 10,
+    "symbol": "♑︎",
+    "emoji": "♑",
+    "name": {
+      "en": "Capricorn"
+    },
+    "meaning": {
+      "en": "Sea-goat"
+    },
+    "rulesFrom": [
+      [
+        12,
+        22
+      ],
+      [
+        1,
+        19
+      ]
+    ],
+    "planetId": "saturn",
+    "elementId": "earth",
+    "quadruplicity": "cardinal",
+    "tribeOfIsraelId": "zebulun",
+    "tetragrammatonPermutation": "Hyhv"
+  },
+  "aquarius": {
+    "id": "aquarius",
+    "no": 11,
+    "symbol": "♒︎",
+    "emoji": "♒",
+    "name": {
+      "en": "Aquarius"
+    },
+    "meaning": {
+      "en": "Water-bearer"
+    },
+    "rulesFrom": [
+      [
+        1,
+        20
+      ],
+      [
+        2,
+        18
+      ]
+    ],
+    "planetId": "saturn",
+    "elementId": "air",
+    "quadruplicity": "kerubic",
+    "tribeOfIsraelId": "reuben",
+    "tetragrammatonPermutation": "Hyvh"
+  },
+  "pisces": {
+    "id": "pisces",
+    "no": 12,
+    "symbol": "♓︎",
+    "emoji": "♓",
+    "name": {
+      "en": "Pisces"
+    },
+    "meaning": {
+      "en": "Fish"
+    },
+    "rulesFrom": [
+      [
+        2,
+        19
+      ],
+      [
+        3,
+        20
+      ]
+    ],
+    "planetId": "jupiter",
+    "elementId": "water",
+    "quadruplicity": "mutable",
+    "tribeOfIsraelId": "simeon",
+    "tetragrammatonPermutation": "Hhyv"
+  }
+}

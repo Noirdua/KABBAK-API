@@ -1,0 +1,1274 @@
+{
+  "meta": {
+    "source": "iChing.py",
+    "notes": "Extracted from Python I Ching specs for web dataset view. Included Tarot↔I Ching correspondences extracted from DOCX table."
+  },
+  "trigrams": [
+    {
+      "name": "Qian",
+      "chineseName": "乾",
+      "pinyin": "Qián",
+      "element": "Heaven",
+      "attribute": "Creative",
+      "binary": "111",
+      "description": "Pure yang drive that initiates action.",
+      "lineDiagram": "|||"
+    },
+    {
+      "name": "Dui",
+      "chineseName": "兑",
+      "pinyin": "Duì",
+      "element": "Lake",
+      "attribute": "Joyous",
+      "binary": "011",
+      "description": "Open delight that invites community.",
+      "lineDiagram": "||:"
+    },
+    {
+      "name": "Li",
+      "chineseName": "离",
+      "pinyin": "Lí",
+      "element": "Fire",
+      "attribute": "Clinging",
+      "binary": "101",
+      "description": "Radiant clarity that adheres to insight.",
+      "lineDiagram": "|:|"
+    },
+    {
+      "name": "Zhen",
+      "chineseName": "震",
+      "pinyin": "Zhèn",
+      "element": "Thunder",
+      "attribute": "Arousing",
+      "binary": "001",
+      "description": "Sudden awakening that shakes stagnation.",
+      "lineDiagram": "|::"
+    },
+    {
+      "name": "Xun",
+      "chineseName": "巽",
+      "pinyin": "Xùn",
+      "element": "Wind",
+      "attribute": "Gentle",
+      "binary": "110",
+      "description": "Penetrating influence that persuades subtly.",
+      "lineDiagram": ":||"
+    },
+    {
+      "name": "Kan",
+      "chineseName": "坎",
+      "pinyin": "Kǎn",
+      "element": "Water",
+      "attribute": "Abysmal",
+      "binary": "010",
+      "description": "Depth, risk, and sincere feeling.",
+      "lineDiagram": ":|:"
+    },
+    {
+      "name": "Gen",
+      "chineseName": "艮",
+      "pinyin": "Gèn",
+      "element": "Mountain",
+      "attribute": "Stillness",
+      "binary": "100",
+      "description": "Grounded rest that establishes boundaries.",
+      "lineDiagram": "::|"
+    },
+    {
+      "name": "Kun",
+      "chineseName": "坤",
+      "pinyin": "Kūn",
+      "element": "Earth",
+      "attribute": "Receptive",
+      "binary": "000",
+      "description": "Vast receptivity that nurtures form.",
+      "lineDiagram": ":::"
+    },
+    {
+      "name": "Xuan",
+      "chineseName": "玄",
+      "pinyin": "Xuán",
+      "element": "Spirit",
+      "attribute": "Spirit Helper",
+      "special": true,
+      "description": "A liminal spiritual force that assists the magician; not counted among the eight classic trigrams."
+    },
+    {
+      "name": "XuanWind",
+      "chineseName": "玄風",
+      "pinyin": "Xuán Fēng",
+      "element": "Spirit Wind",
+      "attribute": "Subtle Force",
+      "special": true,
+      "description": "Xuan fused with Wind: transformative, liminal passage between states."
+    }
+  ],
+  "hexagrams": [
+    {
+      "number": 1,
+      "name": "Creative Force",
+      "chineseName": "乾",
+      "pinyin": "Qián",
+      "judgement": "Initiative succeeds when anchored in integrity.",
+      "image": "Heaven above and below mirrors unstoppable drive.",
+      "upperTrigram": "Qian",
+      "lowerTrigram": "Qian",
+      "keywords": [
+        "Leadership",
+        "Momentum",
+        "Clarity"
+      ],
+      "planetaryInfluence": "Sun",
+      "binary": "111111",
+      "lineDiagram": "||||||"
+    },
+    {
+      "number": 2,
+      "name": "Receptive Field",
+      "chineseName": "坤",
+      "pinyin": "Kūn",
+      "judgement": "Grounded support flourishes through patience.",
+      "image": "Earth layered upon earth offers fertile space.",
+      "upperTrigram": "Kun",
+      "lowerTrigram": "Kun",
+      "keywords": [
+        "Nurture",
+        "Support",
+        "Yielding"
+      ],
+      "planetaryInfluence": "Moon",
+      "binary": "000000",
+      "lineDiagram": "::::::"
+    },
+    {
+      "number": 3,
+      "name": "Sprouting",
+      "chineseName": "屯",
+      "pinyin": "Zhūn",
+      "judgement": "Challenges at the start need perseverance.",
+      "image": "Water over thunder shows storms that germinate seeds.",
+      "upperTrigram": "Kan",
+      "lowerTrigram": "Zhen",
+      "keywords": [
+        "Beginnings",
+        "Struggle",
+        "Resolve"
+      ],
+      "planetaryInfluence": "Mercury",
+      "binary": "010001",
+      "lineDiagram": "|:::|:"
+    },
+    {
+      "number": 4,
+      "name": "Youthful Insight",
+      "chineseName": "蒙",
+      "pinyin": "Méng",
+      "judgement": "Ignorance yields to steady guidance.",
+      "image": "Mountain above water signals learning via restraint.",
+      "upperTrigram": "Gen",
+      "lowerTrigram": "Kan",
+      "keywords": [
+        "Study",
+        "Mentorship",
+        "Humility"
+      ],
+      "planetaryInfluence": "Venus",
+      "binary": "100010",
+      "lineDiagram": ":|:::|"
+    },
+    {
+      "number": 5,
+      "name": "Waiting",
+      "chineseName": "需",
+      "pinyin": "Xū",
+      "judgement": "Hold position until nourishment arrives.",
+      "image": "Water above heaven depicts clouds gathering provision.",
+      "upperTrigram": "Kan",
+      "lowerTrigram": "Qian",
+      "keywords": [
+        "Patience",
+        "Faith",
+        "Preparation"
+      ],
+      "planetaryInfluence": "Mars",
+      "binary": "010111",
+      "lineDiagram": "|||:|:"
+    },
+    {
+      "number": 6,
+      "name": "Conflict",
+      "chineseName": "訟",
+      "pinyin": "Sòng",
+      "judgement": "Clarity and fairness prevent escalation.",
+      "image": "Heaven above water shows tension seeking balance.",
+      "upperTrigram": "Qian",
+      "lowerTrigram": "Kan",
+      "keywords": [
+        "Debate",
+        "Justice",
+        "Boundaries"
+      ],
+      "planetaryInfluence": "Jupiter",
+      "binary": "111010",
+      "lineDiagram": ":|:|||"
+    },
+    {
+      "number": 7,
+      "name": "Collective Force",
+      "chineseName": "師",
+      "pinyin": "Shī",
+      "judgement": "Coordinated effort requires disciplined leadership.",
+      "image": "Earth over water mirrors troops marshaling supplies.",
+      "upperTrigram": "Kun",
+      "lowerTrigram": "Kan",
+      "keywords": [
+        "Discipline",
+        "Leadership",
+        "Community"
+      ],
+      "planetaryInfluence": "Saturn",
+      "binary": "000010",
+      "lineDiagram": ":|::::"
+    },
+    {
+      "number": 8,
+      "name": "Union",
+      "chineseName": "比",
+      "pinyin": "Bǐ",
+      "judgement": "Shared values attract loyal allies.",
+      "image": "Water over earth highlights bonds formed through empathy.",
+      "upperTrigram": "Kan",
+      "lowerTrigram": "Kun",
+      "keywords": [
+        "Alliance",
+        "Affinity",
+        "Trust"
+      ],
+      "planetaryInfluence": "Earth",
+      "binary": "010000",
+      "lineDiagram": "::::|:"
+    },
+    {
+      "number": 9,
+      "name": "Small Accumulating",
+      "chineseName": "小畜",
+      "pinyin": "Xiǎo Chù",
+      "judgement": "Gentle restraint nurtures gradual gains.",
+      "image": "Wind over heaven indicates tender guidance on great power.",
+      "upperTrigram": "Xun",
+      "lowerTrigram": "Qian",
+      "keywords": [
+        "Restraint",
+        "Cultivation",
+        "Care"
+      ],
+      "planetaryInfluence": "Sun",
+      "binary": "110111",
+      "lineDiagram": "|||:||"
+    },
+    {
+      "number": 10,
+      "name": "Treading",
+      "chineseName": "履",
+      "pinyin": "Lǚ",
+      "judgement": "Walk with awareness when near power.",
+      "image": "Heaven over lake shows respect between ranks.",
+      "upperTrigram": "Qian",
+      "lowerTrigram": "Dui",
+      "keywords": [
+        "Conduct",
+        "Respect",
+        "Sensitivity"
+      ],
+      "planetaryInfluence": "Moon",
+      "binary": "111011",
+      "lineDiagram": "||:|||"
+    },
+    {
+      "number": 11,
+      "name": "Peace",
+      "chineseName": "泰",
+      "pinyin": "Tài",
+      "judgement": "Harmony thrives when resources circulate freely.",
+      "image": "Earth over heaven signals prosperity descending.",
+      "upperTrigram": "Kun",
+      "lowerTrigram": "Qian",
+      "keywords": [
+        "Harmony",
+        "Prosperity",
+        "Flourish"
+      ],
+      "planetaryInfluence": "Mercury",
+      "binary": "000111",
+      "lineDiagram": "|||:::"
+    },
+    {
+      "number": 12,
+      "name": "Standstill",
+      "chineseName": "否",
+      "pinyin": "Pǐ",
+      "judgement": "When channels close, conserve strength.",
+      "image": "Heaven over earth reveals blocked exchange.",
+      "upperTrigram": "Qian",
+      "lowerTrigram": "Kun",
+      "keywords": [
+        "Stagnation",
+        "Reflection",
+        "Pause"
+      ],
+      "planetaryInfluence": "Venus",
+      "binary": "111000",
+      "lineDiagram": ":::|||"
+    },
+    {
+      "number": 13,
+      "name": "Fellowship",
+      "chineseName": "同人",
+      "pinyin": "Tóng Rén",
+      "judgement": "Shared purpose unites distant hearts.",
+      "image": "Heaven over fire shows clarity within community.",
+      "upperTrigram": "Qian",
+      "lowerTrigram": "Li",
+      "keywords": [
+        "Community",
+        "Shared Vision",
+        "Openness"
+      ],
+      "planetaryInfluence": "Mars",
+      "binary": "111101",
+      "lineDiagram": "|:||||"
+    },
+    {
+      "number": 14,
+      "name": "Great Possession",
+      "chineseName": "大有",
+      "pinyin": "Dà Yǒu",
+      "judgement": "Generosity cements lasting influence.",
+      "image": "Fire over heaven reflects radiance sustained by ethics.",
+      "upperTrigram": "Li",
+      "lowerTrigram": "Qian",
+      "keywords": [
+        "Wealth",
+        "Stewardship",
+        "Confidence"
+      ],
+      "planetaryInfluence": "Jupiter",
+      "binary": "101111",
+      "lineDiagram": "||||:|"
+    },
+    {
+      "number": 15,
+      "name": "Modesty",
+      "chineseName": "謙",
+      "pinyin": "Qiān",
+      "judgement": "Balance is found by lowering the proud.",
+      "image": "Earth over mountain reveals humility safeguarding strength.",
+      "upperTrigram": "Kun",
+      "lowerTrigram": "Gen",
+      "keywords": [
+        "Humility",
+        "Balance",
+        "Service"
+      ],
+      "planetaryInfluence": "Saturn",
+      "binary": "000100",
+      "lineDiagram": "::|:::"
+    },
+    {
+      "number": 16,
+      "name": "Enthusiasm",
+      "chineseName": "豫",
+      "pinyin": "Yù",
+      "judgement": "Inspired music rallies the people.",
+      "image": "Thunder over earth depicts drums stirring hearts.",
+      "upperTrigram": "Zhen",
+      "lowerTrigram": "Kun",
+      "keywords": [
+        "Inspiration",
+        "Celebration",
+        "Momentum"
+      ],
+      "planetaryInfluence": "Earth",
+      "binary": "001000",
+      "lineDiagram": ":::|::"
+    },
+    {
+      "number": 17,
+      "name": "Following",
+      "chineseName": "隨",
+      "pinyin": "Suí",
+      "judgement": "Adapt willingly to timely leadership.",
+      "image": "Lake over thunder points to joyful allegiance.",
+      "upperTrigram": "Dui",
+      "lowerTrigram": "Zhen",
+      "keywords": [
+        "Adaptation",
+        "Loyalty",
+        "Flow"
+      ],
+      "planetaryInfluence": "Sun",
+      "binary": "011001",
+      "lineDiagram": "|::||:"
+    },
+    {
+      "number": 18,
+      "name": "Repairing",
+      "chineseName": "蠱",
+      "pinyin": "Gǔ",
+      "judgement": "Address decay with responsibility and care.",
+      "image": "Mountain over wind shows correction of lineages.",
+      "upperTrigram": "Gen",
+      "lowerTrigram": "Xun",
+      "keywords": [
+        "Restoration",
+        "Accountability",
+        "Healing"
+      ],
+      "planetaryInfluence": "Moon",
+      "binary": "100110",
+      "lineDiagram": ":||::|"
+    },
+    {
+      "number": 19,
+      "name": "Approach",
+      "chineseName": "臨",
+      "pinyin": "Lín",
+      "judgement": "Leaders draw near to listen sincerely.",
+      "image": "Earth over lake signifies compassion visiting the people.",
+      "upperTrigram": "Kun",
+      "lowerTrigram": "Dui",
+      "keywords": [
+        "Empathy",
+        "Guidance",
+        "Presence"
+      ],
+      "planetaryInfluence": "Mercury",
+      "binary": "000011",
+      "lineDiagram": "||::::"
+    },
+    {
+      "number": 20,
+      "name": "Contemplation",
+      "chineseName": "觀",
+      "pinyin": "Guān",
+      "judgement": "Observation inspires ethical alignment.",
+      "image": "Wind over earth is the elevated view of the sage.",
+      "upperTrigram": "Xun",
+      "lowerTrigram": "Kun",
+      "keywords": [
+        "Perspective",
+        "Ritual",
+        "Vision"
+      ],
+      "planetaryInfluence": "Venus",
+      "binary": "110000",
+      "lineDiagram": "::::||"
+    },
+    {
+      "number": 21,
+      "name": "Biting Through",
+      "chineseName": "噬嗑",
+      "pinyin": "Shì Kè",
+      "judgement": "Decisive action cuts through obstruction.",
+      "image": "Fire over thunder shows justice enforced with clarity.",
+      "upperTrigram": "Li",
+      "lowerTrigram": "Zhen",
+      "keywords": [
+        "Decision",
+        "Justice",
+        "Resolve"
+      ],
+      "planetaryInfluence": "Mars",
+      "binary": "101001",
+      "lineDiagram": "|::|:|"
+    },
+    {
+      "number": 22,
+      "name": "Grace",
+      "chineseName": "賁",
+      "pinyin": "Bì",
+      "judgement": "Beauty adorns substance when humility remains.",
+      "image": "Mountain over fire highlights poise and restraint.",
+      "upperTrigram": "Gen",
+      "lowerTrigram": "Li",
+      "keywords": [
+        "Aesthetics",
+        "Poise",
+        "Form"
+      ],
+      "planetaryInfluence": "Jupiter",
+      "binary": "100101",
+      "lineDiagram": "|:|::|"
+    },
+    {
+      "number": 23,
+      "name": "Splitting Apart",
+      "chineseName": "剝",
+      "pinyin": "Bō",
+      "judgement": "When decay spreads, strip away excess.",
+      "image": "Mountain over earth signals outer shells falling.",
+      "upperTrigram": "Gen",
+      "lowerTrigram": "Kun",
+      "keywords": [
+        "Decline",
+        "Release",
+        "Truth"
+      ],
+      "planetaryInfluence": "Saturn",
+      "binary": "100000",
+      "lineDiagram": ":::::|"
+    },
+    {
+      "number": 24,
+      "name": "Return",
+      "chineseName": "復",
+      "pinyin": "Fù",
+      "judgement": "Cycles renew when rest follows completion.",
+      "image": "Earth over thunder marks the turning of the year.",
+      "upperTrigram": "Kun",
+      "lowerTrigram": "Zhen",
+      "keywords": [
+        "Renewal",
+        "Rhythm",
+        "Faith"
+      ],
+      "planetaryInfluence": "Earth",
+      "binary": "000001",
+      "lineDiagram": "|:::::"
+    },
+    {
+      "number": 25,
+      "name": "Innocence",
+      "chineseName": "無妄",
+      "pinyin": "Wú Wàng",
+      "judgement": "Sincerity triumphs over scheming.",
+      "image": "Heaven over thunder shows spontaneous virtue.",
+      "upperTrigram": "Qian",
+      "lowerTrigram": "Zhen",
+      "keywords": [
+        "Authenticity",
+        "Spontaneity",
+        "Trust"
+      ],
+      "planetaryInfluence": "Sun",
+      "binary": "111001",
+      "lineDiagram": "|::|||"
+    },
+    {
+      "number": 26,
+      "name": "Great Taming",
+      "chineseName": "大畜",
+      "pinyin": "Dà Chù",
+      "judgement": "Conserve strength until action serves wisdom.",
+      "image": "Mountain over heaven portrays restraint harnessing power.",
+      "upperTrigram": "Gen",
+      "lowerTrigram": "Qian",
+      "keywords": [
+        "Discipline",
+        "Reserve",
+        "Mastery"
+      ],
+      "planetaryInfluence": "Moon",
+      "binary": "100111",
+      "lineDiagram": "|||::|"
+    },
+    {
+      "number": 27,
+      "name": "Nourishment",
+      "chineseName": "頤",
+      "pinyin": "Yí",
+      "judgement": "Words and food alike must be chosen with care.",
+      "image": "Mountain over thunder emphasizes mindful sustenance.",
+      "upperTrigram": "Gen",
+      "lowerTrigram": "Zhen",
+      "keywords": [
+        "Nutrition",
+        "Speech",
+        "Mindfulness"
+      ],
+      "planetaryInfluence": "Mercury",
+      "binary": "100001",
+      "lineDiagram": "|::::|"
+    },
+    {
+      "number": 28,
+      "name": "Great Exceeding",
+      "chineseName": "大過",
+      "pinyin": "Dà Guò",
+      "judgement": "Bearing heavy loads demands flexibility.",
+      "image": "Lake over wind shows a beam bending before it breaks.",
+      "upperTrigram": "Dui",
+      "lowerTrigram": "Xun",
+      "keywords": [
+        "Weight",
+        "Adaptability",
+        "Responsibility"
+      ],
+      "planetaryInfluence": "Venus",
+      "binary": "011110",
+      "lineDiagram": ":||||:"
+    },
+    {
+      "number": 29,
+      "name": "The Abyss",
+      "chineseName": "坎",
+      "pinyin": "Kǎn",
+      "judgement": "Repeated trials teach sincere caution.",
+      "image": "Water over water is the perilous gorge.",
+      "upperTrigram": "Kan",
+      "lowerTrigram": "Kan",
+      "keywords": [
+        "Trial",
+        "Honesty",
+        "Depth"
+      ],
+      "planetaryInfluence": "Mars",
+      "binary": "010010",
+      "lineDiagram": ":|::|:"
+    },
+    {
+      "number": 30,
+      "name": "Radiance",
+      "chineseName": "離",
+      "pinyin": "Lí",
+      "judgement": "Clarity is maintained by tending the flame.",
+      "image": "Fire over fire represents brilliance sustained through care.",
+      "upperTrigram": "Li",
+      "lowerTrigram": "Li",
+      "keywords": [
+        "Illumination",
+        "Culture",
+        "Attention"
+      ],
+      "planetaryInfluence": "Jupiter",
+      "binary": "101101",
+      "lineDiagram": "|:||:|"
+    },
+    {
+      "number": 31,
+      "name": "Influence",
+      "chineseName": "咸",
+      "pinyin": "Xián",
+      "judgement": "Sincere attraction arises from mutual respect.",
+      "image": "Lake over mountain highlights responsive hearts.",
+      "upperTrigram": "Dui",
+      "lowerTrigram": "Gen",
+      "keywords": [
+        "Attraction",
+        "Mutuality",
+        "Sensitivity"
+      ],
+      "planetaryInfluence": "Saturn",
+      "binary": "011100",
+      "lineDiagram": "::|||:"
+    },
+    {
+      "number": 32,
+      "name": "Duration",
+      "chineseName": "恒",
+      "pinyin": "Héng",
+      "judgement": "Commitment endures when balanced.",
+      "image": "Thunder over wind speaks of constancy amid change.",
+      "upperTrigram": "Zhen",
+      "lowerTrigram": "Xun",
+      "keywords": [
+        "Commitment",
+        "Consistency",
+        "Rhythm"
+      ],
+      "planetaryInfluence": "Earth",
+      "binary": "001110",
+      "lineDiagram": ":|||::"
+    },
+    {
+      "number": 33,
+      "name": "Retreat",
+      "chineseName": "遯",
+      "pinyin": "Dùn",
+      "judgement": "Strategic withdrawal preserves integrity.",
+      "image": "Heaven over mountain shows noble retreat.",
+      "upperTrigram": "Qian",
+      "lowerTrigram": "Gen",
+      "keywords": [
+        "Withdrawal",
+        "Strategy",
+        "Self-care"
+      ],
+      "planetaryInfluence": "Sun",
+      "binary": "111100",
+      "lineDiagram": "::||||"
+    },
+    {
+      "number": 34,
+      "name": "Great Power",
+      "chineseName": "大壯",
+      "pinyin": "Dà Zhuàng",
+      "judgement": "Strength must remain aligned with virtue.",
+      "image": "Thunder over heaven affirms action matched with purpose.",
+      "upperTrigram": "Zhen",
+      "lowerTrigram": "Qian",
+      "keywords": [
+        "Power",
+        "Ethics",
+        "Momentum"
+      ],
+      "planetaryInfluence": "Moon",
+      "binary": "001111",
+      "lineDiagram": "||||::"
+    },
+    {
+      "number": 35,
+      "name": "Progress",
+      "chineseName": "晉",
+      "pinyin": "Jìn",
+      "judgement": "Advancement arrives through clarity and loyalty.",
+      "image": "Fire over earth depicts dawn spreading across the plain.",
+      "upperTrigram": "Li",
+      "lowerTrigram": "Kun",
+      "keywords": [
+        "Advancement",
+        "Visibility",
+        "Service"
+      ],
+      "planetaryInfluence": "Mercury",
+      "binary": "101000",
+      "lineDiagram": ":::|:|"
+    },
+    {
+      "number": 36,
+      "name": "Darkening Light",
+      "chineseName": "明夷",
+      "pinyin": "Míng Yí",
+      "judgement": "Protect the inner light when circumstances grow harsh.",
+      "image": "Earth over fire shows brilliance concealed for safety.",
+      "upperTrigram": "Kun",
+      "lowerTrigram": "Li",
+      "keywords": [
+        "Protection",
+        "Subtlety",
+        "Endurance"
+      ],
+      "planetaryInfluence": "Venus",
+      "binary": "000101",
+      "lineDiagram": "|:|:::"
+    },
+    {
+      "number": 37,
+      "name": "Family",
+      "chineseName": "家人",
+      "pinyin": "Jiā Rén",
+      "judgement": "Clear roles nourish household harmony.",
+      "image": "Wind over fire indicates rituals ordering the home.",
+      "upperTrigram": "Xun",
+      "lowerTrigram": "Li",
+      "keywords": [
+        "Home",
+        "Roles",
+        "Care"
+      ],
+      "planetaryInfluence": "Mars",
+      "binary": "110101",
+      "lineDiagram": "|:|:||"
+    },
+    {
+      "number": 38,
+      "name": "Opposition",
+      "chineseName": "睽",
+      "pinyin": "Kuí",
+      "judgement": "Recognize difference without hostility.",
+      "image": "Fire over lake reflects contrast seeking balance.",
+      "upperTrigram": "Li",
+      "lowerTrigram": "Dui",
+      "keywords": [
+        "Contrast",
+        "Perspective",
+        "Tolerance"
+      ],
+      "planetaryInfluence": "Jupiter",
+      "binary": "101011",
+      "lineDiagram": "||:|:|"
+    },
+    {
+      "number": 39,
+      "name": "Obstruction",
+      "chineseName": "蹇",
+      "pinyin": "Jiǎn",
+      "judgement": "Turn hindrance into training.",
+      "image": "Water over mountain shows difficult ascent.",
+      "upperTrigram": "Kan",
+      "lowerTrigram": "Gen",
+      "keywords": [
+        "Obstacle",
+        "Effort",
+        "Learning"
+      ],
+      "planetaryInfluence": "Saturn",
+      "binary": "010100",
+      "lineDiagram": "::|:|:"
+    },
+    {
+      "number": 40,
+      "name": "Deliverance",
+      "chineseName": "解",
+      "pinyin": "Xiè",
+      "judgement": "Relief comes when knots are untied.",
+      "image": "Thunder over water portrays release after storm.",
+      "upperTrigram": "Zhen",
+      "lowerTrigram": "Kan",
+      "keywords": [
+        "Release",
+        "Solution",
+        "Breath"
+      ],
+      "planetaryInfluence": "Earth",
+      "binary": "001010",
+      "lineDiagram": ":|:|::"
+    },
+    {
+      "number": 41,
+      "name": "Decrease",
+      "chineseName": "損",
+      "pinyin": "Sǔn",
+      "judgement": "Voluntary simplicity restores balance.",
+      "image": "Mountain over lake shows graceful sharing of resources.",
+      "upperTrigram": "Gen",
+      "lowerTrigram": "Dui",
+      "keywords": [
+        "Simplicity",
+        "Offering",
+        "Balance"
+      ],
+      "planetaryInfluence": "Sun",
+      "binary": "100011",
+      "lineDiagram": "||:::|"
+    },
+    {
+      "number": 42,
+      "name": "Increase",
+      "chineseName": "益",
+      "pinyin": "Yì",
+      "judgement": "Blessings multiply when shared.",
+      "image": "Wind over thunder reveals generous expansion.",
+      "upperTrigram": "Xun",
+      "lowerTrigram": "Zhen",
+      "keywords": [
+        "Growth",
+        "Generosity",
+        "Opportunity"
+      ],
+      "planetaryInfluence": "Moon",
+      "binary": "110001",
+      "lineDiagram": "|:::||"
+    },
+    {
+      "number": 43,
+      "name": "Breakthrough",
+      "chineseName": "夬",
+      "pinyin": "Guài",
+      "judgement": "Speak truth boldly to clear corruption.",
+      "image": "Lake over heaven highlights decisive proclamation.",
+      "upperTrigram": "Dui",
+      "lowerTrigram": "Qian",
+      "keywords": [
+        "Resolution",
+        "Declaration",
+        "Courage"
+      ],
+      "planetaryInfluence": "Mercury",
+      "binary": "011111",
+      "lineDiagram": "|||||:"
+    },
+    {
+      "number": 44,
+      "name": "Encounter",
+      "chineseName": "姤",
+      "pinyin": "Gòu",
+      "judgement": "Unexpected influence requires discernment.",
+      "image": "Heaven over wind shows potent visitors arriving.",
+      "upperTrigram": "Qian",
+      "lowerTrigram": "Xun",
+      "keywords": [
+        "Encounter",
+        "Discernment",
+        "Temptation"
+      ],
+      "planetaryInfluence": "Venus",
+      "binary": "111110",
+      "lineDiagram": ":|||||"
+    },
+    {
+      "number": 45,
+      "name": "Gathering",
+      "chineseName": "萃",
+      "pinyin": "Cuì",
+      "judgement": "Unity grows when motive is sincere.",
+      "image": "Lake over earth signifies assembly around shared cause.",
+      "upperTrigram": "Dui",
+      "lowerTrigram": "Kun",
+      "keywords": [
+        "Assembly",
+        "Devotion",
+        "Focus"
+      ],
+      "planetaryInfluence": "Mars",
+      "binary": "011000",
+      "lineDiagram": ":::||:"
+    },
+    {
+      "number": 46,
+      "name": "Ascending",
+      "chineseName": "升",
+      "pinyin": "Shēng",
+      "judgement": "Slow steady progress pierces obstacles.",
+      "image": "Earth over wind shows roots pushing upward.",
+      "upperTrigram": "Kun",
+      "lowerTrigram": "Xun",
+      "keywords": [
+        "Growth",
+        "Perseverance",
+        "Aspiration"
+      ],
+      "planetaryInfluence": "Jupiter",
+      "binary": "000110",
+      "lineDiagram": ":||:::"
+    },
+    {
+      "number": 47,
+      "name": "Oppression",
+      "chineseName": "困",
+      "pinyin": "Kùn",
+      "judgement": "Constraints refine inner resolve.",
+      "image": "Lake over water indicates fatigue relieved only by integrity.",
+      "upperTrigram": "Dui",
+      "lowerTrigram": "Kan",
+      "keywords": [
+        "Constraint",
+        "Endurance",
+        "Faith"
+      ],
+      "planetaryInfluence": "Saturn",
+      "binary": "011010",
+      "lineDiagram": ":|:||:"
+    },
+    {
+      "number": 48,
+      "name": "The Well",
+      "chineseName": "井",
+      "pinyin": "Jǐng",
+      "judgement": "Communal resources must be maintained.",
+      "image": "Water over wind depicts a well drawing fresh insight.",
+      "upperTrigram": "Kan",
+      "lowerTrigram": "Xun",
+      "keywords": [
+        "Resource",
+        "Maintenance",
+        "Depth"
+      ],
+      "planetaryInfluence": "Earth",
+      "binary": "010110",
+      "lineDiagram": ":||:|:"
+    },
+    {
+      "number": 49,
+      "name": "Revolution",
+      "chineseName": "革",
+      "pinyin": "Gé",
+      "judgement": "Change succeeds when timing and virtue align.",
+      "image": "Lake over fire indicates shedding the old skin.",
+      "upperTrigram": "Dui",
+      "lowerTrigram": "Li",
+      "keywords": [
+        "Change",
+        "Timing",
+        "Renewal"
+      ],
+      "planetaryInfluence": "Sun",
+      "binary": "011101",
+      "lineDiagram": "|:|||:"
+    },
+    {
+      "number": 50,
+      "name": "The Vessel",
+      "chineseName": "鼎",
+      "pinyin": "Dǐng",
+      "judgement": "Elevated service transforms the culture.",
+      "image": "Fire over wind depicts the cauldron that refines offerings.",
+      "upperTrigram": "Li",
+      "lowerTrigram": "Xun",
+      "keywords": [
+        "Service",
+        "Transformation",
+        "Heritage"
+      ],
+      "planetaryInfluence": "Moon",
+      "binary": "101110",
+      "lineDiagram": ":|||:|"
+    },
+    {
+      "number": 51,
+      "name": "Arousing Thunder",
+      "chineseName": "震",
+      "pinyin": "Zhèn",
+      "judgement": "Shock awakens the heart to reverence.",
+      "image": "Thunder over thunder doubles the drumbeat of alertness.",
+      "upperTrigram": "Zhen",
+      "lowerTrigram": "Zhen",
+      "keywords": [
+        "Shock",
+        "Awakening",
+        "Movement"
+      ],
+      "planetaryInfluence": "Mercury",
+      "binary": "001001",
+      "lineDiagram": "|::|::"
+    },
+    {
+      "number": 52,
+      "name": "Still Mountain",
+      "chineseName": "艮",
+      "pinyin": "Gèn",
+      "judgement": "Cultivate stillness to master desire.",
+      "image": "Mountain over mountain shows unmoving focus.",
+      "upperTrigram": "Gen",
+      "lowerTrigram": "Gen",
+      "keywords": [
+        "Stillness",
+        "Meditation",
+        "Boundaries"
+      ],
+      "planetaryInfluence": "Venus",
+      "binary": "100100",
+      "lineDiagram": "::|::|"
+    },
+    {
+      "number": 53,
+      "name": "Gradual Development",
+      "chineseName": "漸",
+      "pinyin": "Jiàn",
+      "judgement": "Lasting progress resembles a tree growing rings.",
+      "image": "Wind over mountain displays slow maturation.",
+      "upperTrigram": "Xun",
+      "lowerTrigram": "Gen",
+      "keywords": [
+        "Patience",
+        "Evolution",
+        "Commitment"
+      ],
+      "planetaryInfluence": "Mars",
+      "binary": "110100",
+      "lineDiagram": "::|:||"
+    },
+    {
+      "number": 54,
+      "name": "Marrying Maiden",
+      "chineseName": "歸妹",
+      "pinyin": "Guī Mèi",
+      "judgement": "Adjust expectations when circumstances limit rank.",
+      "image": "Thunder over lake spotlights unequal partnerships.",
+      "upperTrigram": "Zhen",
+      "lowerTrigram": "Dui",
+      "keywords": [
+        "Transition",
+        "Adaptation",
+        "Protocol"
+      ],
+      "planetaryInfluence": "Jupiter",
+      "binary": "001011",
+      "lineDiagram": "||:|::"
+    },
+    {
+      "number": 55,
+      "name": "Abundance",
+      "chineseName": "豐",
+      "pinyin": "Fēng",
+      "judgement": "Radiant success must be handled with balance.",
+      "image": "Thunder over fire illuminates the hall at noon.",
+      "upperTrigram": "Zhen",
+      "lowerTrigram": "Li",
+      "keywords": [
+        "Splendor",
+        "Responsibility",
+        "Timing"
+      ],
+      "planetaryInfluence": "Saturn",
+      "binary": "001101",
+      "lineDiagram": "|:||::"
+    },
+    {
+      "number": 56,
+      "name": "The Wanderer",
+      "chineseName": "旅",
+      "pinyin": "Lǚ",
+      "judgement": "Travel lightly and guard reputation.",
+      "image": "Fire over mountain marks a traveler tending the campfire.",
+      "upperTrigram": "Li",
+      "lowerTrigram": "Gen",
+      "keywords": [
+        "Travel",
+        "Restraint",
+        "Awareness"
+      ],
+      "planetaryInfluence": "Earth",
+      "binary": "101100",
+      "lineDiagram": "::||:|"
+    },
+    {
+      "number": 57,
+      "name": "Gentle Wind",
+      "chineseName": "巽",
+      "pinyin": "Xùn",
+      "judgement": "Persistent influence accomplishes what force cannot.",
+      "image": "Wind over wind indicates subtle penetration.",
+      "upperTrigram": "Xun",
+      "lowerTrigram": "Xun",
+      "keywords": [
+        "Penetration",
+        "Diplomacy",
+        "Subtlety"
+      ],
+      "planetaryInfluence": "Sun",
+      "binary": "110110",
+      "lineDiagram": ":||:||"
+    },
+    {
+      "number": 58,
+      "name": "Joyous Lake",
+      "chineseName": "兌",
+      "pinyin": "Duì",
+      "judgement": "Openhearted dialogue dissolves resentment.",
+      "image": "Lake over lake celebrates shared delight.",
+      "upperTrigram": "Dui",
+      "lowerTrigram": "Dui",
+      "keywords": [
+        "Joy",
+        "Conversation",
+        "Trust"
+      ],
+      "planetaryInfluence": "Moon",
+      "binary": "011011",
+      "lineDiagram": "||:||:"
+    },
+    {
+      "number": 59,
+      "name": "Dispersion",
+      "chineseName": "渙",
+      "pinyin": "Huàn",
+      "judgement": "Loosen rigid structures so spirit can move.",
+      "image": "Wind over water shows breath dispersing fear.",
+      "upperTrigram": "Xun",
+      "lowerTrigram": "Kan",
+      "keywords": [
+        "Dissolve",
+        "Freedom",
+        "Relief"
+      ],
+      "planetaryInfluence": "Mercury",
+      "binary": "110010",
+      "lineDiagram": ":|::||"
+    },
+    {
+      "number": 60,
+      "name": "Limitation",
+      "chineseName": "節",
+      "pinyin": "Jié",
+      "judgement": "Clear boundaries enable real freedom.",
+      "image": "Water over lake portrays calibrated vessels.",
+      "upperTrigram": "Kan",
+      "lowerTrigram": "Dui",
+      "keywords": [
+        "Boundaries",
+        "Measure",
+        "Discipline"
+      ],
+      "planetaryInfluence": "Venus",
+      "binary": "010011",
+      "lineDiagram": "||::|:"
+    },
+    {
+      "number": 61,
+      "name": "Inner Truth",
+      "chineseName": "中孚",
+      "pinyin": "Zhōng Fú",
+      "judgement": "Trustworthiness unites disparate groups.",
+      "image": "Wind over lake depicts resonance within the heart.",
+      "upperTrigram": "Xun",
+      "lowerTrigram": "Dui",
+      "keywords": [
+        "Sincerity",
+        "Empathy",
+        "Alignment"
+      ],
+      "planetaryInfluence": "Mars",
+      "binary": "110011",
+      "lineDiagram": "||::||"
+    },
+    {
+      "number": 62,
+      "name": "Small Exceeding",
+      "chineseName": "小過",
+      "pinyin": "Xiǎo Guò",
+      "judgement": "Attend to details when stakes are delicate.",
+      "image": "Thunder over mountain reveals careful movement.",
+      "upperTrigram": "Zhen",
+      "lowerTrigram": "Gen",
+      "keywords": [
+        "Detail",
+        "Caution",
+        "Adjustment"
+      ],
+      "planetaryInfluence": "Jupiter",
+      "binary": "001100",
+      "lineDiagram": "::||::"
+    },
+    {
+      "number": 63,
+      "name": "After Completion",
+      "chineseName": "既濟",
+      "pinyin": "Jì Jì",
+      "judgement": "Success endures only if vigilance continues.",
+      "image": "Water over fire displays balance maintained through work.",
+      "upperTrigram": "Kan",
+      "lowerTrigram": "Li",
+      "keywords": [
+        "Completion",
+        "Maintenance",
+        "Balance"
+      ],
+      "planetaryInfluence": "Saturn",
+      "binary": "010101",
+      "lineDiagram": "|:|:|:"
+    },
+    {
+      "number": 64,
+      "name": "Before Completion",
+      "chineseName": "未濟",
+      "pinyin": "Wèi Jì",
+      "judgement": "Stay attentive as outcomes crystallize.",
+      "image": "Fire over water illustrates the final push before harmony.",
+      "upperTrigram": "Li",
+      "lowerTrigram": "Kan",
+      "keywords": [
+        "Transition",
+        "Focus",
+        "Preparation"
+      ],
+      "planetaryInfluence": "Earth",
+      "binary": "101010",
+      "lineDiagram": ":|:|:|"
+    }
+  ],
+  "correspondences": {
+    "meta": {
+      "sourceDocument": "i-ching-and-tarot-correspondences-table.docx",
+      "extractedOn": "2026-02-24",
+      "notes": "Tarot-to-trigram correspondences extracted from DOCX table rows where headers are Tarot | Trigram."
+    },
+    "tarotToTrigram": [],
+    "tarotToHexagram": [
+      {
+        "_comment": "Add 1-to-1 Major Arcana → Hexagram mappings here. Example:",
+        "_example": { "tarot": "The Fool", "hexagram": 1 }
+      }
+    ]
+  }
+}

@@ -1,0 +1,324 @@
+{
+  "keter": {
+    "index": 1,
+    "id": "keter",
+    "name": {
+      "he": "כתר",
+      "roman": "Keter",
+      "en": "Crown"
+    },
+    "color": {
+      "king": "brillliance",
+      "kingWeb": "white",
+      "queen": "white",
+      "queenWeb": "white"
+    },
+    "chakraId": "crown",
+    "godNameId": "ehiyeh",
+    "scent": "ambergris",
+    "body": "cranium",
+    "bodyPos": "above-head",
+    "planetId": "primum-mobile",
+    "tenHeavens": {
+      "en": "1st Swirlings / Primum Mobile",
+      "he": "ראשית הגלגולים",
+      "roman": "Roshit haGilgulim"
+    },
+    "stone": "diamond",
+    "archangelIdId": "metatron",
+    "soulId": "yechidah",
+    "angelicOrderId": "chayot-hakodesh",
+    "gdGradeId": "10=1",
+    "next": "chochmah"
+  },
+  "chochmah": {
+    "index": 2,
+    "id": "chochmah",
+    "name": {
+      "he": "חכמה",
+      "en": "Wisdom",
+      "roman": "Chochmah"
+    },
+    "color": {
+      "king": "soft-blue",
+      "kingWeb": "SkyBlue",
+      "queen": "gray",
+      "queenWeb": "gray"
+    },
+    "scent": "musk",
+    "chakraId": "third-eye",
+    "godNameId": "yah",
+    "body": "left-face",
+    "bodyPos": "left-temple",
+    "planetId": "zodiac",
+    "tenHeavens": {
+      "en": "The Zodiac",
+      "roman": "Mazalot",
+      "he": "מזלות"
+    },
+    "stone": "Star Ruby; Turquoise",
+    "archangelId": "raziel",
+    "soulId": "chaya",
+    "angelicOrderId": "auphanim",
+    "gdGradeId": "9=2",
+    "prev": "keter",
+    "next": "binah"
+  },
+  "binah": {
+    "index": 3,
+    "id": "binah",
+    "name": {
+      "he": "בינה",
+      "en": "Understanding",
+      "roman": "Binah"
+    },
+    "color": {
+      "king": "deep-red-violet",
+      "kingWeb": "#c0448f",
+      "queen": "black",
+      "queenWeb": "#222",
+      "queenWebText": "#ccc"
+    },
+    "chakraId": "third-eye",
+    "godNameId": "yhvh-elohim",
+    "scent": "myrrh; civet",
+    "body": "right-face",
+    "bodyPos": "right-temple",
+    "planetId": "saturn",
+    "stone": "pearl; star sapphire",
+    "archangelId": "tzaphkiel",
+    "soulId": "neshama",
+    "angelicOrderId": "aralim",
+    "gdGradeId": "8=3",
+    "prev": "chochmah",
+    "next": "hesed"
+  },
+  "hesed": {
+    "index": 4,
+    "id": "hesed",
+    "name": {
+      "he": "חסד",
+      "en": "Mercy",
+      "roman": "Chesed"
+    },
+    "color": {
+      "king": "deep-violet",
+      "kingWeb": "#330066",
+      "kingWebText": "#ccc",
+      "queen": "blue",
+      "queenWeb": "#0066ff"
+    },
+    "chakraId": "throat",
+    "godNameId": "el",
+    "scent": "cedar",
+    "body": "left-arm",
+    "bodyPos": "left-shoulder",
+    "planetId": "jupiter",
+    "stone": "saphire; amethyst",
+    "archangelId": "tzadkiel",
+    "soulId": null,
+    "angelicOrderId": "chashmalim",
+    "gdGradeId": "7=4",
+    "prev": "binah",
+    "next": "gevurah"
+  },
+  "gevurah": {
+    "index": 5,
+    "id": "gevurah",
+    "name": {
+      "he": "גבורה",
+      "en": "Strength",
+      "roman": "Gevurah"
+    },
+    "color": {
+      "king": "orange",
+      "kingWeb": "orange",
+      "queen": "scarlet",
+      "queenWeb": "#ff2400"
+    },
+    "chakraId": "throat",
+    "godNameId": "elohim-gibor",
+    "scent": "tobacco",
+    "body": "right-arm",
+    "bodyPos": "right-shoulder",
+    "planetId": "mars",
+    "stone": "ruby",
+    "archangelId": "khamael",
+    "soulId": null,
+    "angelicOrderId": "seraphim",
+    "gdGradeId": "6=5",
+    "prev": "hesed",
+    "next": "tiferet"
+  },
+  "tiferet": {
+    "index": 6,
+    "id": "tiferet",
+    "name": {
+      "he": "תפארת",
+      "en": "Beauty",
+      "roman": "Tiferet"
+    },
+    "color": {
+      "king": "rose-pink",
+      "kingWeb": "#f7cac1",
+      "queen": "gold",
+      "queenWeb": "gold"
+    },
+    "chakraId": "heart",
+    "godNameId": "yhvh-eloha-vedaat",
+    "scent": "olibanum",
+    "body": "breast",
+    "bodyPos": "heart",
+    "planetId": "sol",
+    "stone": "topaz",
+    "archangelId": "raphael",
+    "soulId": "ruach",
+    "angelicOrderId": "malachim",
+    "gdGradeId": "5=6",
+    "prev": "gevurah",
+    "next": "netzach"
+  },
+  "netzach": {
+    "index": 7,
+    "id": "netzach",
+    "name": {
+      "he": "נצח",
+      "en": "Victory",
+      "roman": "Netzach"
+    },
+    "color": {
+      "king": "yellow-orange",
+      "kingWeb": "#ffae42",
+      "queen": "emerald",
+      "queenWeb": "#50C878"
+    },
+    "chakraId": "solar-plexus",
+    "godNameId": "yhvh-tzvaot",
+    "scent": "rose, red sandal",
+    "body": "loins; hips",
+    "bodyPos": "left-hip",
+    "planetId": "venus",
+    "stone": "emerald",
+    "archangelId": "haniel",
+    "soulId": null,
+    "angelicOrderId": "elohim",
+    "gdGradeId": "4=7",
+    "prev": "tiferet",
+    "next": "hod"
+  },
+  "hod": {
+    "index": 8,
+    "id": "hod",
+    "name": {
+      "he": "הוד",
+      "en": "Splendor",
+      "roman": "Hod"
+    },
+    "color": {
+      "king": "violet",
+      "kingWeb": "#ee82ee",
+      "queen": "orange",
+      "queenWeb": "orange"
+    },
+    "chakraId": "solar-plexus",
+    "godNameId": "elohim-tzvaot",
+    "scent": "storax",
+    "body": "loins; legs",
+    "bodyPos": "right-hip",
+    "planetId": "mercury",
+    "stone": "quartz",
+    "archangelId": "michael",
+    "soulId": null,
+    "angelicOrderId": "bnei-elohim",
+    "gdGradeId": "3=8",
+    "prev": "netzach",
+    "next": "yesod"
+  },
+  "yesod": {
+    "index": 9,
+    "id": "yesod",
+    "name": {
+      "he": "יסוד",
+      "en": "Foundation",
+      "roman": "Yesod"
+    },
+    "color": {
+      "king": "blue-violet",
+      "kingWeb": "#2014d4",
+      "kingWebText": "#aaa",
+      "queen": "violet",
+      "queenWeb": "violet"
+    },
+    "chakraId": "sacral",
+    "godNameId": "shadai-el-chai",
+    "scent": "jasmine",
+    "body": "genitals",
+    "bodyPos": "genitals",
+    "planetId": "luna",
+    "stone": "quartz",
+    "archangelId": "gabriel",
+    "soulId": "nephesh",
+    "angelicOrderId": "kerubim",
+    "gdGradeId": "2=9",
+    "prev": "hod",
+    "next": "malchut"
+  },
+  "malchut": {
+    "index": 10,
+    "id": "malchut",
+    "name": {
+      "he": "מלכות",
+      "en": "Kingdom",
+      "roman": "Malchut"
+    },
+    "color": {
+      "king": "yellow",
+      "kingWeb": "yellow",
+      "queen": "russet,citrine,olive,black",
+      "queenWeb": "#80461B,#ba0,#880,#000000",
+      "queenWebText": "#eee"
+    },
+    "chakraId": "root",
+    "godNameId": "adonai-haaretz",
+    "scent": "",
+    "body": "feet",
+    "bodyPos": "feet",
+    "planetId": "olam-yesodot",
+    "tenHeavens": {
+      "en": "Sphere of the Elements",
+      "he": "עולם יסודות",
+      "roman": "Olam Yesodoth"
+    },
+    "stone": "rock crystal",
+    "archangelId": "sandalphon",
+    "soulId": "guph",
+    "angelicOrderId": "ishim",
+    "gdGradeId": "1=10",
+    "prev": "yesod"
+  },
+  "daat": {
+    "index": 11,
+    "id": "daat",
+    "name": {
+      "he": "דעת",
+      "en": "Knowledge",
+      "roman": "Da'at"
+    },
+    "color": {
+      "queen": "lavendar",
+      "queenWeb": "#E6E6FAEE",
+      "queenWebText": "#000",
+      "strokeDasharray": 2,
+      "strokeColor": "#000000AA"
+    },
+    "chakraId": "",
+    "godNameId": "yhvh-elohim",
+    "scent": "",
+    "body": "throat",
+    "bodyPos": "throat",
+    "stone": "",
+    "archangelId": "",
+    "soulId": "",
+    "angelicOrderId": ""
+  }
+}

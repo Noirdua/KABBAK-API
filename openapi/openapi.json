@@ -1,0 +1,3111 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "KABBAK API",
+    "version": "0.2.0",
+    "description": "Read-only API backend for the KABBAK frontend. All content responses use a {data, meta?} envelope (see README). Protected routes accept x-api-key or Authorization: Bearer <key>. Named clients can carry a basic, premium, or pro+ accessLevel, plus optional roles and scopes for privileged admin routes.",
+    "x-service-name": "kabbak-api"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3100/api/v1",
+      "description": "Local development"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyAuth": []
+    },
+    {
+      "BearerAuth": []
+    }
+  ],
+  "x-access-policy": {
+    "defaultRequiredAccessLevel": "basic",
+    "assetGroups": {
+      "tarot deck": "premium"
+    },
+    "capabilities": {
+      "adminApiManagement": {
+        "anyRoles": [
+          "admin"
+        ],
+        "anyScopes": [
+          "api:admin"
+        ]
+      }
+    },
+    "routeGroups": {
+      "admin": "premium",
+      "decks": "premium",
+      "tarot": "premium",
+      "metrics": "premium"
+    }
+  },
+  "tags": [
+    {
+      "name": "health"
+    },
+    {
+      "name": "metrics"
+    },
+    {
+      "name": "admin"
+    },
+    {
+      "name": "static"
+    },
+    {
+      "name": "bootstrap"
+    },
+    {
+      "name": "decks"
+    },
+    {
+      "name": "tarot"
+    },
+    {
+      "name": "calendar"
+    },
+    {
+      "name": "locations"
+    },
+    {
+      "name": "integrations"
+    },
+    {
+      "name": "quiz"
+    },
+    {
+      "name": "texts"
+    },
+    {
+      "name": "astrology"
+    },
+    {
+      "name": "iching"
+    },
+    {
+      "name": "kabbalah"
+    },
+    {
+      "name": "alphabets"
+    },
+    {
+      "name": "gods"
+    },
+    {
+      "name": "numbers"
+    },
+    {
+      "name": "chakras"
+    },
+    {
+      "name": "enochian"
+    },
+    {
+      "name": "playing-cards"
+    },
+    {
+      "name": "gematria"
+    },
+    {
+      "name": "words"
+    },
+    {
+      "name": "profile"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Get API liveness status",
+        "operationId": "getHealth",
+        "security": [],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/LiveHealth"
+          }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Get explicit API liveness status",
+        "operationId": "getHealthLive",
+        "security": [],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/LiveHealth"
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Get storage-backed readiness status",
+        "operationId": "getHealthReadiness",
+        "security": [],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ReadinessHealth"
+          },
+          "503": {
+            "$ref": "#/components/responses/StorageUnavailable"
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "summary": "Get protected process metrics",
+        "operationId": "getMetrics",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/admin/api-clients": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List managed API clients",
+        "operationId": "listManagedApiClients",
+        "x-capability-policy": {
+          "capability": "adminApiManagement"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/admin/api-clients/{clientId}": {
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Create or update one managed API client",
+        "operationId": "upsertManagedApiClient",
+        "x-capability-policy": {
+          "capability": "adminApiManagement"
+        },
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Managed client identifier."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "accessLevel": {
+                    "type": "string",
+                    "enum": [
+                      "basic",
+                      "premium",
+                      "pro+"
+                    ]
+                  },
+                  "roles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "scopes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "201": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Remove one managed API client",
+        "operationId": "deleteManagedApiClient",
+        "x-capability-policy": {
+          "capability": "adminApiManagement"
+        },
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Managed client identifier."
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/assets/{assetPath}": {
+      "get": {
+        "tags": [
+          "static"
+        ],
+        "summary": "Read an API asset file",
+        "operationId": "getAssetFile",
+        "security": [],
+        "x-access-policy": {
+          "defaultAccess": "public",
+          "protectedAssetGroups": {
+            "tarot deck": "premium"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AssetPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/BinaryAsset"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/data/{dataPath}": {
+      "get": {
+        "tags": [
+          "static"
+        ],
+        "summary": "Read a protected data snapshot file",
+        "operationId": "getDataFile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DataPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/bootstrap/reference-data": {
+      "get": {
+        "tags": [
+          "bootstrap"
+        ],
+        "summary": "Get reference data bootstrap payload",
+        "operationId": "getBootstrapReferenceData",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/bootstrap/magick-manifest": {
+      "get": {
+        "tags": [
+          "bootstrap"
+        ],
+        "summary": "Get magick manifest bootstrap payload",
+        "operationId": "getBootstrapMagickManifest",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/bootstrap/magick-dataset": {
+      "get": {
+        "tags": [
+          "bootstrap"
+        ],
+        "summary": "Get magick dataset bootstrap payload",
+        "operationId": "getBootstrapMagickDataset",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/decks": {
+      "get": {
+        "tags": [
+          "decks"
+        ],
+        "summary": "List deck registry entries",
+        "operationId": "listDecks",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/decks/{deckId}/manifest": {
+      "get": {
+        "tags": [
+          "decks"
+        ],
+        "summary": "Get a deck manifest",
+        "operationId": "getDeckManifest",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeckId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/decks/options": {
+      "get": {
+        "tags": [
+          "decks"
+        ],
+        "summary": "List deck resolution options",
+        "operationId": "listDeckOptions",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/decks/assets": {
+      "get": {
+        "tags": [
+          "decks"
+        ],
+        "summary": "List every image file in registered tarot decks",
+        "operationId": "listDeckAssets",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/decks/{deckId}/cards/resolve": {
+      "get": {
+        "tags": [
+          "decks"
+        ],
+        "summary": "Resolve a deck card asset by card name",
+        "operationId": "resolveDeckCard",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeckId"
+          },
+          {
+            "$ref": "#/components/parameters/CardName"
+          },
+          {
+            "$ref": "#/components/parameters/DeckVariant"
+          },
+          {
+            "$ref": "#/components/parameters/TrumpNumber"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/decks/{deckId}/back": {
+      "get": {
+        "tags": [
+          "decks"
+        ],
+        "summary": "Resolve a deck back image",
+        "operationId": "resolveDeckBack",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeckId"
+          },
+          {
+            "$ref": "#/components/parameters/DeckVariant"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/decks/{deckId}/cards/search-aliases": {
+      "get": {
+        "tags": [
+          "decks"
+        ],
+        "summary": "List deck search aliases for a card",
+        "operationId": "getDeckCardSearchAliases",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeckId"
+          },
+          {
+            "$ref": "#/components/parameters/CardName"
+          },
+          {
+            "$ref": "#/components/parameters/TrumpNumber"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/tarot/cards": {
+      "get": {
+        "tags": [
+          "tarot"
+        ],
+        "summary": "List tarot cards",
+        "operationId": "listTarotCards",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SearchQuery"
+          },
+          {
+            "$ref": "#/components/parameters/ArcanaFilter"
+          },
+          {
+            "$ref": "#/components/parameters/SuitFilter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/tarot/cards/{cardId}": {
+      "get": {
+        "tags": [
+          "tarot"
+        ],
+        "summary": "Get one tarot card",
+        "operationId": "getTarotCard",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CardId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/tarot/cards/{cardId}/relations": {
+      "get": {
+        "tags": [
+          "tarot"
+        ],
+        "summary": "Get tarot card relations",
+        "operationId": "getTarotCardRelations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CardId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/tarot/cards/{cardId}/image": {
+      "get": {
+        "tags": [
+          "tarot"
+        ],
+        "summary": "Resolve a tarot card image through a deck",
+        "operationId": "getTarotCardImage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CardId"
+          },
+          {
+            "$ref": "#/components/parameters/OptionalDeckId"
+          },
+          {
+            "$ref": "#/components/parameters/DeckVariant"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/tarot/spreads": {
+      "get": {
+        "tags": [
+          "tarot"
+        ],
+        "summary": "List tarot spreads",
+        "operationId": "listTarotSpreads",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/tarot/spreads/{spreadId}/pull": {
+      "get": {
+        "tags": [
+          "tarot"
+        ],
+        "summary": "Pull a tarot spread",
+        "operationId": "pullTarotSpread",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SpreadId"
+          },
+          {
+            "$ref": "#/components/parameters/Seed"
+          },
+          {
+            "$ref": "#/components/parameters/Reversed"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/calendar/week-events": {
+      "get": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Get live calendar week events for a location",
+        "operationId": "getCalendarWeekEvents",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Latitude"
+          },
+          {
+            "$ref": "#/components/parameters/Longitude"
+          },
+          {
+            "$ref": "#/components/parameters/CalendarDate"
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "placeId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/now": {
+      "get": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Get a live now snapshot for a location",
+        "operationId": "getNowSnapshot",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Latitude"
+          },
+          {
+            "$ref": "#/components/parameters/Longitude"
+          },
+          {
+            "$ref": "#/components/parameters/Timestamp"
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "placeId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/locations/countries": {
+      "get": {
+        "tags": ["locations"],
+        "summary": "List countries in the location gazetteer",
+        "operationId": "listLocationCountries",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/locations/regions": {
+      "get": {
+        "tags": ["locations"],
+        "summary": "List regions for a country",
+        "operationId": "listLocationRegions",
+        "parameters": [
+          { "name": "country", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/locations/cities": {
+      "get": {
+        "tags": ["locations"],
+        "summary": "List cities for a country or region",
+        "operationId": "listLocationCities",
+        "parameters": [
+          { "name": "country", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "region", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/locations/search": {
+      "get": {
+        "tags": ["locations"],
+        "summary": "Search gazetteer places",
+        "operationId": "searchLocations",
+        "parameters": [
+          { "$ref": "#/components/parameters/SearchQuery" },
+          { "name": "country", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "region", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/locations/resolve": {
+      "get": {
+        "tags": ["locations"],
+        "summary": "Resolve a country/region/city or placeId to coordinates",
+        "operationId": "resolveLocationPlace",
+        "parameters": [
+          { "name": "country", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "region", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "city", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "placeId", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/integrations/urantia/{path}": {
+      "get": {
+        "tags": ["integrations"],
+        "summary": "Proxy a GET request to the Urantia Papers API",
+        "operationId": "proxyUrantiaGet",
+        "parameters": [
+          { "name": "path", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "502": { "$ref": "#/components/responses/BadRequest" }
+        }
+      },
+      "post": {
+        "tags": ["integrations"],
+        "summary": "Proxy a POST request to the Urantia Papers API",
+        "operationId": "proxyUrantiaPost",
+        "parameters": [
+          { "name": "path", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "502": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/integrations/hydrus-network/_web-url": {
+      "get": {
+        "tags": ["integrations"],
+        "summary": "Build a browser URL for a Hydrus file using a session key",
+        "operationId": "hydrusNetworkWebUrl",
+        "parameters": [
+          { "name": "file_id", "in": "query", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "502": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/integrations/hydrus-network/{path}": {
+      "get": {
+        "tags": ["integrations"],
+        "summary": "Proxy a GET request to the Hydrus Network client API",
+        "operationId": "proxyHydrusNetworkGet",
+        "parameters": [
+          { "name": "path", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "502": { "$ref": "#/components/responses/BadRequest" }
+        }
+      },
+      "post": {
+        "tags": ["integrations"],
+        "summary": "Proxy a POST request to the Hydrus Network client API",
+        "operationId": "proxyHydrusNetworkPost",
+        "parameters": [
+          { "name": "path", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "502": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/calendar/months": {
+      "get": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "List calendar months reference entries",
+        "operationId": "listCalendarMonths",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/calendar/months/{monthId}": {
+      "get": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Get one calendar month reference entry",
+        "operationId": "getCalendarMonth",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MonthId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/calendar/holidays": {
+      "get": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "List holiday reference entries",
+        "operationId": "listCalendarHolidays",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/HolidayKind"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/calendar/holidays/{holidayId}": {
+      "get": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Get one holiday reference entry",
+        "operationId": "getCalendarHoliday",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/HolidayId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/quiz/categories": {
+      "get": {
+        "tags": [
+          "quiz"
+        ],
+        "summary": "List quiz categories",
+        "operationId": "listQuizCategories",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/quiz/templates": {
+      "get": {
+        "tags": [
+          "quiz"
+        ],
+        "summary": "List quiz templates",
+        "operationId": "listQuizTemplates",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CategoryId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/quiz/questions/pull": {
+      "get": {
+        "tags": [
+          "quiz"
+        ],
+        "summary": "Pull one quiz question",
+        "operationId": "pullQuizQuestion",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CategoryId"
+          },
+          {
+            "$ref": "#/components/parameters/TemplateKey"
+          },
+          {
+            "$ref": "#/components/parameters/Difficulty"
+          },
+          {
+            "$ref": "#/components/parameters/Seed"
+          },
+          {
+            "$ref": "#/components/parameters/IncludeAnswer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/texts": {
+      "get": {
+        "tags": [
+          "texts"
+        ],
+        "summary": "List text library sources",
+        "operationId": "listTexts",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/texts/search": {
+      "get": {
+        "tags": [
+          "texts"
+        ],
+        "summary": "Search the text library",
+        "operationId": "searchTexts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SearchQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Limit search to one text source"
+          },
+          {
+            "name": "workId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Limit search to one work"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/texts/references": {
+      "get": {
+        "tags": [
+          "texts"
+        ],
+        "summary": "List text references",
+        "operationId": "listTextReferences",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/texts/references/{referenceId}/search": {
+      "get": {
+        "tags": [
+          "texts"
+        ],
+        "summary": "Search entries within one reference",
+        "operationId": "searchTextReference",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReferenceId"
+          },
+          {
+            "$ref": "#/components/parameters/SearchQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/texts/references/{referenceId}/entries/{entryId}": {
+      "get": {
+        "tags": [
+          "texts"
+        ],
+        "summary": "Get one reference entry",
+        "operationId": "getTextReferenceEntry",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReferenceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/texts/references/{referenceId}/entries/{entryId}/occurrences": {
+      "get": {
+        "tags": [
+          "texts"
+        ],
+        "summary": "List occurrences for one reference entry",
+        "operationId": "getTextReferenceEntryOccurrences",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReferenceId"
+          },
+          {
+            "$ref": "#/components/parameters/EntryId"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/texts/{sourceId}/search": {
+      "get": {
+        "tags": [
+          "texts"
+        ],
+        "summary": "Search a specific text source",
+        "operationId": "searchTextSource",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SourceId"
+          },
+          {
+            "$ref": "#/components/parameters/SearchQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "workId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Limit search to one work in this source"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/texts/{sourceId}": {
+      "get": {
+        "tags": [
+          "texts"
+        ],
+        "summary": "Get one text source summary",
+        "operationId": "getTextSource",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SourceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/texts/{sourceId}/works/{workId}/sections/{sectionId}": {
+      "get": {
+        "tags": [
+          "texts"
+        ],
+        "summary": "Get one text section",
+        "operationId": "getTextSection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SourceId"
+          },
+          {
+            "$ref": "#/components/parameters/WorkId"
+          },
+          {
+            "$ref": "#/components/parameters/SectionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/profile": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Get the authenticated client profile summary and storage usage",
+        "operationId": "getProfileSummary",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/profile/notes": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "List dream and waking notebook entries",
+        "operationId": "listProfileNotes",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Create a dream or waking notebook entry",
+        "operationId": "createProfileNote",
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "413": {
+            "$ref": "#/components/responses/JsonPayload"
+          }
+        }
+      }
+    },
+    "/profile/notes/{noteId}": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Get a single dream or waking notebook entry",
+        "operationId": "getProfileNote",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Update a dream or waking notebook entry",
+        "operationId": "updateProfileNote",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/JsonPayload"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Delete a dream or waking notebook entry",
+        "operationId": "deleteProfileNote",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/profile/library": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Get bookmarks and notes for the authenticated profile",
+        "operationId": "getProfileLibrary",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Replace bookmarks and notes for the authenticated profile",
+        "operationId": "updateProfileLibrary",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "413": {
+            "$ref": "#/components/responses/JsonPayload"
+          }
+        }
+      }
+    },
+    "/profile/plugin-state/{pluginId}": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Get per-plugin settings stored on the authenticated profile",
+        "operationId": "getProfilePluginState",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Replace per-plugin settings stored on the authenticated profile",
+        "operationId": "updateProfilePluginState",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "413": {
+            "$ref": "#/components/responses/JsonPayload"
+          }
+        }
+      }
+    },
+    "/profile/quiz-progress": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Get quiz progress and stats for the authenticated profile",
+        "operationId": "getProfileQuizProgress",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Record a completed quiz attempt",
+        "operationId": "recordQuizAttempt",
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "413": {
+            "$ref": "#/components/responses/JsonPayload"
+          }
+        }
+      }
+    },
+    "/astrology/planets": {
+      "get": {
+        "tags": [
+          "astrology"
+        ],
+        "summary": "List astrology planets",
+        "operationId": "listPlanets",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/astrology/planets/{planetId}": {
+      "get": {
+        "tags": [
+          "astrology"
+        ],
+        "summary": "Get one planet entry",
+        "operationId": "getPlanet",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PlanetId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/astrology/signs": {
+      "get": {
+        "tags": [
+          "astrology"
+        ],
+        "summary": "List zodiac signs",
+        "operationId": "listSigns",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/astrology/signs/{signId}": {
+      "get": {
+        "tags": [
+          "astrology"
+        ],
+        "summary": "Get one zodiac sign",
+        "operationId": "getSign",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SignId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/astrology/decans": {
+      "get": {
+        "tags": [
+          "astrology"
+        ],
+        "summary": "List astrology decans",
+        "operationId": "listDecans",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/astrology/decans/{decanId}": {
+      "get": {
+        "tags": [
+          "astrology"
+        ],
+        "summary": "Get one astrology decan",
+        "operationId": "getDecan",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DecanId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/iching": {
+      "get": {
+        "tags": [
+          "iching"
+        ],
+        "summary": "Get the I Ching dataset",
+        "operationId": "getIChing",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/iching/hexagrams/{number}": {
+      "get": {
+        "tags": [
+          "iching"
+        ],
+        "summary": "Get one hexagram",
+        "operationId": "getHexagram",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/HexagramNumber"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/iching/trigrams/{name}": {
+      "get": {
+        "tags": [
+          "iching"
+        ],
+        "summary": "Get one trigram",
+        "operationId": "getTrigram",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TrigramName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/kabbalah/tree": {
+      "get": {
+        "tags": [
+          "kabbalah"
+        ],
+        "summary": "Get the Kabbalah tree dataset",
+        "operationId": "getKabbalahTree",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/kabbalah/sephiroth/{value}": {
+      "get": {
+        "tags": [
+          "kabbalah"
+        ],
+        "summary": "Get one sephirah entry",
+        "operationId": "getSephirah",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SephirahValue"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/kabbalah/paths/{value}": {
+      "get": {
+        "tags": [
+          "kabbalah"
+        ],
+        "summary": "Get one Kabbalah path entry",
+        "operationId": "getKabbalahPath",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/KabbalahPathValue"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/kabbalah/cube": {
+      "get": {
+        "tags": [
+          "kabbalah"
+        ],
+        "summary": "Get the Kabbalah cube dataset",
+        "operationId": "getKabbalahCube",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/alphabets": {
+      "get": {
+        "tags": [
+          "alphabets"
+        ],
+        "summary": "List alphabet datasets",
+        "operationId": "listAlphabets",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/alphabets/{scriptId}": {
+      "get": {
+        "tags": [
+          "alphabets"
+        ],
+        "summary": "Get one alphabet dataset",
+        "operationId": "getAlphabet",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ScriptId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/gods": {
+      "get": {
+        "tags": [
+          "gods"
+        ],
+        "summary": "List god datasets",
+        "operationId": "listGodGroups",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/gods/{groupId}": {
+      "get": {
+        "tags": [
+          "gods"
+        ],
+        "summary": "Get one god group or alias match",
+        "operationId": "getGodGroup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GodGroupId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/numbers": {
+      "get": {
+        "tags": [
+          "numbers"
+        ],
+        "summary": "List number datasets",
+        "operationId": "listNumbers",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/numbers/{value}": {
+      "get": {
+        "tags": [
+          "numbers"
+        ],
+        "summary": "Get one number entry",
+        "operationId": "getNumber",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/NumberValue"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/chakras": {
+      "get": {
+        "tags": [
+          "chakras"
+        ],
+        "summary": "List chakra datasets",
+        "operationId": "listChakras",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/chakras/{chakraId}": {
+      "get": {
+        "tags": [
+          "chakras"
+        ],
+        "summary": "Get one chakra entry",
+        "operationId": "getChakra",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChakraId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/enochian": {
+      "get": {
+        "tags": [
+          "enochian"
+        ],
+        "summary": "List Enochian datasets",
+        "operationId": "listEnochianGroups",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/enochian/{groupId}": {
+      "get": {
+        "tags": [
+          "enochian"
+        ],
+        "summary": "Get one Enochian group",
+        "operationId": "getEnochianGroup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EnochianGroupId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/playing-cards": {
+      "get": {
+        "tags": [
+          "playing-cards"
+        ],
+        "summary": "List playing card datasets",
+        "operationId": "listPlayingCards",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/playing-cards/{cardId}": {
+      "get": {
+        "tags": [
+          "playing-cards"
+        ],
+        "summary": "Get one playing card entry or alias match",
+        "operationId": "getPlayingCard",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PlayingCardId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/gematria/words": {
+      "get": {
+        "tags": [
+          "gematria"
+        ],
+        "summary": "Find words by gematria value",
+        "operationId": "findWordsByGematriaValue",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GematriaValue"
+          },
+          {
+            "$ref": "#/components/parameters/Ciphers"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/words/anagrams": {
+      "get": {
+        "tags": [
+          "words"
+        ],
+        "summary": "Find anagrams for a word or phrase",
+        "operationId": "findWordAnagrams",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AnagramText"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/words/lookup": {
+      "get": {
+        "tags": [
+          "words"
+        ],
+        "summary": "Look up one English dictionary word",
+        "operationId": "lookupEnglishWord",
+        "parameters": [
+          {
+            "name": "word",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact English word to look up"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/words/prefix": {
+      "get": {
+        "tags": [
+          "words"
+        ],
+        "summary": "Find words by prefix",
+        "operationId": "findWordsByPrefix",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Prefix"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/words/translate": {
+      "get": {
+        "tags": [
+          "words"
+        ],
+        "summary": "Translate Hebrew or Greek words with the built-in dictionaries",
+        "operationId": "translateDictionaryWord",
+        "parameters": [
+          {
+            "name": "text",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Hebrew or Greek word (or prefix) to look up"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "description": "Maximum matches to return (default 20)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/scriber/documents": {
+      "get": {
+        "tags": [
+          "scriber"
+        ],
+        "summary": "List Scriber writing documents",
+        "operationId": "listScriberDocuments",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "scriber"
+        ],
+        "summary": "Create a Scriber writing document",
+        "operationId": "createScriberDocument",
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/scriber/documents/{documentId}": {
+      "get": {
+        "tags": [
+          "scriber"
+        ],
+        "summary": "Get one Scriber writing document",
+        "operationId": "getScriberDocument",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "scriber"
+        ],
+        "summary": "Update a Scriber writing document",
+        "operationId": "updateScriberDocument",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "scriber"
+        ],
+        "summary": "Delete a Scriber writing document",
+        "operationId": "deleteScriberDocument",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      },
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "FreeformJson": {
+        "description": "Endpoint-specific JSON payload. The exact shape varies by route. (Legacy; most endpoints now use ApiSuccess envelope.)"
+      },
+      "ResponseMeta": {
+        "type": "object",
+        "description": "Optional metadata attached to success responses for pagination, tracing and versioning.",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "description": "Unique identifier for the request, echoed from x-request-id or generated."
+          },
+          "version": {
+            "type": "string",
+            "description": "API/service version at the time of the response. Allows GUIs to detect shape changes."
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of items available (for list/paginated responses)."
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of items in this response page."
+          }
+        }
+      },
+      "ApiSuccess": {
+        "type": "object",
+        "description": "Standard success envelope for all content API responses. GUIs should expect data + optional meta.",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "description": "Primary payload. May be object, array, or primitive depending on endpoint."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ApiError": {
+        "type": "object",
+        "required": [
+          "error",
+          "message",
+          "requestId"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "details": {
+            "description": "Optional structured error details.",
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "LiveHealth": {
+        "type": "object",
+        "required": [
+          "ok",
+          "live",
+          "service",
+          "version",
+          "uptimeSeconds",
+          "apiKeyRequired",
+          "hasConfiguredApiKeys",
+          "configuredClientCount",
+          "timestamp"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "live": {
+            "type": "boolean"
+          },
+          "service": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "uptimeSeconds": {
+            "type": "integer"
+          },
+          "apiKeyRequired": {
+            "type": "boolean"
+          },
+          "hasConfiguredApiKeys": {
+            "type": "boolean"
+          },
+          "configuredClientCount": {
+            "type": "integer"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": true
+      },
+      "ReadinessHealth": {
+        "type": "object",
+        "required": [
+          "ok",
+          "ready",
+          "service",
+          "version",
+          "uptimeSeconds",
+          "apiKeyRequired",
+          "hasConfiguredApiKeys",
+          "configuredClientCount",
+          "timestamp",
+          "storage"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "service": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "uptimeSeconds": {
+            "type": "integer"
+          },
+          "apiKeyRequired": {
+            "type": "boolean"
+          },
+          "hasConfiguredApiKeys": {
+            "type": "boolean"
+          },
+          "configuredClientCount": {
+            "type": "integer"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "storage": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "responses": {
+      "JsonPayload": {
+        "description": "Standard JSON success response using the ApiSuccess envelope.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiSuccess"
+            }
+          }
+        }
+      },
+      "BinaryAsset": {
+        "description": "Binary or text asset file.",
+        "content": {
+          "application/octet-stream": {
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
+          }
+        }
+      },
+      "LiveHealth": {
+        "description": "API liveness payload.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LiveHealth"
+            }
+          }
+        }
+      },
+      "ReadinessHealth": {
+        "description": "API readiness payload.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ReadinessHealth"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "A valid API key was not supplied.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "The authenticated client does not have enough access for this resource.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "The request parameters could not be processed.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The requested resource was not found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "StorageUnavailable": {
+        "description": "The API process is live, but the storage snapshot is not ready.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ReadinessHealth"
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "AssetPath": {
+        "name": "assetPath",
+        "in": "path",
+        "required": true,
+        "allowReserved": true,
+        "description": "Relative asset path. May contain slash-delimited segments.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "DataPath": {
+        "name": "dataPath",
+        "in": "path",
+        "required": true,
+        "allowReserved": true,
+        "description": "Relative data path. May contain slash-delimited segments.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "DeckId": {
+        "name": "deckId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "OptionalDeckId": {
+        "name": "deckId",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "CardId": {
+        "name": "cardId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "CardName": {
+        "name": "name",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "DeckVariant": {
+        "name": "variant",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "full",
+            "thumbnail"
+          ]
+        }
+      },
+      "TrumpNumber": {
+        "name": "trumpNumber",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "SearchQuery": {
+        "name": "q",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ArcanaFilter": {
+        "name": "arcana",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "SuitFilter": {
+        "name": "suit",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "SpreadId": {
+        "name": "spreadId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Latitude": {
+        "name": "latitude",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "number"
+        }
+      },
+      "Longitude": {
+        "name": "longitude",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "number"
+        }
+      },
+      "CalendarDate": {
+        "name": "date",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "Timestamp": {
+        "name": "date",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "CategoryId": {
+        "name": "categoryId",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "TemplateKey": {
+        "name": "templateKey",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Difficulty": {
+        "name": "difficulty",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Seed": {
+        "name": "seed",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Reversed": {
+        "name": "reversed",
+        "in": "query",
+        "required": false,
+        "description": "Allow reversed cards in the draw. Defaults to false.",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "IncludeAnswer": {
+        "name": "includeAnswer",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "SourceId": {
+        "name": "sourceId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "WorkId": {
+        "name": "workId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "SectionId": {
+        "name": "sectionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ReferenceId": {
+        "name": "referenceId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "EntryId": {
+        "name": "entryId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PlanetId": {
+        "name": "planetId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "SignId": {
+        "name": "signId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "DecanId": {
+        "name": "decanId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "MonthId": {
+        "name": "monthId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "HolidayId": {
+        "name": "holidayId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "HolidayKind": {
+        "name": "kind",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "all",
+            "celestial",
+            "calendar"
+          ]
+        }
+      },
+      "HexagramNumber": {
+        "name": "number",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "TrigramName": {
+        "name": "name",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "SephirahValue": {
+        "name": "value",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "KabbalahPathValue": {
+        "name": "value",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ScriptId": {
+        "name": "scriptId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "GodGroupId": {
+        "name": "groupId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "NumberValue": {
+        "name": "value",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "ChakraId": {
+        "name": "chakraId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "EnochianGroupId": {
+        "name": "groupId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PlayingCardId": {
+        "name": "cardId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "GematriaValue": {
+        "name": "value",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "Ciphers": {
+        "name": "ciphers",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "AnagramText": {
+        "name": "text",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Prefix": {
+        "name": "prefix",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

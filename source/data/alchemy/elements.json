@@ -1,0 +1,42 @@
+{
+  "earth": {
+    "id": "earth",
+    "symbol": "🜃",
+    "name": {
+      "en": "Earth"
+    },
+    "elementalId": "gnome"
+  },
+  "air": {
+    "id": "air",
+    "symbol": "🜁",
+    "name": {
+      "en": "Air"
+    },
+    "elementalId": "sylph"
+  },
+  "water": {
+    "id": "water",
+    "symbol": "🜄",
+    "name": {
+      "en": "Water"
+    },
+    "elementalId": "undine"
+  },
+  "fire": {
+    "id": "fire",
+    "symbol": "🜂",
+    "name": {
+      "en": "Fire"
+    },
+    "elementalId": "salamander"
+  },
+  "spirit": {
+    "id": "spirit",
+    "symbol": "☸",
+    "name": {
+      "en": "Spirit"
+    },
+    "elementalId": ""
+  }
+}

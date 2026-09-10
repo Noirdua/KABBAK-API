@@ -1,0 +1,203 @@
+{
+  "meta": {
+    "version": 1,
+    "notes": "Special celestial observances (solstices, equinoxes, eclipse windows, and notable sky events)."
+  },
+  "holidays": [
+    {
+      "id": "perihelion",
+      "name": "Earth Perihelion",
+      "kind": "solar-point",
+      "monthId": "january",
+      "date": "01-03",
+      "description": "Earth reaches its closest orbital point to the Sun.",
+      "associations": {
+        "planetId": "sol",
+        "tarotCard": "The Sun",
+        "godId": "ra"
+      }
+    },
+    {
+      "id": "imbolc-cross-quarter",
+      "name": "Imbolc Cross-Quarter",
+      "kind": "cross-quarter",
+      "monthId": "february",
+      "dateRange": "02-01 to 02-02",
+      "description": "Seasonal threshold between winter solstice and spring equinox.",
+      "associations": {
+        "planetId": "luna",
+        "zodiacSignId": "aquarius",
+        "tarotCard": "The Star",
+        "godId": "hecate"
+      }
+    },
+    {
+      "id": "march-equinox",
+      "name": "March Equinox",
+      "kind": "equinox",
+      "monthId": "march",
+      "date": "03-20",
+      "description": "Equal day and night; marks spring in the north and autumn in the south.",
+      "associations": {
+        "planetId": "sol",
+        "zodiacSignId": "aries",
+        "tarotCard": "The Emperor",
+        "godId": "maat"
+      }
+    },
+    {
+      "id": "spring-eclipse-window",
+      "name": "Spring Eclipse Window",
+      "kind": "eclipse-window",
+      "monthId": "march",
+      "dateRange": "03-15 to 04-15",
+      "description": "Typical annual window for paired solar/lunar eclipses near nodal alignments.",
+      "associations": {
+        "planetId": "luna",
+        "zodiacSignId": "aries",
+        "tarotCard": "The Moon",
+        "godId": "thoth"
+      }
+    },
+    {
+      "id": "beltane-cross-quarter",
+      "name": "Beltane Cross-Quarter",
+      "kind": "cross-quarter",
+      "monthId": "may",
+      "dateRange": "05-01 to 05-02",
+      "description": "Fertility and fire threshold between equinox and solstice.",
+      "associations": {
+        "planetId": "venus",
+        "zodiacSignId": "taurus",
+        "tarotCard": "The Empress",
+        "godId": "aphrodite"
+      }
+    },
+    {
+      "id": "june-solstice",
+      "name": "June Solstice",
+      "kind": "solstice",
+      "monthId": "june",
+      "date": "06-21",
+      "description": "Longest day in the northern hemisphere; shortest in the southern hemisphere.",
+      "associations": {
+        "planetId": "sol",
+        "zodiacSignId": "cancer",
+        "tarotCard": "The Sun",
+        "godId": "ra"
+      }
+    },
+    {
+      "id": "sirius-rising-window",
+      "name": "Sirius Rising Window",
+      "kind": "stellar-observance",
+      "monthId": "july",
+      "dateRange": "07-20 to 08-12",
+      "description": "Heliacal rising period of Sirius in many northern latitudes.",
+      "associations": {
+        "planetId": "sol",
+        "zodiacSignId": "leo",
+        "tarotCard": "Strength",
+        "godId": "isis"
+      }
+    },
+    {
+      "id": "lughnasadh-cross-quarter",
+      "name": "Lughnasadh Cross-Quarter",
+      "kind": "cross-quarter",
+      "monthId": "august",
+      "dateRange": "08-01 to 08-02",
+      "description": "Harvest threshold between solstice and equinox.",
+      "associations": {
+        "planetId": "mercury",
+        "zodiacSignId": "leo",
+        "tarotCard": "The Hermit",
+        "godId": "thoth"
+      }
+    },
+    {
+      "id": "september-equinox",
+      "name": "September Equinox",
+      "kind": "equinox",
+      "monthId": "september",
+      "date": "09-22",
+      "description": "Equal day and night; marks autumn in the north and spring in the south.",
+      "associations": {
+        "planetId": "sol",
+        "zodiacSignId": "libra",
+        "tarotCard": "Justice",
+        "godId": "maat"
+      }
+    },
+    {
+      "id": "autumn-eclipse-window",
+      "name": "Autumn Eclipse Window",
+      "kind": "eclipse-window",
+      "monthId": "september",
+      "dateRange": "09-15 to 10-15",
+      "description": "Typical annual window for eclipse pairings near opposite nodal season.",
+      "associations": {
+        "planetId": "luna",
+        "zodiacSignId": "libra",
+        "tarotCard": "The Moon",
+        "godId": "anubis"
+      }
+    },
+    {
+      "id": "samhain-cross-quarter",
+      "name": "Samhain Cross-Quarter",
+      "kind": "cross-quarter",
+      "monthId": "october",
+      "dateRange": "10-31 to 11-01",
+      "description": "Threshold of deep autumn and ancestral observance in many traditions.",
+      "associations": {
+        "planetId": "saturn",
+        "zodiacSignId": "scorpio",
+        "tarotCard": "Death",
+        "godId": "hades"
+      }
+    },
+    {
+      "id": "leonids-peak",
+      "name": "Leonids Meteor Peak",
+      "kind": "meteor-shower",
+      "monthId": "november",
+      "date": "11-17",
+      "description": "Peak of the Leonids meteor shower under dark skies.",
+      "associations": {
+        "planetId": "jupiter",
+        "zodiacSignId": "sagittarius",
+        "tarotCard": "Temperance",
+        "godId": "zeus"
+      }
+    },
+    {
+      "id": "december-solstice",
+      "name": "December Solstice",
+      "kind": "solstice",
+      "monthId": "december",
+      "date": "12-21",
+      "description": "Shortest day in the northern hemisphere; longest in the southern hemisphere.",
+      "associations": {
+        "planetId": "sol",
+        "zodiacSignId": "capricorn",
+        "tarotCard": "The World",
+        "godId": "saturn"
+      }
+    },
+    {
+      "id": "geminids-peak",
+      "name": "Geminids Meteor Peak",
+      "kind": "meteor-shower",
+      "monthId": "december",
+      "date": "12-14",
+      "description": "Peak activity of the Geminids meteor shower.",
+      "associations": {
+        "planetId": "mercury",
+        "zodiacSignId": "gemini",
+        "tarotCard": "The Lovers",
+        "godId": "hermes"
+      }
+    }
+  ]
+}
