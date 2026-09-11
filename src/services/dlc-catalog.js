@@ -1540,6 +1540,77 @@ function createPluginScaffold(name, input = {}) {
   };
 }
 
+// --- Bulk install (server-side, survives client navigation) -------------------
+
+const installAllState = {
+  state: "idle", // idle | running | done | error
+  kind: "",
+  current: "",
+  done: 0,
+  total: 0,
+  installed: 0,
+  failed: [],
+  message: ""
+};
+let installAllPromise = null;
+
+function getInstallAllState() {
+  return {
+    ...installAllState,
+    failed: [...installAllState.failed]
+  };
+}
+
+function runInstallAll({ kind = "", log = () => {} } = {}) {
+  return (async () => {
+    installAllState.state = "running";
+    installAllState.kind = String(kind || "").trim();
+    installAllState.current = "";
+    installAllState.done = 0;
+    installAllState.total = 0;
+    installAllState.installed = 0;
+    installAllState.failed = [];
+    installAllState.message = "";
+
+    const catalog = await getCatalog({ refresh: true });
+    const targets = catalog.items.filter((item) =>
+      item?.status === "available" && (!installAllState.kind || item.kind === installAllState.kind)
+    );
+    installAllState.total = targets.length;
+
+    for (const item of targets) {
+      installAllState.current = item.name;
+      try {
+        installItem(item, { log });
+        installAllState.installed += 1;
+      } catch (error) {
+        installAllState.failed.push({ name: item.name, error: String(error?.message || "install failed") });
+        log(`[install-all] ${item.name} failed: ${error?.message || ""}`);
+      }
+      installAllState.done += 1;
+    }
+
+    installAllState.current = "";
+    installAllState.state = "done";
+    installAllState.message = `Installed ${installAllState.installed} of ${installAllState.total}.`;
+    invalidateCatalogCache();
+  })().catch((error) => {
+    installAllState.state = "error";
+    installAllState.message = String(error?.message || "Install-all failed.");
+    invalidateCatalogCache();
+  });
+}
+
+function startInstallAll(options = {}) {
+  if (installAllPromise) {
+    return installAllPromise;
+  }
+  installAllPromise = runInstallAll(options).finally(() => {
+    installAllPromise = null;
+  });
+  return installAllPromise;
+}
+
 module.exports = {
   CATEGORIES,
   CONTENT_KINDS,
@@ -1558,6 +1629,7 @@ module.exports = {
   formatSize,
   getCatalog,
   getDirSize,
+  getInstallAllState,
   installItem,
   isRepoPresent,
   isSparse,
@@ -1577,6 +1649,7 @@ module.exports = {
   resolvePluginUploadLimit,
   resolveRepoUrl,
   resolveStatus,
+  startInstallAll,
   uninstallItem,
   updateItem,
   updateRepo,

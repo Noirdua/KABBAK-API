@@ -35,11 +35,13 @@ const {
 } = require("../services/api-access-levels");
 const {
   getCatalog,
+  getInstallAllState,
   listInstalledPlugins,
   isRepoPresent,
   isSparse,
   resolveBranch,
   resolveRepoUrl,
+  startInstallAll,
   updateRepo,
   invalidateCatalogCache
 } = require("../services/dlc-catalog");
@@ -539,6 +541,46 @@ router.post("/admin/dlc/update", (request, response) => {
 
 router.get("/admin/dlc/reload-status", (_request, response) => {
   response.apiSuccess(getHotReloadState());
+});
+
+// Install every available item of one category in the background so the client
+// can navigate away without cancelling the work. Progress is polled here.
+router.post(
+  "/admin/dlc/install-all",
+  requireApiClientCapability({
+    capabilityName: "adminApiManagement",
+    anyRoles: ADMIN_API_MANAGEMENT_CAPABILITY.anyRoles,
+    anyScopes: ADMIN_API_MANAGEMENT_CAPABILITY.anyScopes,
+    errorCode: "insufficient_admin_capability",
+    errorMessage: "This route requires the admin role or api:admin scope."
+  }),
+  (request, response) => {
+    const kind = String(getPatchBody(request)?.kind || "").trim();
+    const writeLog = createLogWriter(request.app?.locals?.logger || console);
+    startInstallAll({
+      kind,
+      log: (message) => {
+        if (!writeLog) return;
+        writeLog(JSON.stringify({
+          timestamp: new Date().toISOString(),
+          event: "api_dlc",
+          action: "install_all_dlc_items",
+          message: String(message || "")
+        }));
+      }
+    });
+
+    emitAdminMutationAuditEvent(request, response, {
+      action: "install_all_dlc_items",
+      kind
+    });
+
+    response.apiSuccess({ started: true, ...getInstallAllState() });
+  }
+);
+
+router.get("/admin/dlc/install-status", (_request, response) => {
+  response.apiSuccess(getInstallAllState());
 });
 
 router.get("/admin/dlc/sources", (_request, response) => {
