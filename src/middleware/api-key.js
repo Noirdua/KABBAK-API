@@ -130,12 +130,7 @@ function getConfiguredApiKeys() {
   return getConfiguredApiClients().map((client) => client.key);
 }
 
-function getConfiguredApiClients() {
-  const managedClients = loadManagedApiClients();
-  if (managedClients.length > 0) {
-    return managedClients;
-  }
-
+function ensureEnvConfiguredClients() {
   const envSignature = [
     String(process.env.KABBAK_API_CLIENTS || ""),
     String(process.env.KABBAK_API_KEYS || ""),
@@ -157,6 +152,15 @@ function getConfiguredApiClients() {
   return nextClients;
 }
 
+function getConfiguredApiClients() {
+  const managedClients = loadManagedApiClients();
+  if (managedClients.length > 0) {
+    return managedClients;
+  }
+
+  return ensureEnvConfiguredClients();
+}
+
 function getConfiguredClientLookupMap() {
   const managedClients = loadManagedApiClients();
   if (managedClients.length > 0) {
@@ -164,7 +168,7 @@ function getConfiguredClientLookupMap() {
   }
 
   // Ensure env cache is warm.
-  getConfiguredApiClients();
+  ensureEnvConfiguredClients();
   return envClientCache.clientsByKeyHash;
 }
 
@@ -242,8 +246,20 @@ function findConfiguredClientByApiKey(presentedKey) {
     return mappedClient;
   }
 
+  // Managed clients take precedence, but operator-provided env keys must keep
+  // working alongside them (e.g. a shared bot key configured in .env). Without
+  // this, creating any managed client silently disables KABBAK_API_KEY(S).
+  const envClients = ensureEnvConfiguredClients();
+  if (envClients.length) {
+    const envClient = envClientCache.clientsByKeyHash.get(hashed) || null;
+    if (envClient && apiKeysMatch(envClient.key, presented)) {
+      return envClient;
+    }
+  }
+
   // Fallback for rare hash collisions / legacy mismatched encodings.
-  return getConfiguredApiClients().find((configuredClient) => apiKeysMatch(configuredClient.key, presented)) || null;
+  return [...getConfiguredApiClients(), ...envClients]
+    .find((configuredClient) => apiKeysMatch(configuredClient.key, presented)) || null;
 }
 
 function createRequestAuthState(client) {
