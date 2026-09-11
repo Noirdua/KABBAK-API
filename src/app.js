@@ -32,6 +32,7 @@ const registryRoutes = require("./routes/registry");
 const dlcRoutes = require("./routes/dlc");
 const locationRoutes = require("./routes/locations");
 const integrationRoutes = require("./routes/integrations");
+const { createThumbFallback } = require("./middleware/thumb-fallback");
 const { createPluginServerDispatch } = require("./services/plugin-servers");
 const pluginsPublicRoutes = require("./routes/plugins-public");
 
@@ -130,6 +131,9 @@ function createApp({ logger = console } = {}) {
     const mountPath = createAssetMountPath(routeSegment);
     if (requiredAccessLevel) {
       app.use(mountPath, requireApiKey, requireAssetGroupAccessLevel(routeSegment), express.static(rootPath, assetStaticOptions));
+      if (routeSegment === "tarot deck") {
+        app.use(mountPath, requireApiKey, requireAssetGroupAccessLevel(routeSegment), createThumbFallback(rootPath));
+      }
       return;
     }
 

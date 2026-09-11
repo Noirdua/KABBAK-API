@@ -11,7 +11,8 @@ const {
   rotateManagedApiClientKey
 } = require("../services/api-client-registry");
 const { getRuntimeSettings, updateRuntimeSettings } = require("../services/runtime-settings");
-const { clearLogEntries, getRecentLogEvents } = require("../services/log-capture");
+const { clearLogEntries, getLogFacets, getRecentLogEvents } = require("../services/log-capture");
+const { listJobs } = require("../services/job-progress");
 const { listRegistry } = require("../services/user-registry");
 const { resolvePluginUploadLimit } = require("../services/dlc-catalog");
 const {
@@ -375,14 +376,64 @@ router.delete("/admin/overlay-background", (_request, response) => {
 
 // --- Live log view -----------------------------------------------------------
 
+function buildJobsPayload() {
+  const storage = getHotReloadState();
+  const installAll = getInstallAllState();
+  const tracked = listJobs();
+  return {
+    jobs: [
+      {
+        id: "storage",
+        label: "Storage snapshot",
+        state: storage.state || "idle",
+        current: "",
+        done: storage.state === "done" ? 1 : 0,
+        total: 1,
+        message: storage.message || "",
+        updatedAt: storage.finishedAt || storage.startedAt || ""
+      },
+      {
+        id: "install-all",
+        label: "Install All",
+        state: installAll.state || "idle",
+        current: installAll.current || "",
+        done: Number(installAll.done) || 0,
+        total: Number(installAll.total) || 0,
+        message: installAll.message || "",
+        updatedAt: ""
+      },
+      ...tracked
+    ]
+  };
+}
+
+router.get("/admin/jobs", (_request, response) => {
+  response.apiSuccess(buildJobsPayload());
+});
+
 router.get("/admin/logs", (request, response) => {
   const level = String(request.query?.level || "all").toLowerCase();
   const event = String(request.query?.event || "").trim();
+  const pathGroup = String(request.query?.pathGroup || request.query?.group || "").trim();
+  const q = String(request.query?.q || request.query?.search || "").trim();
+  const since = String(request.query?.since || "").trim();
+  const until = String(request.query?.until || "").trim();
+  const sinceMinutes = Number(request.query?.sinceMinutes) || 0;
   const limit = Number(request.query?.limit) || 200;
-  const entries = getRecentLogEvents({ limit, level, event });
+  const entries = getRecentLogEvents({
+    limit,
+    level,
+    event,
+    pathGroup,
+    q,
+    since,
+    until,
+    sinceMinutes
+  });
   response.apiSuccess({
     count: entries.length,
-    entries
+    entries,
+    facets: getLogFacets()
   });
 });
 
@@ -724,7 +775,8 @@ router.get("/admin/overview", async (_request, response) => {
       name: plugin.name,
       title: plugin.title,
       version: plugin.version
-    }))
+    })),
+    jobs: buildJobsPayload().jobs
   });
 });
 

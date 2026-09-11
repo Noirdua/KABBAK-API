@@ -233,15 +233,22 @@ function relayOutput(logger, method, chunk) {
   }
 
   text.split(/\r?\n/).forEach((line) => {
+    if (line.startsWith("{")) {
+      logger[method](line);
+      return;
+    }
     logger[method](`[storage] ${line}`);
   });
 }
 
 
 
-async function runMigration(logger = console) {
+async function runMigration(logger = console, { skipThumbs = true, thumbsOnly = false } = {}) {
   await new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ["--max-old-space-size=4096", migrationScriptPath], {
+    const args = thumbsOnly
+      ? [migrationScriptPath, "--thumbs-only"]
+      : ["--max-old-space-size=4096", migrationScriptPath, ...(skipThumbs ? ["--skip-thumbs"] : ["--thumbs"])];
+    const child = spawn(process.execPath, args, {
       cwd: apiRoot,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"]
@@ -293,6 +300,8 @@ const hotReloadState = {
 };
 
 let hotReloadPromise = null;
+let thumbPromise = null;
+let thumbRerun = false;
 
 function getHotReloadState() {
   return { ...hotReloadState };
@@ -329,6 +338,7 @@ async function runHotReload({ logger = console } = {}) {
     hotReloadState.finishedAt = new Date().toISOString();
     hotReloadState.message = "Storage refreshed. Changes are live.";
     logger.log("[storage] Hot reload complete.");
+    startBackgroundThumbnails({ logger });
   } catch (error) {
     hotReloadState.state = "error";
     hotReloadState.finishedAt = new Date().toISOString();
@@ -336,6 +346,42 @@ async function runHotReload({ logger = console } = {}) {
     logger.error(`[storage] Hot reload failed: ${hotReloadState.message}`);
     throw error;
   }
+}
+
+function startBackgroundThumbnails({ logger = console } = {}) {
+  if (thumbPromise) {
+    thumbRerun = true;
+    return thumbPromise;
+  }
+
+  require("./job-progress").upsertJob("thumbs", {
+    state: "running",
+    label: "Thumbnails",
+    message: "Generating deck thumbnails…"
+  });
+  logger.log("[storage] Starting background thumbnail generation.");
+  thumbPromise = runMigration(logger, { thumbsOnly: true }).then(() => {
+    require("./job-progress").upsertJob("thumbs", {
+      state: "done",
+      label: "Thumbnails",
+      message: "Thumbnails ready."
+    });
+  }).catch((error) => {
+    const message = String(error?.message || "Thumbnail generation failed.");
+    require("./job-progress").upsertJob("thumbs", {
+      state: "error",
+      label: "Thumbnails",
+      message
+    });
+    logger.error(`[storage] Thumbnail generation failed: ${message}`);
+  }).finally(() => {
+    thumbPromise = null;
+    if (thumbRerun) {
+      thumbRerun = false;
+      startBackgroundThumbnails({ logger });
+    }
+  });
+  return thumbPromise;
 }
 
 function startBackgroundHotReload() {
@@ -371,5 +417,6 @@ module.exports = {
   ensureStorageReady,
   getHotReloadState,
   getStorageStatus,
-  startBackgroundHotReload
+  startBackgroundHotReload,
+  startBackgroundThumbnails
 };

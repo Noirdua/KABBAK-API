@@ -4,7 +4,7 @@ const http = require("http");
 const { createApp } = require("./app");
 const { appEnv } = require("./config/app-env");
 const { apiBasePath, serviceName, serviceVersion } = require("./config/service");
-const { ensureStorageReady } = require("./services/storage-bootstrap");
+const { ensureStorageReady, startBackgroundThumbnails } = require("./services/storage-bootstrap");
 const { resolvePluginUploadLimit } = require("./services/dlc-catalog");
 const { createCapturingLogger } = require("./services/log-capture");
 
@@ -102,6 +102,7 @@ async function startServer({ logger = console } = {}) {
 
   await listen(server, { port: appEnv.port, host: appEnv.host });
   activeLogger.log(`[api] ${serviceName}@${serviceVersion} listening on http://${appEnv.host}:${appEnv.port}${apiBasePath}/health`);
+  startBackgroundThumbnails({ logger: activeLogger });
 
   return {
     app,

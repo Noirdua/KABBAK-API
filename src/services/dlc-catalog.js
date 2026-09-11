@@ -1625,9 +1625,28 @@ function runInstallAll({ kind = "", log = () => {} } = {}) {
       installAllState.done += 1;
     }
 
+    const installedContent = targets.some((item) => CONTENT_KINDS.includes(item.kind))
+      && installAllState.installed > 0;
+    if (installedContent) {
+      installAllState.current = "storage snapshot";
+      installAllState.message = `Installed ${installAllState.installed} of ${installAllState.total}. Refreshing storage snapshot…`;
+      const { startBackgroundHotReload, getHotReloadState } = require("./storage-bootstrap");
+      await startBackgroundHotReload();
+      const reload = getHotReloadState();
+      if (reload.state === "error") {
+        installAllState.state = "error";
+        installAllState.current = "";
+        installAllState.message = `Installed ${installAllState.installed} of ${installAllState.total}, but storage refresh failed: ${reload.message}`;
+        invalidateCatalogCache();
+        return;
+      }
+    }
+
     installAllState.current = "";
     installAllState.state = "done";
-    installAllState.message = `Installed ${installAllState.installed} of ${installAllState.total}.`;
+    installAllState.message = installedContent
+      ? `Installed ${installAllState.installed} of ${installAllState.total}. Storage refreshed — decks are live.`
+      : `Installed ${installAllState.installed} of ${installAllState.total}.`;
     invalidateCatalogCache();
   })().catch((error) => {
     installAllState.state = "error";

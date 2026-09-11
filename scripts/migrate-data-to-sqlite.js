@@ -1,4 +1,5 @@
 const fs = require("fs/promises");
+const os = require("os");
 const path = require("path");
 const { DatabaseSync } = require("node:sqlite");
 const sharp = require("sharp");
@@ -995,8 +996,31 @@ async function getLatestDependencyMtimeMs(filePaths) {
   return latestMtimeMs;
 }
 
+function resolveThumbConcurrency() {
+  const fromEnv = Number(process.env.KABBAK_THUMB_CONCURRENCY);
+  if (Number.isInteger(fromEnv) && fromEnv > 0) {
+    return Math.min(8, fromEnv);
+  }
+  const cpus = Number(os.availableParallelism?.() || os.cpus()?.length || 1);
+  return Math.max(1, Math.min(4, cpus > 2 ? cpus - 1 : cpus));
+}
+
+async function mapLimit(items, limit, worker) {
+  const queue = [...items];
+  const width = Math.max(1, Number(limit) || 1);
+  await Promise.all(Array.from({ length: Math.min(width, queue.length || 1) }, async () => {
+    while (queue.length) {
+      const item = queue.shift();
+      if (item === undefined) {
+        return;
+      }
+      await worker(item);
+    }
+  }));
+}
+
 async function writeThumbnailImage(sourcePath, thumbPath, thumbnailConfig) {
-  let pipeline = sharp(sourcePath, { animated: false }).resize({
+  let pipeline = sharp(sourcePath, { animated: false, failOn: "none" }).resize({
     width: Number(thumbnailConfig.width) || 240,
     height: Number(thumbnailConfig.height) || 360,
     fit: getFitMode(thumbnailConfig.fit),
@@ -1004,11 +1028,11 @@ async function writeThumbnailImage(sourcePath, thumbPath, thumbnailConfig) {
   });
 
   const extension = path.extname(thumbPath).toLowerCase();
-  const quality = Number.isInteger(Number(thumbnailConfig.quality)) ? Number(thumbnailConfig.quality) : 82;
+  const quality = Number.isInteger(Number(thumbnailConfig.quality)) ? Number(thumbnailConfig.quality) : 78;
   if (extension === ".jpg" || extension === ".jpeg") {
-    pipeline = pipeline.jpeg({ quality, mozjpeg: true });
+    pipeline = pipeline.jpeg({ quality, mozjpeg: false });
   } else if (extension === ".png") {
-    pipeline = pipeline.png({ quality, compressionLevel: 9, adaptiveFiltering: true, palette: true });
+    pipeline = pipeline.png({ compressionLevel: 3, adaptiveFiltering: false, palette: false });
   } else if (extension === ".webp") {
     pipeline = pipeline.webp({ quality });
   } else if (extension === ".avif") {
@@ -1019,11 +1043,43 @@ async function writeThumbnailImage(sourcePath, thumbPath, thumbnailConfig) {
   await pipeline.toFile(thumbPath);
 }
 
+async function mirrorThumbToStorage(thumbPath) {
+  const relative = path.relative(sourceDecksRoot, thumbPath);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    return;
+  }
+  const dest = path.join(decksRoot, relative);
+  await fs.mkdir(path.dirname(dest), { recursive: true });
+  await fs.copyFile(thumbPath, dest);
+}
+
+function logThumbJob(logger, patch) {
+  logger.log(JSON.stringify({
+    event: "kabbak_job",
+    job: "thumbs",
+    label: "Thumbnails",
+    ...patch
+  }));
+}
+
 async function ensureDeckThumbnails(deckRegistry, logger = console) {
   const deckEntries = Array.isArray(deckRegistry?.decks) ? deckRegistry.decks : [];
   let generatedThumbCount = 0;
+  let scannedCount = 0;
+  let totalAssets = 0;
   const missingByDeck = new Map();
   const missingPathsByDeck = new Map();
+  const concurrency = resolveThumbConcurrency();
+  const jobStartedAtMs = Date.now();
+  let lastProgressLogAtMs = 0;
+
+  logThumbJob(logger, {
+    state: "running",
+    done: 0,
+    total: 0,
+    generated: 0,
+    message: `Generating deck thumbnails (${concurrency} at a time)…`
+  });
 
   for (const deckEntry of deckEntries) {
     const relativeManifestPath = String(deckEntry?.manifestPath || "")
@@ -1051,14 +1107,15 @@ async function ensureDeckThumbnails(deckRegistry, logger = console) {
     const thumbnailRoot = path.join(deckRoot, String(manifest.thumbnails.root || "thumbs").replace(/\//g, path.sep));
     const assetRelativePaths = listDeckAssetRelativePaths(manifest);
 
-    logger.log(`[thumbs] Checking '${manifest.id}' — ${assetRelativePaths.length} card asset(s).`);
+    totalAssets += assetRelativePaths.length;
+    logger.log(`[thumbs] '${manifest.id}' — ${assetRelativePaths.length} card asset(s).`);
     let generatedForDeck = 0;
     const deckStartedAtMs = Date.now();
 
-    for (const assetRelativePath of assetRelativePaths) {
+    await mapLimit(assetRelativePaths, concurrency, async (assetRelativePath) => {
       const normalizedRelativePath = String(assetRelativePath || "").trim().replace(/^\.\//, "");
       if (!normalizedRelativePath) {
-        continue;
+        return;
       }
 
       const sourcePath = path.join(deckRoot, normalizedRelativePath.replace(/\//g, path.sep));
@@ -1073,7 +1130,8 @@ async function ensureDeckThumbnails(deckRegistry, logger = console) {
         const missingPaths = missingPathsByDeck.get(manifest.id) || [];
         missingPaths.push(normalizedRelativePath);
         missingPathsByDeck.set(manifest.id, missingPaths);
-        continue;
+        scannedCount += 1;
+        return;
       }
 
       const latestDependencyMtimeMs = await getLatestDependencyMtimeMs([sourcePath, manifestFilePath]);
@@ -1086,20 +1144,44 @@ async function ensureDeckThumbnails(deckRegistry, logger = console) {
       }
 
       if (thumbIsCurrent || !sourceStats.isFile()) {
-        continue;
+        scannedCount += 1;
+        return;
       }
 
       await writeThumbnailImage(sourcePath, thumbPath, manifest.thumbnails);
+      await mirrorThumbToStorage(thumbPath);
       generatedThumbCount += 1;
       generatedForDeck += 1;
-      logger.log(`[thumbs] '${manifest.id}' [${generatedForDeck}/${assetRelativePaths.length}] generated ${normalizedRelativePath} (${((Date.now() - deckStartedAtMs) / 1000).toFixed(1)}s).`);
-    }
+      scannedCount += 1;
+      const nowMs = Date.now();
+      if (generatedForDeck === 1 || generatedForDeck % 10 === 0 || nowMs - lastProgressLogAtMs >= 4000) {
+        lastProgressLogAtMs = nowMs;
+        logThumbJob(logger, {
+          state: "running",
+          deck: manifest.id,
+          current: manifest.id,
+          done: scannedCount,
+          total: Math.max(totalAssets, scannedCount),
+          generated: generatedThumbCount,
+          message: `${manifest.id}: ${generatedForDeck}/${assetRelativePaths.length} new thumbs`
+        });
+      }
+    });
 
     if (generatedForDeck > 0) {
       logger.log(`[thumbs] '${manifest.id}' generated ${generatedForDeck} thumbnail(s) in ${((Date.now() - deckStartedAtMs) / 1000).toFixed(1)}s.`);
     }
   }
 
+  logThumbJob(logger, {
+    state: generatedThumbCount > 0 ? "done" : "done",
+    done: scannedCount,
+    total: totalAssets,
+    generated: generatedThumbCount,
+    message: generatedThumbCount > 0
+      ? `Generated ${generatedThumbCount} thumbnail(s) in ${((Date.now() - jobStartedAtMs) / 1000).toFixed(1)}s.`
+      : "Thumbnails already up to date."
+  });
   if (generatedThumbCount > 0) {
     logger.log(`[thumbs] Generated ${generatedThumbCount} deck thumbnail${generatedThumbCount === 1 ? "" : "s"}.`);
   }
@@ -1384,7 +1466,29 @@ async function pathExists(p) {
   }
 }
 
+function parseMigrateArgs(argv = process.argv.slice(2)) {
+  const flags = new Set(argv.filter((value) => String(value).startsWith("--")));
+  return {
+    thumbsOnly: flags.has("--thumbs-only"),
+    skipThumbs: flags.has("--skip-thumbs") || !flags.has("--thumbs"),
+    inlineThumbs: flags.has("--thumbs")
+  };
+}
+
+async function runThumbnailsOnly(logger = console) {
+  await fs.mkdir(sourceDecksRoot, { recursive: true });
+  const deckRegistry = await buildDeckRegistry();
+  logger.log(`[thumbs] Generating thumbnails for ${Array.isArray(deckRegistry.decks) ? deckRegistry.decks.length : 0} deck(s).`);
+  await ensureDeckThumbnails(deckRegistry, logger);
+}
+
 async function main() {
+  const options = parseMigrateArgs();
+  if (options.thumbsOnly) {
+    await runThumbnailsOnly(console);
+    return;
+  }
+
   console.log(`Migrating KABBAK data from ${sourceRoot}`);
 
   // The deck directory is populated by DLC installs and is gitignored, so it does
@@ -1455,8 +1559,6 @@ async function main() {
   logStep(`Built ${Object.keys(deckManifests).length} deck manifest(s).`);
   const serializedDeckRegistry = `${JSON.stringify(deckRegistry, null, 2)}\n`;
 
-  logStep("Generating deck thumbnails...");
-  await ensureDeckThumbnails(deckRegistry, console);
   await fs.writeFile(sourceDeckRegistryPath, serializedDeckRegistry, "utf8");
   logStep("Copying inputs to storage...");
   await copyInputsToStorage();
@@ -1526,6 +1628,13 @@ async function main() {
   console.log(`Copied data snapshot to ${dataRoot}`);
   console.log(`Copied tarot deck assets to ${decksRoot}`);
   console.log(`Copied runtime scripts to ${runtimeAppRoot}`);
+
+  if (options.inlineThumbs && !options.skipThumbs) {
+    logStep("Generating deck thumbnails...");
+    await ensureDeckThumbnails(deckRegistry, console);
+  } else {
+    console.log("[thumbs] Skipping inline thumbnail generation (run with --thumbs, or let the API generate them in the background).");
+  }
 }
 
 main().catch((error) => {
