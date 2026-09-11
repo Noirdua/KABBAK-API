@@ -56,7 +56,7 @@ async function getCachedJsonPayload(cacheKey, loader) {
 // a while. Emit an ETag and honour If-None-Match to skip re-sending the body.
 function sendCachedBootstrap(request, response, payload) {
   response.setHeader("ETag", payload.etag);
-  response.setHeader("Cache-Control", "private, max-age=3600, must-revalidate");
+  response.setHeader("Cache-Control", "private, max-age=86400, must-revalidate");
   response.setHeader("Vary", "Authorization, x-api-key");
 
   if (etagMatches(request.get("if-none-match"), payload.etag)) {
