@@ -96,9 +96,22 @@ function normalizeConfiguredClientEntries(entries, { sourceName = "apiClients" }
         : [...defaultCapabilities.roles],
       scopes: Array.isArray(entry.scopes)
         ? parseStringList(entry.scopes, `${sourceName}[${index}].scopes`)
-        : [...defaultCapabilities.scopes]
+        : [...defaultCapabilities.scopes],
+      // Generic client flags used by plugins/system clients: `hidden` keeps a
+      // client out of the normal Users list; `expiresAt` (ISO) expires its key.
+      hidden: entry.hidden === true,
+      expiresAt: normalizeOptionalString(entry.expiresAt || entry.expires || "")
     };
   });
+}
+
+function isClientExpired(client, nowMs = Date.now()) {
+  const value = String(client?.expiresAt || "").trim();
+  if (!value) {
+    return false;
+  }
+  const expiresMs = Date.parse(value);
+  return Number.isFinite(expiresMs) && expiresMs <= nowMs;
 }
 
 function parseConfiguredApiClients(rawValue, { sourceName = "KABBAK_API_CLIENTS" } = {}) {
@@ -272,6 +285,7 @@ module.exports = {
   createConfigError,
   generateManagedApiClientId,
   generateManagedApiClientKey,
+  isClientExpired,
   parseConfiguredApiClients,
   parseConfiguredApiKeys,
   readManagedApiClients,

@@ -5,6 +5,7 @@ const { DEFAULT_CLIENT_ACCESS_LEVEL } = require("../config/api-access");
 const { managedApiClientsPath } = require("../config/paths");
 const {
   cloneConfiguredClients,
+  isClientExpired,
   parseConfiguredApiClients,
   parseConfiguredApiKeys,
   readManagedApiClients
@@ -243,7 +244,7 @@ function findConfiguredClientByApiKey(presentedKey) {
   const hashed = hashApiKey(presented);
   const mappedClient = getConfiguredClientLookupMap().get(hashed) || null;
   if (mappedClient && apiKeysMatch(mappedClient.key, presented)) {
-    return mappedClient;
+    return activeClientOrNull(mappedClient);
   }
 
   // Managed clients take precedence, but operator-provided env keys must keep
@@ -253,13 +254,22 @@ function findConfiguredClientByApiKey(presentedKey) {
   if (envClients.length) {
     const envClient = envClientCache.clientsByKeyHash.get(hashed) || null;
     if (envClient && apiKeysMatch(envClient.key, presented)) {
-      return envClient;
+      return activeClientOrNull(envClient);
     }
   }
 
   // Fallback for rare hash collisions / legacy mismatched encodings.
-  return [...getConfiguredApiClients(), ...envClients]
+  const fallback = [...getConfiguredApiClients(), ...envClients]
     .find((configuredClient) => apiKeysMatch(configuredClient.key, presented)) || null;
+  return activeClientOrNull(fallback);
+}
+
+// Expired clients (e.g. trial demo accounts) stop authenticating.
+function activeClientOrNull(client) {
+  if (!client) {
+    return null;
+  }
+  return isClientExpired(client) ? null : client;
 }
 
 function createRequestAuthState(client) {

@@ -141,7 +141,8 @@ router.use(
 );
 
 router.get("/admin/api-clients", (_request, response) => {
-  const managedClients = readManagedApiClients();
+  // Hidden clients (e.g. plugin-managed demo accounts) are managed elsewhere.
+  const managedClients = readManagedApiClients().filter((client) => client.hidden !== true);
   response.apiSuccess({
     count: managedClients.length,
     clients: managedClients.map((client) => toManagedApiClientSummary(client))
@@ -149,7 +150,10 @@ router.get("/admin/api-clients", (_request, response) => {
 });
 
 // Merged user view: managed clients + registry presence (profile activity).
-router.get("/admin/users", (_request, response) => {  const clients = readManagedApiClients();
+router.get("/admin/users", (_request, response) => {
+  const allClients = readManagedApiClients();
+  const clients = allClients.filter((client) => client.hidden !== true);
+  const hiddenClientIds = new Set(allClients.filter((client) => client.hidden === true).map((client) => client.id));
   const registryUsers = listRegistry({ includeOffline: true });
   const registryById = new Map(registryUsers.map((user) => [String(user.id), user]));
 
@@ -167,7 +171,7 @@ router.get("/admin/users", (_request, response) => {  const clients = readManage
   // Registry entries without a managed client entry (legacy) still show up.
   const seenIds = new Set(users.map((user) => user.id));
   for (const presence of registryUsers) {
-    if (seenIds.has(presence.id)) continue;
+    if (seenIds.has(presence.id) || hiddenClientIds.has(presence.id)) continue;
     users.push({
       id: presence.id,
       name: String(presence.name || "").trim(),

@@ -52,7 +52,7 @@ Use `response.apiSuccess(data)` or `response.apiPaginated(items, { offset, limit
 
 ### Auth
 
-Keys: `x-api-key` or `Authorization: Bearer`. Query `apiKey` still works for `<img>`/`<audio>` tags; prefer headers. Precedence: managed `storage/config/api-clients.json` → env clients → `KABBAK_API_KEYS` → `KABBAK_API_KEY`. `KABBAK_NO_AUTH=1` opens routes. Access levels (`basic` / `premium` / …) are hardcoded in `src/config/api-access.js`; admin “tiers” UI does not remap routes. Admin mutations need role `admin` or scope `api:admin`.
+Keys: `x-api-key` or `Authorization: Bearer`. Query `apiKey` still works for `<img>`/`<audio>` tags; prefer headers. Precedence: managed `storage/config/api-clients.json` → env clients → `KABBAK_API_KEYS` → `KABBAK_API_KEY`. Managed clients can set `hidden: true` (kept out of Admin → Users) and `expiresAt` (ISO; expired keys stop authenticating) — used by the `demo-users` plugin. `KABBAK_NO_AUTH=1` opens routes. Access levels (`basic` / `premium` / …) are hardcoded in `src/config/api-access.js`; admin “tiers” UI does not remap routes. Admin mutations need role `admin` or scope `api:admin`.
 
 ### Data
 
