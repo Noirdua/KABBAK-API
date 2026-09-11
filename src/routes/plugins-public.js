@@ -5,6 +5,7 @@ const { createApiRouter } = require("../lib/create-api-router");
 const { createNotFoundError } = require("../lib/http-errors");
 const {
   isPublicPlugin,
+  isRestrictedPublicPluginFile,
   listPublicPlugins,
   resolvePluginAsset,
   resolvePluginUploadLimit
@@ -20,7 +21,7 @@ function hasPresentedKey(request) {
   return Boolean(
     String(request.get("x-api-key") || "").trim()
     || String(request.get("authorization") || "").trim()
-    || String(request.query?.apiKey || "").trim()
+    || String(request.query?.apiKey || request.query?.api_key || request.query?.["x-api-key"] || "").trim()
   );
 }
 
@@ -46,7 +47,7 @@ router.get("/plugins/:name/:fileName", (request, response, next) => {
     return;
   }
   const fileName = String(request.params.fileName || "").trim();
-  if (!fileName || /^config\.json$/i.test(fileName)) {
+  if (!fileName || isRestrictedPublicPluginFile(name, fileName)) {
     next();
     return;
   }

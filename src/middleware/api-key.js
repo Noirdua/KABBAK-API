@@ -6,6 +6,7 @@ const { managedApiClientsPath } = require("../config/paths");
 const {
   cloneConfiguredClients,
   isClientExpired,
+  onManagedApiClientsWritten,
   parseConfiguredApiClients,
   parseConfiguredApiKeys,
   readManagedApiClients
@@ -13,6 +14,11 @@ const {
 const { touchPresence } = require("../services/user-registry");
 
 const MANAGED_CLIENT_STAT_INTERVAL_MS = 2000;
+
+function invalidateManagedClientCache() {
+  managedClientCache.checkedAtMs = 0;
+  managedClientCache.mtimeMs = -1;
+}
 
 const managedClientCache = {
   exists: false,
@@ -27,6 +33,8 @@ const envClientCache = {
   clients: Object.freeze([]),
   clientsByKeyHash: new Map()
 };
+
+onManagedApiClientsWritten(invalidateManagedClientCache);
 
 function hashApiKey(value) {
   return crypto.createHash("sha256").update(String(value || ""), "utf8").digest("hex");

@@ -129,6 +129,16 @@ function getPatchBody(request) {
   return request.body;
 }
 
+function findManagedClientById(clientId) {
+  return readManagedApiClients().find((client) => client.id === clientId) || null;
+}
+
+function rejectHiddenManagedClient(client, clientId) {
+  if (client?.hidden === true) {
+    throw createNotFoundError("api_client_not_found", `Managed API client '${clientId}' was not found.`);
+  }
+}
+
 router.use(
   "/admin",
   requireApiClientCapability({
@@ -199,11 +209,13 @@ router.post("/admin/api-clients", (request, response) => {
   const existingClients = readManagedApiClients();
   const clientId = normalizeClientId(body.id || body.clientId) || generateManagedApiClientId(existingClients);
   const apiKey = normalizeClientId(body.key || body.apiKey) || generateManagedApiClientKey(existingClients);
+  rejectHiddenManagedClient(existingClients.find((client) => client.id === clientId) || null, clientId);
 
   const result = upsertManagedApiClient({
     ...body,
     id: clientId,
-    key: apiKey
+    key: apiKey,
+    hidden: false
   });
 
   emitAdminMutationAuditEvent(request, response, {
@@ -227,6 +239,8 @@ router.post("/admin/api-clients/:clientId/rotate-key", (request, response) => {
   if (!clientId) {
     throw createHttpError(400, "invalid_client_id", "A clientId route parameter is required.");
   }
+
+  rejectHiddenManagedClient(findManagedClientById(clientId), clientId);
 
   let result;
   try {
@@ -719,7 +733,8 @@ router.patch("/admin/api-clients/:clientId", (request, response) => {
   if (!clientId) {
     throw createHttpError(400, "invalid_client_id", "A clientId route parameter is required.");
   }
-  const existingClient = readManagedApiClients().find((client) => client.id === clientId) || null;
+  const existingClient = findManagedClientById(clientId);
+  rejectHiddenManagedClient(existingClient, clientId);
   const body = getPatchBody(request);
   if (body.id != null && normalizeClientId(body.id) !== clientId) {
     throw createHttpError(400, "invalid_client_id", "Client id in the request body must match the route parameter.");
@@ -727,7 +742,8 @@ router.patch("/admin/api-clients/:clientId", (request, response) => {
 
   const result = upsertManagedApiClient({
     ...body,
-    id: clientId
+    id: clientId,
+    hidden: false
   });
 
   emitAdminMutationAuditEvent(request, response, {
@@ -754,7 +770,8 @@ router.delete("/admin/api-clients/:clientId", (request, response) => {
     throw createHttpError(400, "invalid_client_id", "A clientId route parameter is required.");
   }
 
-  const existingClient = readManagedApiClients().find((client) => client.id === clientId) || null;
+  const existingClient = findManagedClientById(clientId);
+  rejectHiddenManagedClient(existingClient, clientId);
   const result = removeManagedApiClient(clientId);
   if (!result.removed) {
     throw createNotFoundError("api_client_not_found", `Managed API client '${clientId}' was not found.`);

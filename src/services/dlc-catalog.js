@@ -1129,6 +1129,27 @@ function isPublicPlugin(name) {
   return Boolean(manifest && manifest.public === true);
 }
 
+function pluginServerEntryFileName(manifest) {
+  const server = manifest?.server ?? manifest?.api ?? null;
+  if (typeof server === "string") {
+    return path.basename(server.trim());
+  }
+  if (server && typeof server === "object" && typeof server.entry === "string") {
+    return path.basename(server.entry.trim());
+  }
+  return "server.js";
+}
+
+function isRestrictedPublicPluginFile(name, fileName) {
+  const safeFile = String(fileName || "").trim();
+  if (!safeFile || /^config\.json$/i.test(safeFile)) {
+    return true;
+  }
+  const manifest = readJsonIfPresent(path.join(resolvePluginRoot(name).dir, "manifest.json"));
+  const serverEntry = pluginServerEntryFileName(manifest);
+  return Boolean(serverEntry) && safeFile.toLowerCase() === String(serverEntry).toLowerCase();
+}
+
 function resolvePluginAsset(name, fileName, dirName = "") {
   const safeName = assertSafePluginName(name);
   const safeFile = String(fileName || "").trim();
@@ -1648,6 +1669,7 @@ module.exports = {
   isRepoPresent,
   isSparse,
   isPublicPlugin,
+  isRestrictedPublicPluginFile,
   listContentDirs,
   listInstalledPlugins,
   listPluginAssets,

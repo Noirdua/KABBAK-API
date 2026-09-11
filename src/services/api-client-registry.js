@@ -155,10 +155,27 @@ function readManagedApiClients({ filePath = managedApiClientsPath } = {}) {
   }
 }
 
+const managedWriteListeners = [];
+
+function onManagedApiClientsWritten(listener) {
+  if (typeof listener === "function") {
+    managedWriteListeners.push(listener);
+  }
+}
+
+function notifyManagedApiClientsWritten() {
+  managedWriteListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (_error) {}
+  });
+}
+
 function writeManagedApiClients(clients, { filePath = managedApiClientsPath } = {}) {
   const normalizedClients = normalizeConfiguredClientEntries(clients, { sourceName: filePath });
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(normalizedClients, null, 2)}\n`, "utf8");
+  notifyManagedApiClientsWritten();
   return cloneConfiguredClients(normalizedClients);
 }
 
@@ -286,6 +303,7 @@ module.exports = {
   generateManagedApiClientId,
   generateManagedApiClientKey,
   isClientExpired,
+  onManagedApiClientsWritten,
   parseConfiguredApiClients,
   parseConfiguredApiKeys,
   readManagedApiClients,

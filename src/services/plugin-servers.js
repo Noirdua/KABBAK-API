@@ -51,7 +51,8 @@ function buildContext(name, rootDir) {
     // Trusted helper so a plugin can reuse the API's own services/middleware.
     requireApi(relativePath) {
       const resolved = path.resolve(root, String(relativePath || ""));
-      if (!resolved.startsWith(root)) {
+      const relative = path.relative(root, resolved);
+      if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
         throw new Error("Plugin server module path must stay inside the API root.");
       }
       return require(resolved);
