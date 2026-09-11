@@ -802,7 +802,7 @@ router.get("/admin/overview", async (_request, response) => {
       items: catalog.items.length
     },
     limits: {
-      jsonBodyLimit: String(getRuntimeSettings().jsonBodyLimit || "10mb"),
+      jsonBodyLimit: String(getRuntimeSettings().jsonBodyLimit || "40mb"),
       pluginUploadBytes: resolvePluginUploadLimit()
     },
     dlcRepo,

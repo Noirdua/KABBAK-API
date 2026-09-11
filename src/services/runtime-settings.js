@@ -75,7 +75,7 @@ const BODY_LIMIT_PATTERN = /^\d+(?:\.\d+)?\s*(b|kb|mb|gb)?$/i;
 function normalizeJsonBodyLimit(value) {
   const normalized = String(value || "").trim().toLowerCase();
   if (!normalized) {
-    return String(appEnv.jsonBodyLimit || "10mb");
+    return String(appEnv.jsonBodyLimit || "40mb");
   }
   if (!BODY_LIMIT_PATTERN.test(normalized)) {
     throw new Error("Request body limit must look like '64mb', '500kb' or '1048576'.");
@@ -112,7 +112,7 @@ function envDefault(key) {
     case "allowNullOrigin":
       return appEnv.allowNullOrigin === true;
     case "jsonBodyLimit":
-      return String(appEnv.jsonBodyLimit || "10mb");
+    return String(appEnv.jsonBodyLimit || "40mb");
     case "pluginUploadLimitBytes":
       return appEnv.pluginUploadLimitBytes;
     case "autoMigrateEnabled":

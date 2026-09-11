@@ -2,7 +2,7 @@ const { createConfigError } = require("../lib/config-error");
 
 const DEFAULT_PORT = 3100;
 const DEFAULT_HOST = "127.0.0.1";
-const DEFAULT_JSON_BODY_LIMIT = "10mb";
+const DEFAULT_JSON_BODY_LIMIT = "40mb";
 
 const localOriginPattern = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i;
 

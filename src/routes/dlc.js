@@ -358,15 +358,31 @@ router.get("/plugins/:name/files/:dirName/:fileName", (request, response) => {
   sendPluginFile(response, fullPath, extension);
 });
 
+// List files inside a plugin subfolder. The music player resolves a directory
+// path (e.g. /files/library) when the track list is still empty; answer with a
+// listing instead of letting the path fall through as a bad request.
+router.get("/plugins/:name/files/:dirName", (request, response) => {
+  const { name, dirName } = request.params;
+  response.apiSuccess({
+    name: String(name || ""),
+    dir: String(dirName || ""),
+    files: listPluginAssets(String(name || ""), String(dirName || "")),
+    dirs: listPluginSubdirs(String(name || ""), String(dirName || ""))
+  });
+});
+
 function decodeUploadedFileData(body) {
   const raw = body?.data;
   if (typeof raw !== "string" || !raw.trim()) {
     throw createHttpError(400, "invalid_plugin_upload", "The upload requires a `data` field with base64 (or data URL) content.");
   }
   const b64 = (raw.includes(",") ? raw.split(",")[1] : raw).replace(/\s+/g, "");
-  const buffer = Buffer.from(b64, "base64");
-  if (!buffer.length || buffer.toString("base64").replace(/=+$/u, "").length !== b64.replace(/=+$/u, "").length) {
+  if (!b64 || !/^[A-Za-z0-9+/]*={0,2}$/.test(b64)) {
     throw createHttpError(400, "invalid_plugin_upload", "The upload data is not valid base64.");
+  }
+  const buffer = Buffer.from(b64, "base64");
+  if (!buffer.length) {
+    throw createHttpError(400, "invalid_plugin_upload", "The upload data is empty.");
   }
   return buffer;
 }
