@@ -204,8 +204,9 @@ function assertDlcMutationBody(body) {
 }
 
 // Available catalog (all categories). Plugins are what the shop installs.
-router.get("/dlc/catalog", async (_request, response) => {
-  const catalog = await getCatalog();
+router.get("/dlc/catalog", async (request, response) => {
+  const refresh = ["1", "true", "yes"].includes(String(request.query?.refresh || "").toLowerCase());
+  const catalog = await getCatalog({ refresh });
   response.apiSuccess(catalog);
 });
 

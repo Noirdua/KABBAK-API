@@ -322,7 +322,7 @@ function updateSource(id, patch = {}, { log = () => {} } = {}) {
   if (patch.url != null || patch.branch != null || patch.primary === true) {
     applyRemoteUrl(current);
   }
-  if (patch.sync === true) {
+  if (patch.sync === true || patch.url != null || patch.branch != null) {
     syncSource(current, { log });
   }
   return describeSource(getSource(current.id));

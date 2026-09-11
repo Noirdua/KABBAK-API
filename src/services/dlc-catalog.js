@@ -63,7 +63,16 @@ const REFERENCE_KEY_SCHEMES = Object.freeze(new Set(["strongs", "word", "term"])
 const SUPPORTED_TEXT_FORMATS = Object.freeze(new Set(require("./text-importer").SUPPORTED_IMPORT_FORMATS));
 
 function categoryByKind(kind) {
+  if (kind === "gui") {
+    return CATEGORIES.find((category) => category.kind === "plugin") || null;
+  }
   return CATEGORIES.find((category) => category.kind === kind) || null;
+}
+
+function isGuiPluginManifest(manifest) {
+  const kind = String(manifest?.kind || "").trim().toLowerCase();
+  const role = String(manifest?.role || "").trim().toLowerCase();
+  return kind === "gui" || role === "gui" || role === "skin";
 }
 
 // Catalog entries can originate from a remote manifest, so names are untrusted input.
@@ -454,6 +463,7 @@ function describeLocalItem(category, name, root = dlcRoot) {
       section,
       role: normalizePluginRole(manifest?.role, section, manifest?.overhaul),
       preserveChrome: manifest?.preserveChrome === true,
+      kind: isGuiPluginManifest(manifest) ? "gui" : category.kind,
       changelog: normalizeChangelogEntries(changelog?.entries)
     };
   }
@@ -478,7 +488,7 @@ function resolveStatus(kind, name, id) {
     if (fs.existsSync(path.join(referencesImportRoot, name))) return "staged";
     return "available";
   }
-  if (kind === "plugin" || kind === "api") {
+  if (kind === "plugin" || kind === "api" || kind === "gui") {
     try {
       const root = resolvePluginRoot(name);
       return isDirectory(root.dir) ? "installed" : "available";
@@ -497,8 +507,9 @@ function normalizeItem(category, entry, root = dlcRoot) {
 
   const local = describeLocalItem(category, name, root);
   const id = String(entry?.id || local?.id || fallbackId(name));
+  const catalogKind = (category.kind === "plugin" && (local?.kind === "gui" || isGuiPluginManifest(entry))) ? "gui" : category.kind;
   const item = {
-    kind: category.kind,
+    kind: catalogKind,
     name,
     id,
     title: String(entry?.title || local?.title || name),
@@ -506,7 +517,7 @@ function normalizeItem(category, entry, root = dlcRoot) {
     size: Number(entry?.size) || local?.size || 0,
     files: Number(entry?.files) || local?.files || 0,
     downloaded: Boolean(local),
-    status: category.kind === "pack" ? "available" : resolveStatus(category.kind, name, id)
+    status: category.kind === "pack" ? "available" : resolveStatus(catalogKind === "gui" ? "plugin" : category.kind, name, id)
   };
 
   if (category.kind === "pack") {
@@ -522,6 +533,7 @@ function normalizeItem(category, entry, root = dlcRoot) {
   }
 
   if (category.kind === "plugin" || category.kind === "api") {
+    if (catalogKind === "gui") item.kind = "gui";
     // The checkout manifest is the live source of truth for installed plugins.
     // Remote entries without metadata must not override it.
     if (local?.title) {
@@ -656,6 +668,7 @@ function describeGitItem(root, category, name) {
       section,
       role: normalizePluginRole(manifest?.role, section, manifest?.overhaul) || local?.role,
       preserveChrome: manifest?.preserveChrome === true || local?.preserveChrome === true,
+      kind: isGuiPluginManifest(manifest) || local?.kind === "gui" ? "gui" : category.kind,
       changelog: normalizeChangelogEntries(changelog?.entries).length
         ? normalizeChangelogEntries(changelog?.entries)
         : (local?.changelog || [])
@@ -1067,7 +1080,7 @@ function readPluginManifest(name) {
   const section = manifest.section && typeof manifest.section === "object" ? manifest.section : null;
   return {
     name: root.name,
-    kind: root.kind,
+    kind: isGuiPluginManifest(manifest) ? "gui" : root.kind,
     id: String(manifest.id || fallbackId(root.name)).trim(),
     title: String(manifest.name || manifest.title || root.name).trim(),
     description: String(manifest.description || "").trim(),
