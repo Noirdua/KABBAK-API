@@ -8,11 +8,15 @@ let contentVersionEtagPromise = null;
 // requests (unlike the per-request requestId), so If-None-Match round-trips work.
 function getContentVersionEtag() {
   if (!contentVersionEtagPromise) {
-    contentVersionEtagPromise = getStorageStatus()
+    contentVersionEtagPromise = getStorageStatus({ force: true })
       .then((status) => `W/"content-${String(status?.snapshotMtimeMs || Date.now())}"`)
       .catch(() => `W/"content-${Date.now()}"`);
   }
   return contentVersionEtagPromise;
+}
+
+function invalidateContentVersionEtag() {
+  contentVersionEtagPromise = null;
 }
 
 // Cache headers + conditional-request handling for immutable content endpoints
@@ -38,5 +42,6 @@ function createStaticContentCache({ maxAgeSeconds = 3600 } = {}) {
 }
 
 module.exports = {
-  createStaticContentCache
+  createStaticContentCache,
+  invalidateContentVersionEtag
 };

@@ -22,7 +22,8 @@ function assertDeckResult(result, deckId) {
   throw createNotFoundError("deck_not_found", `Unknown deck '${deckId}'.`);
 }
 
-router.get("/decks/options", cacheStatic, async (_request, response) => {
+router.get("/decks/options", async (_request, response) => {
+  response.setHeader("Cache-Control", "no-store");
   const options = await listDeckOptions();
   response.apiSuccess(options);
 });

@@ -11,7 +11,8 @@ const router = createApiRouter();
 
 const cacheStatic = createStaticContentCache();
 
-router.get("/decks", cacheStatic, async (_request, response) => {
+router.get("/decks", async (_request, response) => {
+  response.setHeader("Cache-Control", "no-store");
   const registry = await loadDeckRegistry();
   response.apiSuccess(registry);
 });

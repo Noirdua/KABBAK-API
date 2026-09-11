@@ -403,6 +403,9 @@ function resetDataLoaderCaches() {
     }
   } catch (_error) {}
   try {
+    require("../middleware/static-content-cache").invalidateContentVersionEtag?.();
+  } catch (_error) {}
+  try {
     require("./tarot-service").resetTarotContextCache?.();
   } catch (_error) {}
   try {
