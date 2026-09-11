@@ -77,9 +77,23 @@ const CONTENT_TYPES = Object.freeze({
   ".json": "application/json; charset=utf-8",
   ".mp3": "audio/mpeg",
   ".ogg": "audio/ogg",
+  ".oga": "audio/ogg",
   ".wav": "audio/wav",
   ".webm": "audio/webm",
+  ".weba": "audio/webm",
   ".m4a": "audio/mp4",
+  ".m4b": "audio/mp4",
+  ".mp4": "audio/mp4",
+  ".flac": "audio/flac",
+  ".aac": "audio/aac",
+  ".opus": "audio/ogg",
+  ".aiff": "audio/aiff",
+  ".aif": "audio/aiff",
+  ".wma": "audio/x-ms-wma",
+  ".alac": "audio/mp4",
+  ".amr": "audio/amr",
+  ".wv": "audio/x-wavpack",
+  ".gif": "image/gif",
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
@@ -434,12 +448,19 @@ router.post(
   (request, response) => {
     const { name, dirName } = request.params;
     const body = getRequestBody(request);
-    const dataBuffer = decodeUploadedFileData(body);
+    let dataBuffer;
+    try {
+      dataBuffer = decodeUploadedFileData(body);
+    } catch (error) {
+      emitDlcLog(request, `plugin upload rejected (decode): ${error.message}`);
+      throw error;
+    }
 
     let saved;
     try {
       saved = writePluginAssetFile(String(name || ""), String(dirName || ""), String(body?.fileName || ""), dataBuffer);
     } catch (error) {
+      emitDlcLog(request, `plugin upload rejected (write): ${error.message}`);
       throw createHttpError(400, "invalid_plugin_upload", error.message);
     }
 

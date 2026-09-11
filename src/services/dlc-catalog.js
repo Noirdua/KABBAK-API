@@ -30,12 +30,16 @@ const CONTENT_KINDS = Object.freeze(["deck", "text", "reference"]);
 
 // Plugins are frontend features installed straight out of the DLC checkout:
 // a manifest.json declares the entry script and stylesheet the app loads.
-const PLUGIN_ASSET_EXTENSIONS = Object.freeze(new Set([
-  ".js", ".mjs", ".css", ".json", ".mp3", ".ogg", ".wav", ".webm", ".m4a",
-  ".png", ".jpg", ".jpeg", ".webp", ".svg", ".html", ".htm", ".txt", ".md"
+const AUDIO_EXTENSIONS = Object.freeze(new Set([
+  ".mp3", ".ogg", ".oga", ".wav", ".webm", ".weba", ".m4a", ".m4b", ".mp4",
+  ".flac", ".aac", ".opus", ".aiff", ".aif", ".wma", ".alac", ".amr", ".wv"
 ]));
 
-const AUDIO_EXTENSIONS = Object.freeze(new Set([".mp3", ".ogg", ".wav", ".webm", ".m4a"]));
+const PLUGIN_ASSET_EXTENSIONS = Object.freeze(new Set([
+  ".js", ".mjs", ".css", ".json",
+  ...AUDIO_EXTENSIONS,
+  ".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".html", ".htm", ".txt", ".md"
+]));
 
 // Uploads accept media plus text-ish plugin content (e.g. homepage/index.html,
 // menu presets as presets.json, menu logos).
