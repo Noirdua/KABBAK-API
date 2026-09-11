@@ -31,7 +31,14 @@ const healthRateLimiter = rateLimit({
     if (!ip) {
       return true;
     }
-    return isLoopbackOrPrivateIp(ip);
+    if (isLoopbackOrPrivateIp(ip)) {
+      return true;
+    }
+    // A request carrying a key is a configured client (the app probing its own
+    // connection), not a scanner. Never throttle it.
+    const apiKey = String(request.get("x-api-key") || "").trim();
+    const authorization = String(request.get("authorization") || "").trim();
+    return Boolean(apiKey || authorization);
   },
   handler(request, response) {
     const ip = String(request.ip || request.socket?.remoteAddress || "unknown");
