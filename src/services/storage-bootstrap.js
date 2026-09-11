@@ -305,13 +305,13 @@ async function runHotReload({ logger = console } = {}) {
   hotReloadState.message = "Refreshing storage snapshot…";
 
   try {
-    const status = await getStorageStatus({ force: true });
-    if (!status.ready) {
-      await runMigration(logger);
-      const nextStatus = await getStorageStatus({ force: true });
-      if (!nextStatus.ready) {
-        throw new Error(`Storage snapshot is still not ready after migration: ${nextStatus.reason}`);
-      }
+    // DLC install/uninstall stages content into imports/; the snapshot must be
+    // rebuilt (not just cache-reset) or new decks/texts stay invisible until a
+    // full restart. Always migrate so the freshly staged content is indexed.
+    await runMigration(logger);
+    const nextStatus = await getStorageStatus({ force: true });
+    if (!nextStatus.ready) {
+      throw new Error(`Storage snapshot is still not ready after migration: ${nextStatus.reason}`);
     }
 
     // Reopen the database and drop every in-memory cache so requests pick up
