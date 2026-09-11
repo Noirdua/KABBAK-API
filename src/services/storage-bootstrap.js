@@ -318,6 +318,13 @@ async function runHotReload({ logger = console } = {}) {
     // the freshly migrated snapshot without restarting the process.
     resetDataLoaderCaches();
 
+    // Pick up any DLC plugins that contribute server routes (e.g. demo-users).
+    try {
+      require("./plugin-servers").reloadPluginServers({ log: (message) => logger.log(message) });
+    } catch (_error) {
+      // Best-effort: plugin server routes refresh on the next restart otherwise.
+    }
+
     hotReloadState.state = "done";
     hotReloadState.finishedAt = new Date().toISOString();
     hotReloadState.message = "Storage refreshed. Changes are live.";

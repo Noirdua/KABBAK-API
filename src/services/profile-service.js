@@ -809,8 +809,8 @@ function deleteProfileNote(clientId, noteId, options = {}) {
   };
 }
 
-// Wipe a client's entire profile (notes, quiz, bio, settings). Used for the
-// shared demo user so admins can hand out a fresh demo without a server restart.
+// Wipe a client's entire profile (notes, quiz, bio, settings). Generic helper
+// also used by plugins (e.g. the Demo Users plugin's profile reset).
 function resetProfile(clientId, options = {}) {
   const filePath = getProfileFilePath(clientId, options);
   try {

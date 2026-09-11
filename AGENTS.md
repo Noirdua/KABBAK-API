@@ -40,7 +40,7 @@ Layering: **routes → services → data-loader (SQLite documents)**. Do not que
 
 Compression → request id → IP ban → observability → security headers → CORS → JSON body (runtime limit) → **health + public assets** → `requireApiKey` → rate limit → access level → protected routers.
 
-Public without a key: `/api/v1/health*`, `/branding`, `/demo-access` (loopback or `KABBAK_DEMO_ACCESS=1`), non-tarot `/assets/img`.
+Public without a key: `/api/v1/health*`, `/branding`, non-tarot `/assets/img`. DLC plugins can add their own public routes via a manifest `server` entry (mounted at `/api/v1/plugins/<name>/server/…`) — e.g. the `demo-users` plugin serves `/demo-access`.
 
 ### Success envelope
 
@@ -146,7 +146,7 @@ npm run check:html        # untagged innerHTML linter
 
 - Bind default is `127.0.0.1`. LAN access needs `HOST=0.0.0.0` and matching `KABBAK_ALLOWED_ORIGINS`.
 - No default DLC/plugin catalog URL. `npm run dlc -- repo <url>` (more than one repo is allowed; `dlc list` groups by source). Or Admin → DLC.
-- Demo user is opt-in (Admin create). Demo gate key is **not** public unless loopback or `KABBAK_DEMO_ACCESS=1`.
+- Demo user is a DLC plugin (`demo-users`): GUI + server routes. Demo gate key is **not** public unless loopback or `KABBAK_DEMO_ACCESS=1`. Install the plugin to use it.
 - Hydrus has no hardcoded key; plugin config GET redacts secrets; file URLs are proxied through `/api/v1/integrations/hydrus-network/…`.
 - Failed skin `mount` must not leave `html[data-plugin-skin]` set (host restores chrome on throw).
 - `unregisterSection` must not delete builtin ids (`home`, `tarot`, `admin`, …).

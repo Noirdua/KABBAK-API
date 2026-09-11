@@ -9,7 +9,6 @@ const {
 } = require("../middleware/api-key");
 const { serviceName, serviceVersion } = require("../config/service");
 const { getStorageStatus } = require("../services/storage-bootstrap");
-const { findDemoClient } = require("../services/api-client-registry");
 
 const router = createApiRouter();
 
@@ -162,42 +161,6 @@ router.get("/branding/overlay", (_request, response) => {
   }
   setNoStore(response);
   response.sendFile(filePath);
-});
-
-function isDemoAccessAllowed(request) {
-  const raw = String(process.env.KABBAK_DEMO_ACCESS || "").trim().toLowerCase();
-  if (["1", "true", "yes", "on"].includes(raw)) {
-    return true;
-  }
-  const ip = String(request.ip || request.socket?.remoteAddress || "");
-  return ip === "127.0.0.1" || ip === "::1" || ip.endsWith("127.0.0.1");
-}
-
-// Demo connection info for the login gate. Off the loopback unless
-// KABBAK_DEMO_ACCESS=1 so a public bind does not leak a live premium key.
-router.get("/demo-access", (request, response) => {
-  const demoClient = findDemoClient();
-  setNoStore(response);
-  if (!demoClient || !isDemoAccessAllowed(request)) {
-    response.json({
-      enabled: false
-    });
-    return;
-  }
-
-  const forwardedProto = String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim();
-  const forwardedHost = String(request.headers["x-forwarded-host"] || "").split(",")[0].trim();
-  const host = forwardedHost || String(request.headers.host || "localhost:3100").split(",")[0].trim();
-  const apiBaseUrl = `${forwardedProto || "http"}://${host}`;
-
-  response.json({
-    enabled: true,
-    id: demoClient.id,
-    name: demoClient.name,
-    accessLevel: demoClient.accessLevel,
-    apiKey: String(demoClient.key || ""),
-    apiBaseUrl
-  });
 });
 
 module.exports = router;

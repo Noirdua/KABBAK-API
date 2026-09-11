@@ -32,6 +32,8 @@ const registryRoutes = require("./routes/registry");
 const dlcRoutes = require("./routes/dlc");
 const locationRoutes = require("./routes/locations");
 const integrationRoutes = require("./routes/integrations");
+const { createPluginServerDispatch } = require("./services/plugin-servers");
+const pluginsPublicRoutes = require("./routes/plugins-public");
 
 const assetStaticOptions = {
   etag: true,
@@ -136,6 +138,16 @@ function createApp({ logger = console } = {}) {
   app.use(`${apiBasePath}/assets`, (request, response, next) => {
     next(createNotFoundError("asset_not_found", "Unknown API asset path."));
   });
+  // DLC plugins can opt into contributing server routes via a manifest `server`
+  // entry. Mounted before requireApiKey so a plugin can expose public endpoints;
+  // it gets its own rate limit and must enforce any auth it needs itself.
+  app.use(
+    `${apiBasePath}/plugins/:pluginName/server`,
+    createGlobalRateLimiter(),
+    createPluginServerDispatch()
+  );
+  // Public reads for plugins that opt in with "public": true (pre-auth).
+  app.use(apiBasePath, pluginsPublicRoutes);
   app.use(apiBasePath, requireApiKey);
   app.use(apiBasePath, createGlobalRateLimiter());
   app.use(apiBasePath, requireApiAccessLevel);

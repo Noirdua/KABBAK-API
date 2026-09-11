@@ -8,11 +8,8 @@ const {
   upsertManagedApiClient,
   generateManagedApiClientId,
   generateManagedApiClientKey,
-  rotateManagedApiClientKey,
-  ensureDemoClient,
-  findDemoClient
+  rotateManagedApiClientKey
 } = require("../services/api-client-registry");
-const { resetProfile } = require("../services/profile-service");
 const { getRuntimeSettings, updateRuntimeSettings } = require("../services/runtime-settings");
 const { clearLogEntries, getRecentLogEvents } = require("../services/log-capture");
 const { listRegistry } = require("../services/user-registry");
@@ -46,6 +43,7 @@ const {
   invalidateCatalogCache
 } = require("../services/dlc-catalog");
 const dlcSources = require("../services/dlc-sources");
+const { reloadPluginServers } = require("../services/plugin-servers");
 const {
   ADMIN_API_MANAGEMENT_CAPABILITY,
   requireApiClientCapability
@@ -147,109 +145,6 @@ router.get("/admin/api-clients", (_request, response) => {
   response.apiSuccess({
     count: managedClients.length,
     clients: managedClients.map((client) => toManagedApiClientSummary(client))
-  });
-});
-
-// Shared demo user key (admin only). The full key is returned once per request
-// so admins can hand it out; it is never shown in regular listings.
-router.get("/admin/demo-key", (request, response) => {
-  const demoClient = findDemoClient();
-  if (!demoClient) {
-    throw createNotFoundError("demo_client_not_found", "No demo user configured.");
-  }
-
-  emitAdminMutationAuditEvent(request, response, {
-    action: "read_demo_key",
-    targetClientId: demoClient.id
-  });
-
-  response.apiSuccess({
-    id: demoClient.id,
-    name: demoClient.name,
-    accessLevel: demoClient.accessLevel,
-    apiKey: String(demoClient.key || "")
-  });
-});
-
-// Create the demo user if it doesn't exist (idempotent). The key is only
-// returned when the demo user was just created.
-router.post("/admin/demo-user", (request, response) => {
-  const result = ensureDemoClient();
-
-  emitAdminMutationAuditEvent(request, response, {
-    action: "create_demo_user",
-    targetClientId: result.client?.id || "",
-    created: result.created
-  });
-
-  response.apiSuccess({
-    created: result.created,
-    id: result.client?.id || "",
-    name: result.client?.name || "",
-    accessLevel: result.client?.accessLevel || "",
-    apiKey: result.created ? String(result.client?.key || "") : ""
-  });
-});
-
-// Rotate the demo key. Everyone using the old demo key loses access.
-router.post("/admin/demo-user/rotate-key", (request, response) => {
-  const demoClient = findDemoClient();
-  if (!demoClient) {
-    throw createNotFoundError("demo_client_not_found", "No demo user configured.");
-  }
-
-  const result = rotateManagedApiClientKey(demoClient.id);
-
-  emitAdminMutationAuditEvent(request, response, {
-    action: "rotate_demo_key",
-    targetClientId: demoClient.id
-  });
-
-  response.apiSuccess({
-    rotated: true,
-    id: demoClient.id,
-    apiKey: String(result.client?.key || "")
-  });
-});
-
-// Wipe the demo profile so the next visitors start from a clean notebook.
-router.post("/admin/demo-user/reset-profile", (request, response) => {
-  const demoClient = findDemoClient();
-  if (!demoClient) {
-    throw createNotFoundError("demo_client_not_found", "No demo user configured.");
-  }
-
-  const reset = resetProfile(demoClient.id);
-
-  emitAdminMutationAuditEvent(request, response, {
-    action: "reset_demo_profile",
-    targetClientId: demoClient.id
-  });
-
-  response.apiSuccess({
-    reset,
-    id: demoClient.id
-  });
-});
-
-// Remove the demo user entirely.
-router.delete("/admin/demo-user", (request, response) => {
-  const demoClient = findDemoClient();
-  if (!demoClient) {
-    throw createNotFoundError("demo_client_not_found", "No demo user configured.");
-  }
-
-  const result = removeManagedApiClient(demoClient.id);
-
-  emitAdminMutationAuditEvent(request, response, {
-    action: "delete_demo_user",
-    targetClientId: demoClient.id,
-    removed: result.removed
-  });
-
-  response.apiSuccess({
-    removed: result.removed,
-    id: demoClient.id
   });
 });
 
@@ -520,6 +415,7 @@ router.post("/admin/dlc/update", (request, response) => {
     failure = String(error?.message || "The DLC checkout could not be updated.");
   }
   invalidateCatalogCache();
+  reloadPluginServers();
 
   emitAdminMutationAuditEvent(request, response, {
     action: "update_dlc_checkout",

@@ -267,64 +267,9 @@ function rotateManagedApiClientKey(clientId, { filePath = managedApiClientsPath 
   };
 }
 
-// --- Shared demo user ---------------------------------------------------------
-
-const DEMO_CLIENT_ID = "cli_demo";
-const DEMO_CLIENT_ACCESS_LEVEL = "premium";
-
-function accessLevelRank(accessLevel) {
-  const { ACCESS_LEVELS } = require("../config/api-access");
-  const index = ACCESS_LEVELS.indexOf(String(accessLevel || ""));
-  return index < 0 ? -1 : index;
-}
-
-function findDemoClient({ filePath = managedApiClientsPath } = {}) {
-  return readManagedApiClients({ filePath }).find((client) => client.id === DEMO_CLIENT_ID) || null;
-}
-
-// Opt-in shared demo client (Admin → create demo user). Not created on boot.
-function ensureDemoClient({ filePath = managedApiClientsPath, log = () => {} } = {}) {
-  const existing = findDemoClient({ filePath });
-
-  if (existing) {
-    // Older deployments created the demo at basic, which cannot load decks.
-    // Upgrade anything below premium so the demo is actually usable.
-    if (accessLevelRank(existing.accessLevel) < accessLevelRank(DEMO_CLIENT_ACCESS_LEVEL)) {
-      const result = upsertManagedApiClient({
-        ...existing,
-        accessLevel: DEMO_CLIENT_ACCESS_LEVEL
-      }, {
-        filePath,
-        mergeExisting: true
-      });
-      log(`[demo] Demo user upgraded to ${DEMO_CLIENT_ACCESS_LEVEL} access (id=${DEMO_CLIENT_ID}).`);
-      return { created: false, upgraded: true, client: result.client };
-    }
-    return { created: false, client: existing };
-  }
-
-  const existingClients = readManagedApiClients({ filePath });
-  const apiKey = generateManagedApiClientKey(existingClients);
-  const result = upsertManagedApiClient({
-    id: DEMO_CLIENT_ID,
-    key: apiKey,
-    name: "Demo User",
-    accessLevel: DEMO_CLIENT_ACCESS_LEVEL
-  }, { filePath });
-
-  log(`[demo] Shared demo user created (id=${DEMO_CLIENT_ID}). Share its key from the Admin panel > Users.`);
-  return {
-    created: true,
-    client: result.client
-  };
-}
-
 module.exports = {
-  DEMO_CLIENT_ID,
   cloneConfiguredClients,
   createConfigError,
-  ensureDemoClient,
-  findDemoClient,
   generateManagedApiClientId,
   generateManagedApiClientKey,
   parseConfiguredApiClients,

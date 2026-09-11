@@ -1093,7 +1093,8 @@ function readPluginManifest(name) {
     css: String(manifest.css || "").trim(),
     section,
     role: normalizePluginRole(manifest.role, section, manifest.overhaul),
-    preserveChrome: manifest.preserveChrome === true
+    preserveChrome: manifest.preserveChrome === true,
+    public: manifest.public === true
   };
 }
 
@@ -1117,6 +1118,15 @@ function listInstalledPlugins() {
     }
   }
   return installed;
+}
+
+function listPublicPlugins() {
+  return listInstalledPlugins().filter((plugin) => plugin.public === true);
+}
+
+function isPublicPlugin(name) {
+  const manifest = readPluginManifest(name);
+  return Boolean(manifest && manifest.public === true);
 }
 
 function resolvePluginAsset(name, fileName, dirName = "") {
@@ -1637,10 +1647,12 @@ module.exports = {
   installItem,
   isRepoPresent,
   isSparse,
+  isPublicPlugin,
   listContentDirs,
   listInstalledPlugins,
   listPluginAssets,
   listPluginSubdirs,
+  listPublicPlugins,
   materialize,
   normalizePackItems,
   readJsonIfPresent,
@@ -1650,6 +1662,7 @@ module.exports = {
   removePluginPlaylist,
   resolveBranch,
   resolvePluginAsset,
+  resolvePluginRoot,
   resolvePluginUploadLimit,
   resolveRepoUrl,
   resolveStatus,
