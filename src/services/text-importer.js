@@ -1456,8 +1456,271 @@ async function registerReferenceDefinitions(imported) {
   await fs.writeFile(textLibraryRegistryPath, `${JSON.stringify(registry, null, 2)}\n`, "utf8");
 }
 
+function detectTextFormat(rawText) {
+  const text = String(rawText || "");
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return "auto-sectioned-text";
+  }
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === "object") {
+        if (Array.isArray(parsed.works) || parsed.type === "structured-text-source") {
+          return "structured-json";
+        }
+        if (Array.isArray(parsed.sections)) {
+          return "sections";
+        }
+        if (parsed.books || parsed.chapters) {
+          return "chaptered-books";
+        }
+        return "structured-json";
+      }
+    } catch (_error) {}
+  }
+
+  const nonempty = text.split(/\r?\n/).map((line) => normalizeWhitespace(line)).filter(Boolean);
+  if (!nonempty.length) {
+    return "auto-sectioned-text";
+  }
+  const headed = nonempty.filter((line) => /^\{[^}]+\}\{[^}]+\}$/.test(line)).length;
+  if (headed >= 2) {
+    return "headed-prose-text";
+  }
+  const romanVerses = nonempty.filter((line) => /^[IVXLC]+:\d+\.\s+\S/i.test(line)).length;
+  if (romanVerses >= 3) {
+    return "roman-verse-text";
+  }
+  const loneNumbers = nonempty.filter((line) => /^\d+$/.test(line)).length;
+  if (loneNumbers >= 3 && loneNumbers / nonempty.length >= 0.04) {
+    return "numbered-chapter-prose-text";
+  }
+  const numberedStart = nonempty.filter((line) => /^\d+[\.)]\s+\S/.test(line)).length;
+  if (numberedStart >= 5) {
+    return "numbered-aphorisms-text";
+  }
+  return "auto-sectioned-text";
+}
+
+function buildPreviewManifest(input = {}) {
+  const title = normalizeWhitespace(input.title) || "Untitled text";
+  const id = normalizeDocumentId(input.id || slugify(title) || "untitled-text");
+  return {
+    id,
+    title,
+    shortTitle: normalizeWhitespace(input.shortTitle) || title,
+    description: normalizeWhitespace(input.description),
+    inputFormat: String(input.format || "auto-sectioned-text"),
+    headerSkipCount: Number(input.headerSkipCount || 0),
+    stripMatching: Array.isArray(input.stripMatching) ? input.stripMatching : [],
+    workLabel: normalizeWhitespace(input.workLabel) || "Text",
+    sectionLabel: normalizeWhitespace(input.sectionLabel) || "Section",
+    verseLabel: normalizeWhitespace(input.verseLabel) || "Passage",
+    language: normalizeWhitespace(input.language) || "English",
+    script: normalizeWhitespace(input.script) || "Latin",
+    tradition: normalizeWhitespace(input.tradition),
+    metadata: {}
+  };
+}
+
+function parseTextWithFormat(manifest, rawText, format) {
+  if (format === "structured-json" || format === "sections" || format === "chaptered-books" || format === "titled-prose-json" || format === "tokenized-books") {
+    const parsed = JSON.parse(String(rawText || "{}"));
+    if (format === "sections") {
+      return convertSectionsSource(manifest, parsed);
+    }
+    if (format === "chaptered-books") {
+      return convertChapteredBooksSource(manifest, parsed);
+    }
+    if (format === "titled-prose-json") {
+      return convertTitledProseJsonSource(manifest, parsed);
+    }
+    if (format === "tokenized-books") {
+      return convertTokenizedBooksSource(manifest, parsed);
+    }
+    return convertStructuredJsonSource(manifest, parsed);
+  }
+  if (format === "numbered-aphorisms-text") {
+    return convertNumberedAphorismsTextSource(manifest, rawText);
+  }
+  if (format === "roman-verse-text") {
+    return convertRomanVerseTextSource(manifest, rawText);
+  }
+  if (format === "numbered-chapter-prose-text") {
+    return convertNumberedChapterProseTextSource(manifest, rawText);
+  }
+  if (format === "headed-prose-text") {
+    return convertHeadedProseTextSource(manifest, rawText);
+  }
+  return convertAutoSectionedTextSource(manifest, rawText);
+}
+
+function slimPreviewDocument(document) {
+  const works = (Array.isArray(document?.works) ? document.works : []).map((work) => ({
+    id: work.id,
+    title: work.title,
+    sections: (Array.isArray(work.sections) ? work.sections : []).map((section) => ({
+      id: section.id,
+      number: section.number,
+      title: section.title || section.label,
+      verses: (Array.isArray(section.verses) ? section.verses : []).map((verse) => ({
+        number: verse.number,
+        text: verse.text
+      }))
+    }))
+  }));
+  const sectionCount = works.reduce((sum, work) => sum + work.sections.length, 0);
+  const verseCount = works.reduce((sum, work) => (
+    sum + work.sections.reduce((inner, section) => inner + section.verses.length, 0)
+  ), 0);
+  return {
+    title: document?.title || "",
+    shortTitle: document?.shortTitle || "",
+    works,
+    stats: {
+      works: works.length,
+      sections: sectionCount,
+      verses: verseCount
+    }
+  };
+}
+
+function extractLooseBlocks(rawText, slimDoc, format) {
+  const kind = String(format || "");
+  if (kind.includes("json") || kind === "sections" || kind === "chaptered-books" || kind === "tokenized-books") {
+    return [];
+  }
+  const capturedVerses = [];
+  const capturedTitles = new Set();
+  (Array.isArray(slimDoc?.works) ? slimDoc.works : []).forEach((work) => {
+    (Array.isArray(work.sections) ? work.sections : []).forEach((section) => {
+      const title = normalizeWhitespace(section.title);
+      if (title) {
+        capturedTitles.add(title);
+      }
+      (Array.isArray(section.verses) ? section.verses : []).forEach((verse) => {
+        capturedVerses.push(normalizeWhitespace(verse.text));
+      });
+    });
+  });
+
+  const capturedBlob = capturedVerses.join("\n");
+
+  function stripDetectedPrefix(line) {
+    return normalizeWhitespace(line)
+      .replace(/^\d+[.)]\s+/, "")
+      .replace(/^[IVXLC]+:\d+\.\s+/i, "")
+      .replace(/^[A-Z]\.\s+/, "");
+  }
+
+  function lineCaptured(line) {
+    const needle = normalizeWhitespace(line);
+    if (!needle) {
+      return false;
+    }
+    if (capturedTitles.has(needle)) {
+      return true;
+    }
+    const stripped = stripDetectedPrefix(needle) || needle;
+    if (capturedBlob.includes(stripped) || capturedBlob.includes(needle)) {
+      return true;
+    }
+    return capturedVerses.some((entry) => {
+      if (!entry) {
+        return false;
+      }
+      return stripped === entry || needle === entry;
+    });
+  }
+
+  const loose = [];
+  let current = [];
+  function flush() {
+    const text = current.join("\n").replace(/^\s+|\s+$/g, "");
+    if (text) {
+      loose.push(text);
+    }
+    current = [];
+  }
+
+  String(rawText || "").split(/\r?\n/).forEach((line) => {
+    if (!normalizeWhitespace(line)) {
+      if (current.length) {
+        current.push(line);
+      }
+      return;
+    }
+    if (lineCaptured(line)) {
+      flush();
+      return;
+    }
+    current.push(line);
+  });
+  flush();
+  return loose;
+}
+
+function previewTextImport(input = {}) {
+  const rawText = String(input.text || "");
+  if (!rawText.trim()) {
+    throw new Error("Paste or upload some text first.");
+  }
+  const filename = String(input.filename || "").trim();
+  const guessedFormat = detectTextFormat(rawText);
+  const format = String(input.format || guessedFormat || "auto-sectioned-text").trim();
+  const guessedTitle = normalizeWhitespace(input.title)
+    || filename.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim()
+    || "Untitled text";
+  const manifest = buildPreviewManifest({
+    ...input,
+    title: guessedTitle,
+    format,
+    id: input.id || slugify(guessedTitle)
+  });
+
+  let document;
+  let usedFormat = format;
+  try {
+    document = parseTextWithFormat(manifest, rawText, format);
+  } catch (error) {
+    if (format === "auto-sectioned-text") {
+      throw error;
+    }
+    usedFormat = "auto-sectioned-text";
+    document = convertAutoSectionedTextSource({ ...manifest, inputFormat: usedFormat }, rawText);
+  }
+
+  const slim = slimPreviewDocument(document);
+  if (!slim.stats.verses) {
+    throw new Error("Could not find any passages in that file. Try another format or add blank lines between sections.");
+  }
+
+  return {
+    guessedFormat,
+    format: usedFormat,
+    formats: [...SUPPORTED_IMPORT_FORMATS],
+    id: manifest.id,
+    title: manifest.title,
+    shortTitle: manifest.shortTitle,
+    description: manifest.description,
+    language: manifest.language,
+    script: manifest.script,
+    tradition: manifest.tradition,
+    workLabel: manifest.workLabel,
+    sectionLabel: manifest.sectionLabel,
+    verseLabel: manifest.verseLabel,
+    document: slim,
+    stats: slim.stats,
+    looseText: extractLooseBlocks(rawText, slim, usedFormat)
+  };
+}
+
 module.exports = {
   SUPPORTED_IMPORT_FORMATS: [...SUPPORTED_IMPORT_FORMATS],
+  detectTextFormat,
   importTextSources,
-  importReferenceSources
+  importReferenceSources,
+  previewTextImport,
+  slugify
 };

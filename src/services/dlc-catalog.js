@@ -1575,6 +1575,172 @@ function createPluginScaffold(name, input = {}) {
   };
 }
 
+function createTextDlc(input = {}, { log = () => {} } = {}) {
+  const { slugify: slugifyText } = require("./text-importer");
+  const title = String(input?.title || "").trim().slice(0, 120) || "Untitled text";
+  const safeId = assertSafePluginName(
+    (slugifyText(input?.id || title) || "untitled-text").slice(0, 40).replace(/-+$/g, "") || "untitled-text"
+  );
+  const textDir = path.join(dlcRoot, "texts", safeId);
+  if (isDirectory(textDir)) {
+    throw new Error(`Text '${safeId}' already exists.`);
+  }
+
+  const works = Array.isArray(input?.document?.works) ? input.document.works : [];
+  if (!works.length) {
+    throw new Error("The text has no sections to save. Preview it first and keep at least one passage.");
+  }
+
+  const sourceDocument = {
+    schemaVersion: 1,
+    type: "structured-text-source",
+    title,
+    shortTitle: String(input?.shortTitle || title).trim().slice(0, 80),
+    metadata: {
+      description: String(input?.description || "").trim().slice(0, 800)
+    },
+    works
+  };
+  const manifest = {
+    id: safeId,
+    title,
+    shortTitle: sourceDocument.shortTitle,
+    description: String(input?.description || "").trim().slice(0, 800),
+    language: String(input?.language || "English").trim().slice(0, 60) || "English",
+    script: String(input?.script || "Latin").trim().slice(0, 60) || "Latin",
+    tradition: String(input?.tradition || "").trim().slice(0, 80),
+    workLabel: String(input?.workLabel || "Text").trim().slice(0, 40) || "Text",
+    sectionLabel: String(input?.sectionLabel || "Section").trim().slice(0, 40) || "Section",
+    verseLabel: String(input?.verseLabel || "Passage").trim().slice(0, 40) || "Passage",
+    input: {
+      path: `${safeId}.json`,
+      format: "structured-json"
+    }
+  };
+
+  fs.mkdirSync(textDir, { recursive: true });
+  fs.writeFileSync(path.join(textDir, "metadata.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  fs.writeFileSync(path.join(textDir, `${safeId}.json`), `${JSON.stringify(sourceDocument, null, 2)}\n`, "utf8");
+  const originalText = String(input?.text || "").trim();
+  if (originalText && !originalText.startsWith("{")) {
+    fs.writeFileSync(path.join(textDir, "source.txt"), originalText.endsWith("\n") ? originalText : `${originalText}\n`, "utf8");
+  }
+
+  const staged = stageText(safeId, log, textDir);
+  invalidateCatalogCache();
+  if (staged) {
+    try {
+      require("./storage-bootstrap").startBackgroundHotReload();
+    } catch (_error) {}
+  }
+
+  return {
+    id: safeId,
+    name: safeId,
+    title,
+    kind: "text",
+    staged: Boolean(staged),
+    path: `texts/${safeId}`
+  };
+}
+
+const DECK_IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
+
+function createDeckDlcFromZip(buffer, { log = () => {} } = {}) {
+  const { unpackStoreZip } = require("../lib/zip-store");
+  const { slugify: slugifyText } = require("./text-importer");
+  const entries = unpackStoreZip(buffer);
+  if (!entries.length) {
+    throw new Error("The deck zip is empty.");
+  }
+
+  const deckEntry = entries.find((entry) => /(^|\/)deck\.json$/i.test(entry.name));
+  if (!deckEntry) {
+    throw new Error("The deck zip must include deck.json.");
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(deckEntry.data.toString("utf8"));
+  } catch (_error) {
+    throw new Error("deck.json is not valid JSON.");
+  }
+  if (!manifest || typeof manifest !== "object") {
+    throw new Error("deck.json is invalid.");
+  }
+
+  const title = String(manifest.name || manifest.title || "").trim().slice(0, 120) || "Untitled deck";
+  const safeId = assertSafePluginName(
+    (slugifyText(manifest.id || title) || "untitled-deck").slice(0, 40).replace(/-+$/g, "") || "untitled-deck"
+  );
+  const deckDir = path.join(dlcRoot, "decks", safeId);
+  if (isDirectory(deckDir)) {
+    throw new Error(`Deck '${safeId}' already exists.`);
+  }
+
+  manifest.id = safeId;
+  manifest.name = title;
+  if (!manifest.thumbnails || typeof manifest.thumbnails !== "object") {
+    manifest.thumbnails = {
+      root: "thumbs",
+      width: 240,
+      height: 360,
+      fit: "inside",
+      quality: 82
+    };
+  }
+
+  fs.mkdirSync(deckDir, { recursive: true });
+  let imageCount = 0;
+  try {
+    fs.writeFileSync(path.join(deckDir, "deck.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    entries.forEach((entry) => {
+      if (/(^|\/)deck\.json$/i.test(entry.name)) {
+        return;
+      }
+      const relative = String(entry.name || "").replace(/\\/g, "/");
+      const extension = path.posix.extname(relative).toLowerCase();
+      if (!DECK_IMAGE_EXTENSIONS.has(extension)) {
+        return;
+      }
+      const parts = relative.split("/").filter((part) => part && part !== ".." && part !== ".");
+      if (!parts.length) {
+        return;
+      }
+      const dest = path.join(deckDir, ...parts);
+      if (!dest.startsWith(deckDir + path.sep)) {
+        throw new Error("Zip entry path escaped the deck folder.");
+      }
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, entry.data);
+      imageCount += 1;
+    });
+    if (!imageCount) {
+      throw new Error("The deck zip has no card images.");
+    }
+  } catch (error) {
+    fs.rmSync(deckDir, { recursive: true, force: true });
+    throw error;
+  }
+
+  const staged = stageDeck(safeId, log, deckDir);
+  invalidateCatalogCache();
+  if (staged) {
+    try {
+      require("./storage-bootstrap").startBackgroundHotReload();
+    } catch (_error) {}
+  }
+
+  return {
+    id: safeId,
+    name: safeId,
+    title,
+    kind: "deck",
+    images: imageCount,
+    staged: Boolean(staged),
+    path: `decks/${safeId}`
+  };
+}
+
 // --- Bulk install (server-side, survives client navigation) -------------------
 
 const installAllState = {
@@ -1675,6 +1841,8 @@ module.exports = {
   categoryByKind,
   createPluginPlaylist,
   createPluginScaffold,
+  createTextDlc,
+  createDeckDlcFromZip,
   dematerialize,
   MISSING_DLC_REPO_MESSAGE,
   ensureRepo,

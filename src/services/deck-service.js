@@ -340,6 +340,12 @@ function resolveMinorFile(manifest, parsedMinor) {
     return null;
   }
 
+  if (minorRule.mode === "file-map") {
+    const key = `${String(parsedMinor.rankKey || "").trim().toLowerCase()} of ${parsedMinor.suitId}`;
+    const files = normalizeCardFiles(minorRule.cards?.[key] || minorRule.cards?.[`${parsedMinor.suitId}:${parsedMinor.rankKey}`]);
+    return files[0] || null;
+  }
+
   if (minorRule.mode === "split-number-template") {
     if (Number.isFinite(parsedMinor.pipValue)) {
       return resolveMinorNumberTemplateGroup(minorRule.smalls, parsedMinor, defaultPipRankOrder);
@@ -440,6 +446,29 @@ async function resolveDeck(deckId) {
   return { resolvedDeckId, source, manifest };
 }
 
+function applySuitNameOverrides(manifest, displayName) {
+  const overrides = manifest?.suitNameOverrides;
+  if (!overrides || typeof overrides !== "object") {
+    return displayName;
+  }
+  let next = String(displayName || "");
+  const pairs = [
+    ["wands", overrides.wands],
+    ["cups", overrides.cups],
+    ["swords", overrides.swords],
+    ["disks", overrides.disks || overrides.pentacles],
+    ["pentacles", overrides.pentacles || overrides.disks]
+  ];
+  pairs.forEach(([from, to]) => {
+    const custom = String(to || "").trim();
+    if (!custom) {
+      return;
+    }
+    next = next.replace(new RegExp(`of ${from}\\b`, "ig"), `of ${custom}`);
+  });
+  return next;
+}
+
 function resolveDisplayNameWithDeck(manifest, cardName, trumpNumber) {
   const fallbackName = String(cardName || "").trim();
   if (!manifest) {
@@ -465,7 +494,7 @@ function resolveDisplayNameWithDeck(manifest, cardName, trumpNumber) {
     return minorOverride;
   }
 
-  return fallbackName;
+  return applySuitNameOverrides(manifest, fallbackName);
 }
 
 function walkImageFiles(dir, acc = []) {

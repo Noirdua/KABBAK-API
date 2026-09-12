@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const express = require("express");
 
 const { createApiRouter } = require("../lib/create-api-router");
 const { createHttpError, createNotFoundError } = require("../lib/http-errors");
@@ -14,6 +15,8 @@ const {
   categoryByKind,
   createPluginPlaylist,
   createPluginScaffold,
+  createTextDlc,
+  createDeckDlcFromZip,
   expandPack,
   findCatalogItem,
   getCatalog,
@@ -546,6 +549,87 @@ router.post(
     });
 
     response.status(201).apiSuccess({ plugin });
+  }
+);
+
+router.post(
+  "/dlc/texts/preview",
+  requireApiClientCapability({
+    capabilityName: "adminApiManagement",
+    anyRoles: ADMIN_API_MANAGEMENT_CAPABILITY.anyRoles,
+    anyScopes: ADMIN_API_MANAGEMENT_CAPABILITY.anyScopes,
+    errorCode: "insufficient_admin_capability",
+    errorMessage: "This route requires the admin role or api:admin scope."
+  }),
+  (request, response) => {
+    const body = getRequestBody(request);
+    let preview;
+    try {
+      preview = require("../services/text-importer").previewTextImport(body);
+    } catch (error) {
+      throw createHttpError(400, "text_preview_failed", error.message);
+    }
+    response.apiSuccess(preview);
+  }
+);
+
+router.post(
+  "/dlc/texts",
+  requireApiClientCapability({
+    capabilityName: "adminApiManagement",
+    anyRoles: ADMIN_API_MANAGEMENT_CAPABILITY.anyRoles,
+    anyScopes: ADMIN_API_MANAGEMENT_CAPABILITY.anyScopes,
+    errorCode: "insufficient_admin_capability",
+    errorMessage: "This route requires the admin role or api:admin scope."
+  }),
+  (request, response) => {
+    const body = getRequestBody(request);
+    let text;
+    try {
+      text = createTextDlc(body, {
+        log: (message) => emitDlcLog(request, message)
+      });
+    } catch (error) {
+      throw createHttpError(400, "text_create_failed", error.message);
+    }
+    emitDlcMutationAuditEvent(request, response, {
+      action: "create_dlc_text",
+      itemName: text.name,
+      itemKind: "text"
+    });
+    response.status(201).apiSuccess({ text });
+  }
+);
+
+router.post(
+  "/dlc/decks",
+  requireApiClientCapability({
+    capabilityName: "adminApiManagement",
+    anyRoles: ADMIN_API_MANAGEMENT_CAPABILITY.anyRoles,
+    anyScopes: ADMIN_API_MANAGEMENT_CAPABILITY.anyScopes,
+    errorCode: "insufficient_admin_capability",
+    errorMessage: "This route requires the admin role or api:admin scope."
+  }),
+  express.raw({ type: ["application/zip", "application/octet-stream"], limit: "250mb" }),
+  (request, response) => {
+    const buffer = Buffer.isBuffer(request.body) ? request.body : Buffer.from(request.body || []);
+    if (!buffer.length) {
+      throw createHttpError(400, "deck_create_failed", "Empty deck upload.");
+    }
+    let deck;
+    try {
+      deck = createDeckDlcFromZip(buffer, {
+        log: (message) => emitDlcLog(request, message)
+      });
+    } catch (error) {
+      throw createHttpError(400, "deck_create_failed", error.message);
+    }
+    emitDlcMutationAuditEvent(request, response, {
+      action: "create_dlc_deck",
+      itemName: deck.name,
+      itemKind: "deck"
+    });
+    response.status(201).apiSuccess({ deck });
   }
 );
 
