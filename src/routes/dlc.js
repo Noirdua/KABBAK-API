@@ -16,6 +16,8 @@ const {
   createPluginPlaylist,
   createPluginScaffold,
   createTextDlc,
+  createReferenceDlc,
+  previewReferenceImport,
   createDeckDlcFromZip,
   exportDlcItem,
   importDlcZip,
@@ -628,6 +630,56 @@ router.post(
       itemKind: "text"
     });
     response.status(201).apiSuccess({ text });
+  }
+);
+
+router.post(
+  "/dlc/references/preview",
+  requireApiClientCapability({
+    capabilityName: "adminApiManagement",
+    anyRoles: ADMIN_API_MANAGEMENT_CAPABILITY.anyRoles,
+    anyScopes: ADMIN_API_MANAGEMENT_CAPABILITY.anyScopes,
+    errorCode: "insufficient_admin_capability",
+    errorMessage: "This route requires the admin role or api:admin scope."
+  }),
+  (request, response) => {
+    const body = getRequestBody(request);
+    let preview;
+    try {
+      preview = previewReferenceImport(body);
+    } catch (error) {
+      throw createHttpError(400, "reference_preview_failed", error.message);
+    }
+    const { entries: _fullEntries, ...safe } = preview;
+    response.apiSuccess(safe);
+  }
+);
+
+router.post(
+  "/dlc/references",
+  requireApiClientCapability({
+    capabilityName: "adminApiManagement",
+    anyRoles: ADMIN_API_MANAGEMENT_CAPABILITY.anyRoles,
+    anyScopes: ADMIN_API_MANAGEMENT_CAPABILITY.anyScopes,
+    errorCode: "insufficient_admin_capability",
+    errorMessage: "This route requires the admin role or api:admin scope."
+  }),
+  (request, response) => {
+    const body = getRequestBody(request);
+    let reference;
+    try {
+      reference = createReferenceDlc(body, {
+        log: (message) => emitDlcLog(request, message)
+      });
+    } catch (error) {
+      throw createHttpError(400, "reference_create_failed", error.message);
+    }
+    emitDlcMutationAuditEvent(request, response, {
+      action: "create_dlc_reference",
+      itemName: reference.name,
+      itemKind: "reference"
+    });
+    response.status(201).apiSuccess({ reference });
   }
 );
 

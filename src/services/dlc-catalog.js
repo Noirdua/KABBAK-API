@@ -1821,6 +1821,186 @@ function createTextDlc(input = {}, { log = () => {} } = {}) {
   };
 }
 
+function makeReferenceEntryId(key, title, keyScheme, slugifyText) {
+  const scheme = String(keyScheme || "word").trim();
+  const rawKey = String(key || title || "").trim();
+  const rawTitle = String(title || key || "").trim();
+  if (scheme === "strongs") {
+    const match = rawKey.match(/^[HG]\d+/i) || rawTitle.match(/^[HG]\d+/i);
+    return match ? match[0].toUpperCase() : (slugifyText(rawKey || rawTitle) || rawKey);
+  }
+  if (scheme === "term") {
+    return (rawTitle || rawKey).toLowerCase();
+  }
+  return slugifyText(rawKey || rawTitle) || rawKey.toLowerCase();
+}
+
+function normalizeReferenceEntries(raw, keyScheme = "word") {
+  const { slugify: slugifyText } = require("./text-importer");
+  const entries = {};
+  const add = (key, title, body, extra) => {
+    const id = makeReferenceEntryId(key, title, keyScheme, slugifyText);
+    if (!id || entries[id]) {
+      return;
+    }
+    const record = {
+      title: String(title || id).trim() || id,
+      body: String(body || "").trim()
+    };
+    if (extra && typeof extra === "object") {
+      ["icon", "category", "url", "whatYourDream", "theScience", "psychology", "shadowQuestion"].forEach((key) => {
+        if (extra[key]) {
+          record[key] = extra[key];
+        }
+      });
+      if (Array.isArray(extra.scenarioMatrix) && extra.scenarioMatrix.length) {
+        record.scenarioMatrix = extra.scenarioMatrix;
+      }
+      if (Array.isArray(extra.spiritualRemedies) && extra.spiritualRemedies.length) {
+        record.spiritualRemedies = extra.spiritualRemedies;
+      }
+    }
+    entries[id] = record;
+  };
+
+  if (Array.isArray(raw)) {
+    raw.forEach((item) => {
+      if (typeof item === "string") {
+        add(item, item, "");
+        return;
+      }
+      if (!item || typeof item !== "object") {
+        return;
+      }
+      add(
+        item.slug || item.id || item.keyword || item.title,
+        item.keyword || item.title || item.slug,
+        item.summary || item.body || item.definition || item.meaning,
+        item
+      );
+    });
+    return entries;
+  }
+
+  if (!raw || typeof raw !== "object") {
+    return entries;
+  }
+  const source = raw.entries && typeof raw.entries === "object" && !Array.isArray(raw.entries)
+    ? raw.entries
+    : raw;
+  Object.entries(source).forEach(([key, value]) => {
+    if (typeof value === "string") {
+      add(key, key, value);
+      return;
+    }
+    if (!value || typeof value !== "object") {
+      return;
+    }
+    add(key, value.title || value.keyword || key, value.body || value.summary || value.definition, value);
+  });
+  return entries;
+}
+
+function previewReferenceImport(input = {}) {
+  const rawText = String(input.text || "").trim();
+  if (!rawText) {
+    throw new Error("Upload a JSON file of reference entries first.");
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch (_error) {
+    throw new Error("That file is not valid JSON.");
+  }
+  const keyScheme = REFERENCE_KEY_SCHEMES.has(String(input.keyScheme || parsed.keyScheme || "").trim())
+    ? String(input.keyScheme || parsed.keyScheme).trim()
+    : "word";
+  const entries = normalizeReferenceEntries(parsed, keyScheme);
+  const keys = Object.keys(entries);
+  if (!keys.length) {
+    throw new Error("No reference entries found. Use an array of { keyword, summary } or a map of id → { title, body }.");
+  }
+  const { slugify: slugifyText } = require("./text-importer");
+  const filename = String(input.filename || "").replace(/\.[^.]+$/, "");
+  const title = String(input.title || parsed.title || filename.replace(/[-_]+/g, " ") || "Untitled reference").trim().slice(0, 120);
+  const id = slugifyText(input.id || parsed.id || title) || "untitled-reference";
+  const list = keys.map((key) => ({
+    id: key,
+    title: entries[key].title,
+    body: String(entries[key].body || "").slice(0, 140),
+    icon: entries[key].icon || "",
+    category: entries[key].category || ""
+  }));
+  return {
+    id: id.slice(0, 40),
+    title,
+    description: String(input.description || parsed.description || "").trim().slice(0, 800),
+    kind: REFERENCE_KINDS.has(String(input.kind || parsed.kind || "").trim())
+      ? String(input.kind || parsed.kind).trim()
+      : "dictionary",
+    keyScheme,
+    count: keys.length,
+    sample: list.slice(0, 12),
+    list,
+    entries
+  };
+}
+
+function createReferenceDlc(input = {}, { log = () => {} } = {}) {
+  const preview = input.entries && typeof input.entries === "object" && !Array.isArray(input.entries)
+    ? {
+      id: input.id,
+      title: input.title,
+      description: input.description,
+      kind: input.kind,
+      keyScheme: input.keyScheme,
+      entries: input.entries,
+      count: Object.keys(input.entries).length
+    }
+    : previewReferenceImport(input);
+  if (!preview.count) {
+    throw new Error("The reference has no entries to save.");
+  }
+  const { slugify: slugifyText } = require("./text-importer");
+  const title = String(preview.title || "Untitled reference").trim().slice(0, 120);
+  const safeId = assertSafePluginName(
+    (slugifyText(preview.id || title) || "untitled-reference").slice(0, 40).replace(/-+$/g, "") || "untitled-reference"
+  );
+  const refDir = path.join(dlcRoot, "references", safeId);
+  if (isDirectory(refDir)) {
+    throw new Error(`Reference '${safeId}' already exists.`);
+  }
+  const kind = REFERENCE_KINDS.has(String(preview.kind || "").trim()) ? String(preview.kind).trim() : "dictionary";
+  const keyScheme = REFERENCE_KEY_SCHEMES.has(String(preview.keyScheme || "").trim()) ? String(preview.keyScheme).trim() : "word";
+  const manifest = {
+    id: safeId,
+    title,
+    description: String(preview.description || "").trim().slice(0, 800),
+    kind,
+    keyScheme,
+    entriesFile: "entries.json"
+  };
+  fs.mkdirSync(refDir, { recursive: true });
+  fs.writeFileSync(path.join(refDir, "reference.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  fs.writeFileSync(path.join(refDir, "entries.json"), `${JSON.stringify(preview.entries, null, 2)}\n`, "utf8");
+  const staged = stageReference(safeId, log, refDir);
+  invalidateCatalogCache();
+  if (staged) {
+    try {
+      require("./storage-bootstrap").startBackgroundHotReload();
+    } catch (_error) {}
+  }
+  return {
+    id: safeId,
+    name: safeId,
+    title,
+    kind: "reference",
+    count: preview.count,
+    staged: Boolean(staged),
+    path: `references/${safeId}`
+  };
+}
+
 const DECK_IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 
 function createDeckDlcFromZip(buffer, { log = () => {} } = {}) {
@@ -2182,6 +2362,8 @@ module.exports = {
   clearPluginLogs,
   createPluginPlaylist,
   createPluginScaffold,
+  createReferenceDlc,
+  previewReferenceImport,
   createTextDlc,
   createDeckDlcFromZip,
   exportDlcItem,

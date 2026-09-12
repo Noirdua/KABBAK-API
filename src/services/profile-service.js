@@ -175,6 +175,7 @@ function normalizeStoredScene(scene, fallbackCreatedAt, options = {}) {
     time: normalizeSceneTime(scene.time || ""),
     endTime: normalizeSceneTime(scene.endTime || ""),
     place: String(scene.place || ""),
+    scenario: String(scene.scenario || ""),
     mood: String(scene.mood || ""),
     emotion: String(scene.emotion || ""),
     atmosphere: String(scene.atmosphere || ""),
@@ -200,6 +201,7 @@ function normalizeStoredNote(note, options = {}) {
         time: "",
         endTime: "",
         place: "",
+        scenario: "",
         mood: "",
         emotion: "",
         atmosphere: "",
@@ -215,15 +217,16 @@ function normalizeStoredNote(note, options = {}) {
       id: `scene_${crypto.randomBytes(8).toString("hex")}`,
       time: "",
       endTime: "",
-      place: "",
-      mood: "",
-      emotion: "",
-      atmosphere: "",
-      steps: "",
-      thoughts: "",
-      notes: "",
-      attachments: [],
-      createdAt: nowIso
+        place: "",
+        scenario: "",
+        mood: "",
+        emotion: "",
+        atmosphere: "",
+        steps: "",
+        thoughts: "",
+        notes: "",
+        attachments: [],
+        createdAt: nowIso
     }];
   }
 
@@ -233,6 +236,8 @@ function normalizeStoredNote(note, options = {}) {
     title: String(note.title || "").trim() || "Untitled",
     kind: normalizeStoredKind(note.kind),
     occurredOn: normalizeStoredOccurredOn(note.occurredOn, createdAt),
+    sleptAt: normalizeSceneTime(note.sleptAt || ""),
+    awokeAt: normalizeSceneTime(note.awokeAt || ""),
     scenes,
     createdAt,
     updatedAt: note.updatedAt || nowIso
@@ -533,6 +538,7 @@ function createEmptyScene(nowIso = new Date().toISOString()) {
     time: "",
     endTime: "",
     place: "",
+    scenario: "",
     mood: "",
     emotion: "",
     atmosphere: "",
@@ -555,6 +561,7 @@ function normalizeSceneInput(rawScene) {
     time: normalizeSceneTime(rawScene.time || ""),
     endTime: normalizeSceneTime(rawScene.endTime || ""),
     place: String(rawScene.place || "").trim(),
+    scenario: String(rawScene.scenario || "").trim(),
     mood: String(rawScene.mood || "").trim(),
     emotion: String(rawScene.emotion || "").trim(),
     atmosphere: String(rawScene.atmosphere || "").trim(),
@@ -581,7 +588,10 @@ function normalizeSceneInput(rawScene) {
     throw new ProfileStorageError("invalid_note", `Scene steps cannot exceed ${MAX_SCENE_NOTES_LENGTH} characters.`);
   }
   if (scene.place.length > MAX_SCENE_PLACE_LENGTH) {
-    throw new ProfileStorageError("invalid_note", `A scene place cannot exceed ${MAX_SCENE_PLACE_LENGTH} characters.`);
+    throw new ProfileStorageError("invalid_note", `A scene scenery cannot exceed ${MAX_SCENE_PLACE_LENGTH} characters.`);
+  }
+  if (scene.scenario.length > MAX_SCENE_PLACE_LENGTH) {
+    throw new ProfileStorageError("invalid_note", `A scene scenario cannot exceed ${MAX_SCENE_PLACE_LENGTH} characters.`);
   }
   if (scene.mood.length > MAX_SCENE_MOOD_LENGTH) {
     throw new ProfileStorageError("invalid_note", `A scene mood cannot exceed ${MAX_SCENE_MOOD_LENGTH} characters.`);
@@ -751,6 +761,8 @@ function createProfileNote(clientId, input, options = {}) {
     title,
     kind,
     occurredOn,
+    sleptAt: normalizeSceneTime(input?.sleptAt || ""),
+    awokeAt: normalizeSceneTime(input?.awokeAt || ""),
     scenes,
     createdAt: nowIso,
     updatedAt: nowIso
@@ -779,6 +791,12 @@ function updateProfileNote(clientId, noteId, input, options = {}) {
   }
   if (Object.prototype.hasOwnProperty.call(input || {}, "occurredOn")) {
     note.occurredOn = normalizeOccurredOnInput(input.occurredOn, note.createdAt);
+  }
+  if (Object.prototype.hasOwnProperty.call(input || {}, "sleptAt")) {
+    note.sleptAt = normalizeSceneTime(input.sleptAt || "");
+  }
+  if (Object.prototype.hasOwnProperty.call(input || {}, "awokeAt")) {
+    note.awokeAt = normalizeSceneTime(input.awokeAt || "");
   }
   if (Object.prototype.hasOwnProperty.call(input || {}, "scenes")) {
     note.scenes = normalizeScenesInput(input.scenes);

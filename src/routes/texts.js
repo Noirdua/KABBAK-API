@@ -9,7 +9,8 @@ const {
   listTextReferences,
   searchTextReference,
   getTextReferenceEntry,
-  getTextReferenceEntryOccurrences
+  getTextReferenceEntryOccurrences,
+  matchTextReferenceInHaystack
 } = require("../services/text-service");
 
 const router = createApiRouter();
@@ -41,6 +42,16 @@ router.get("/texts/references/:referenceId/search", async (request, response) =>
   const results = await searchTextReference(request.params.referenceId, request.query.q, {
     limit: request.query.limit
   });
+  response.apiSuccess(results);
+});
+
+router.post("/texts/references/:referenceId/match", async (request, response) => {
+  const body = request.body && typeof request.body === "object" ? request.body : {};
+  const results = await matchTextReferenceInHaystack(
+    request.params.referenceId,
+    body.text || request.query?.text || "",
+    { limit: body.limit || request.query?.limit }
+  );
   response.apiSuccess(results);
 });
 

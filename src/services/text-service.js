@@ -699,6 +699,55 @@ async function getTextReferenceEntryOccurrences(referenceId, entryId, options = 
   };
 }
 
+async function matchTextReferenceInHaystack(referenceId, haystack, options = {}) {
+  const normalizedReferenceId = normalizeLookupId(referenceId);
+  if (!normalizedReferenceId) {
+    throw createHttpError(400, "invalid_text_reference_match", "Reference id is required.");
+  }
+  const text = String(haystack || "");
+  const limit = clampSearchLimit(options.limit);
+  const [catalog, referenceDocument] = await Promise.all([
+    getTextLibraryCatalog(),
+    loadTextReference(normalizedReferenceId)
+  ]);
+  const referenceSummary = findById(catalog.references, normalizedReferenceId);
+  if (!referenceSummary || !referenceDocument) {
+    throw createHttpError(404, "text_reference_not_found", `Unknown reference '${referenceId}'.`);
+  }
+  const entries = referenceDocument?.entries && typeof referenceDocument.entries === "object"
+    ? referenceDocument.entries
+    : {};
+  const candidates = Object.entries(entries)
+    .map(([key, entry]) => ({
+      key,
+      entry,
+      title: String(entry?.title || key).trim()
+    }))
+    .filter((item) => item.title.length >= 3)
+    .sort((left, right) => right.title.length - left.title.length);
+
+  const matches = [];
+  candidates.forEach((item) => {
+    if (matches.length >= limit) {
+      return;
+    }
+    const matcher = buildWholeWordMatcher(item.title);
+    if (matcher && matcher.test(text)) {
+      matches.push({
+        entryId: item.key,
+        title: item.title,
+        entry: item.entry
+      });
+    }
+  });
+
+  return {
+    reference: referenceSummary,
+    count: matches.length,
+    matches
+  };
+}
+
 module.exports = {
   getTextLibraryCatalog,
   getTextSourceSummary,
@@ -707,5 +756,6 @@ module.exports = {
   listTextReferences,
   searchTextReference,
   getTextReferenceEntry,
-  getTextReferenceEntryOccurrences
+  getTextReferenceEntryOccurrences,
+  matchTextReferenceInHaystack
 };
