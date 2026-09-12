@@ -16,18 +16,34 @@ const {
 } = require("../config/text-sources");
 
 const SUPPORTED_IMPORT_FORMATS = new Set([
+  "auto-sectioned-text",
+  "custom-text",
+  "numbered-aphorisms-text",
+  "numbered-chapter-prose-text",
+  "headed-prose-text",
+  "roman-verse-text",
+  "quran-verse-table",
   "structured-json",
   "chaptered-books",
   "sections",
   "tokenized-books",
-  "titled-prose-json",
-  "quran-verse-table",
-  "numbered-aphorisms-text",
-  "roman-verse-text",
-  "numbered-chapter-prose-text",
-  "headed-prose-text",
-  "auto-sectioned-text"
+  "titled-prose-json"
 ]);
+
+const FORMAT_CHOICES = [
+  { id: "auto-sectioned-text", label: "Auto" },
+  { id: "custom-text", label: "Custom patterns" },
+  { id: "numbered-aphorisms-text", label: "Numbered verses (1. / 00.)" },
+  { id: "numbered-chapter-prose-text", label: "Numbered chapters" },
+  { id: "headed-prose-text", label: "Brace headings {Book}{Ch}" },
+  { id: "roman-verse-text", label: "Roman verses (I:1.)" },
+  { id: "quran-verse-table", label: "Quran verse table (JSON)" },
+  { id: "structured-json", label: "Structured JSON" },
+  { id: "chaptered-books", label: "Chaptered books JSON" },
+  { id: "sections", label: "Sections JSON" },
+  { id: "tokenized-books", label: "Tokenized books JSON" },
+  { id: "titled-prose-json", label: "Titled prose JSON" }
+];
 
 function normalizeWhitespace(value) {
   return String(value || "")
@@ -1524,7 +1540,120 @@ function buildPreviewManifest(input = {}) {
   };
 }
 
-function parseTextWithFormat(manifest, rawText, format) {
+function compileCustomRegex(pattern, label) {
+  const raw = String(pattern || "").trim();
+  if (!raw) {
+    return null;
+  }
+  try {
+    return new RegExp(raw);
+  } catch (error) {
+    throw new Error(`${label} is not a valid regular expression.`);
+  }
+}
+
+function convertCustomTextSource(manifest, rawText, rules = {}) {
+  const skip = Math.max(0, Number(rules.headerSkipCount) || 0);
+  const allLines = String(rawText || "").split(/\r?\n/);
+  const lines = skip ? allLines.slice(skip) : allLines;
+  const headingRe = compileCustomRegex(rules.headingPattern, "Heading pattern");
+  const verseRe = compileCustomRegex(rules.versePattern, "Verse pattern");
+  const mode = String(rules.split || "blank-line").trim() || "blank-line";
+
+  const sections = [];
+  let currentTitle = manifest.title || `${manifest.sectionLabel || "Section"} 1`;
+  let currentVerses = [];
+  let buffer = [];
+
+  function pushVerse(text, number) {
+    const verse = createStructuredVerse({
+      id: currentVerses.length + 1,
+      number: Number.isFinite(Number(number)) ? Number(number) : currentVerses.length + 1,
+      reference: `${currentTitle}:${currentVerses.length + 1}`,
+      text
+    });
+    if (verse) {
+      currentVerses.push(verse);
+    }
+  }
+
+  function flushBuffer() {
+    const text = buffer.join("\n").replace(/^\s+|\s+$/g, "");
+    buffer = [];
+    if (text) {
+      pushVerse(text);
+    }
+  }
+
+  function flushSection() {
+    flushBuffer();
+    const section = createSectionRecord({
+      id: sections.length + 1,
+      number: sections.length + 1,
+      label: currentTitle,
+      title: currentTitle,
+      verses: currentVerses
+    });
+    if (section) {
+      sections.push(section);
+    }
+    currentVerses = [];
+  }
+
+  lines.forEach((line) => {
+    const headingMatch = headingRe ? line.match(headingRe) : null;
+    if (headingMatch) {
+      flushSection();
+      currentTitle = normalizeWhitespace(headingMatch[1] || headingMatch[0]) || `${manifest.sectionLabel || "Section"} ${sections.length + 1}`;
+      return;
+    }
+    const verseMatch = verseRe ? line.match(verseRe) : null;
+    if (verseMatch) {
+      flushBuffer();
+      const number = verseMatch[1] && /^\d+$/.test(verseMatch[1]) ? verseMatch[1] : undefined;
+      const text = normalizeWhitespace(verseMatch[2] || verseMatch[1] || line);
+      if (text) {
+        pushVerse(text, number);
+      }
+      return;
+    }
+    if (mode === "line") {
+      if (normalizeWhitespace(line)) {
+        pushVerse(normalizeWhitespace(line));
+      }
+      return;
+    }
+    if (!normalizeWhitespace(line) && mode === "blank-line") {
+      flushBuffer();
+      return;
+    }
+    buffer.push(line);
+  });
+  flushSection();
+
+  const work = createWorkRecord({
+    id: slugify(manifest.title || manifest.id) || manifest.id,
+    title: manifest.title || manifest.id,
+    shortTitle: manifest.shortTitle || manifest.title || manifest.id,
+    order: 1,
+    sections
+  });
+  return buildCanonicalDocument(manifest, {}, work ? [work] : []);
+}
+
+function parseTextWithFormat(manifest, rawText, format, rules = {}) {
+  if (format === "quran-verse-table") {
+    let parsed = rawText;
+    try {
+      parsed = JSON.parse(String(rawText || "[]"));
+    } catch (_error) {
+      throw new Error("Quran verse table needs JSON with a versesimple table, not plain prose.");
+    }
+    return convertQuranVerseTableSource(manifest, parsed);
+  }
+  if (format === "custom-text") {
+    return convertCustomTextSource(manifest, rawText, rules);
+  }
   if (format === "structured-json" || format === "sections" || format === "chaptered-books" || format === "titled-prose-json" || format === "tokenized-books") {
     const parsed = JSON.parse(String(rawText || "{}"));
     if (format === "sections") {
@@ -1668,6 +1797,7 @@ function previewTextImport(input = {}) {
   }
   const filename = String(input.filename || "").trim();
   const guessedFormat = detectTextFormat(rawText);
+  const explicitFormat = Boolean(String(input.format || "").trim());
   const format = String(input.format || guessedFormat || "auto-sectioned-text").trim();
   const guessedTitle = normalizeWhitespace(input.title)
     || filename.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim()
@@ -1678,28 +1808,38 @@ function previewTextImport(input = {}) {
     format,
     id: input.id || slugify(guessedTitle)
   });
+  const customRules = input.customRules && typeof input.customRules === "object" ? input.customRules : {};
 
   let document;
   let usedFormat = format;
+  let warning = "";
   try {
-    document = parseTextWithFormat(manifest, rawText, format);
+    document = parseTextWithFormat(manifest, rawText, format, customRules);
   } catch (error) {
-    if (format === "auto-sectioned-text") {
+    if (explicitFormat && format !== "auto-sectioned-text") {
+      warning = error.message || `No passages matched ${format}.`;
+      document = buildCanonicalDocument(manifest, {}, []);
+    } else if (format === "auto-sectioned-text") {
       throw error;
+    } else {
+      usedFormat = "auto-sectioned-text";
+      warning = `${error.message || "Format failed."} Fell back to Auto.`;
+      document = convertAutoSectionedTextSource({ ...manifest, inputFormat: usedFormat }, rawText);
     }
-    usedFormat = "auto-sectioned-text";
-    document = convertAutoSectionedTextSource({ ...manifest, inputFormat: usedFormat }, rawText);
   }
 
   const slim = slimPreviewDocument(document);
-  if (!slim.stats.verses) {
+  if (!slim.stats.verses && explicitFormat) {
+    warning = warning || `No passages matched ${usedFormat}. Try Custom patterns or another format.`;
+  } else if (!slim.stats.verses) {
     throw new Error("Could not find any passages in that file. Try another format or add blank lines between sections.");
   }
 
   return {
     guessedFormat,
     format: usedFormat,
-    formats: [...SUPPORTED_IMPORT_FORMATS],
+    formats: FORMAT_CHOICES,
+    warning,
     id: manifest.id,
     title: manifest.title,
     shortTitle: manifest.shortTitle,

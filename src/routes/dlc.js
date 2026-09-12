@@ -17,6 +17,8 @@ const {
   createPluginScaffold,
   createTextDlc,
   createDeckDlcFromZip,
+  exportDlcItem,
+  importDlcZip,
   expandPack,
   findCatalogItem,
   getCatalog,
@@ -25,6 +27,9 @@ const {
   listPluginAssets,
   listPluginSubdirs,
   readPluginConfig,
+  readPluginLogs,
+  appendPluginLog,
+  clearPluginLogs,
   removePluginAssetFile,
   removePluginPlaylist,
   resolvePluginAsset,
@@ -322,6 +327,32 @@ router.get("/plugins/:name/config", (request, response) => {
   }
   response.apiSuccess({ name, config: redactPluginConfig(config) });
 });
+
+router.get("/plugins/:name/logs", (request, response) => {
+  const name = String(request.params.name || "");
+  const level = String(request.query?.level || "").trim();
+  const limit = Number(request.query?.limit) || 200;
+  response.apiSuccess({
+    name,
+    entries: readPluginLogs(name, { limit, level })
+  });
+});
+
+router.delete(
+  "/plugins/:name/logs",
+  requireApiClientCapability({
+    capabilityName: "adminApiManagement",
+    anyRoles: ADMIN_API_MANAGEMENT_CAPABILITY.anyRoles,
+    anyScopes: ADMIN_API_MANAGEMENT_CAPABILITY.anyScopes,
+    errorCode: "insufficient_admin_capability",
+    errorMessage: "This route requires the admin role or api:admin scope."
+  }),
+  (request, response) => {
+    const name = String(request.params.name || "");
+    clearPluginLogs(name);
+    response.apiSuccess({ name, cleared: true });
+  }
+);
 
 // Write a plugin's config.json (admin only). Plugins re-read it on demand.
 router.post(
@@ -630,6 +661,62 @@ router.post(
       itemKind: "deck"
     });
     response.status(201).apiSuccess({ deck });
+  }
+);
+
+router.get(
+  "/dlc/export",
+  requireApiClientCapability({
+    capabilityName: "adminApiManagement",
+    anyRoles: ADMIN_API_MANAGEMENT_CAPABILITY.anyRoles,
+    anyScopes: ADMIN_API_MANAGEMENT_CAPABILITY.anyScopes,
+    errorCode: "insufficient_admin_capability",
+    errorMessage: "This route requires the admin role or api:admin scope."
+  }),
+  (request, response) => {
+    const kind = String(request.query?.kind || "").trim();
+    const name = String(request.query?.name || "").trim();
+    let exported;
+    try {
+      exported = exportDlcItem(kind, name);
+    } catch (error) {
+      throw createHttpError(400, "dlc_export_failed", error.message);
+    }
+    response.setHeader("Content-Type", "application/zip");
+    response.setHeader("Content-Disposition", `attachment; filename="${exported.filename.replace(/"/g, "")}"`);
+    response.send(exported.buffer);
+  }
+);
+
+router.post(
+  "/dlc/import",
+  requireApiClientCapability({
+    capabilityName: "adminApiManagement",
+    anyRoles: ADMIN_API_MANAGEMENT_CAPABILITY.anyRoles,
+    anyScopes: ADMIN_API_MANAGEMENT_CAPABILITY.anyScopes,
+    errorCode: "insufficient_admin_capability",
+    errorMessage: "This route requires the admin role or api:admin scope."
+  }),
+  express.raw({ type: ["application/zip", "application/octet-stream"], limit: "250mb" }),
+  (request, response) => {
+    const buffer = Buffer.isBuffer(request.body) ? request.body : Buffer.from(request.body || []);
+    if (!buffer.length) {
+      throw createHttpError(400, "dlc_import_failed", "Empty DLC upload.");
+    }
+    let imported;
+    try {
+      imported = importDlcZip(buffer, {
+        log: (message) => emitDlcLog(request, message)
+      });
+    } catch (error) {
+      throw createHttpError(400, "dlc_import_failed", error.message);
+    }
+    emitDlcMutationAuditEvent(request, response, {
+      action: "import_dlc",
+      itemName: imported.name,
+      itemKind: imported.kind
+    });
+    response.status(201).apiSuccess({ imported });
   }
 );
 

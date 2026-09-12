@@ -5,7 +5,7 @@ const path = require("path");
 const express = require("express");
 
 const { createHttpError, createNotFoundError } = require("../lib/http-errors");
-const { listInstalledPlugins, resolvePluginRoot } = require("./dlc-catalog");
+const { appendPluginLog, listInstalledPlugins, resolvePluginRoot } = require("./dlc-catalog");
 
 // DLC plugins are normally browser-only. A plugin can opt into contributing
 // Express routes by declaring a `server` entry in its manifest, e.g.
@@ -46,6 +46,14 @@ function buildContext(name, rootDir) {
     rootDir,
     apiRoot: root,
     logger: console,
+    log(level, message, details) {
+      const text = String(message == null ? "" : message);
+      try {
+        appendPluginLog(name, { level, message: text, details });
+      } catch (_error) {}
+      const method = level === "error" ? "error" : (level === "warn" ? "warn" : "log");
+      console[method](`[plugins:${name}] ${text}`);
+    },
     createHttpError,
     createNotFoundError,
     // Trusted helper so a plugin can reuse the API's own services/middleware.
@@ -93,6 +101,9 @@ function loadPluginServer(plugin, log) {
     log(`[plugins] server routes loaded for ${plugin.name}.`);
     return router;
   } catch (error) {
+    try {
+      appendPluginLog(plugin.name, { level: "error", message: `failed to load server routes: ${error.message}` });
+    } catch (_error) {}
     log(`[plugins] failed to load server routes for ${plugin.name}: ${error.message}`);
     return null;
   }

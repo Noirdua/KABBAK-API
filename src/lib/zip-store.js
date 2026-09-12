@@ -1,5 +1,8 @@
 "use strict";
 
+const fs = require("fs");
+const path = require("path");
+
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
   for (let index = 0; index < 256; index += 1) {
@@ -152,9 +155,55 @@ function unpackStoreZip(buffer) {
   return files;
 }
 
+function packDirectory(rootDir, {
+  skipNames = ["thumbs", "node_modules"],
+  skipFiles = [],
+  skipFilePattern = null
+} = {}) {
+  const skipDirs = new Set((skipNames || []).map((name) => String(name).toLowerCase()));
+  const skipFileSet = new Set((skipFiles || []).map((name) => String(name).toLowerCase()));
+  const files = [];
+  const walk = (dir, prefix) => {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (_error) {
+      return;
+    }
+    entries.forEach((entry) => {
+      if (entry.name.startsWith(".")) {
+        return;
+      }
+      const lower = entry.name.toLowerCase();
+      if (entry.isDirectory()) {
+        if (skipDirs.has(lower)) {
+          return;
+        }
+        const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+        walk(path.join(dir, entry.name), relative);
+        return;
+      }
+      if (!entry.isFile()) {
+        return;
+      }
+      if (skipFileSet.has(lower) || (skipFilePattern && skipFilePattern.test(entry.name))) {
+        return;
+      }
+      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      files.push({
+        name: relative.replace(/\\/g, "/"),
+        data: fs.readFileSync(path.join(dir, entry.name))
+      });
+    });
+  };
+  walk(path.resolve(rootDir), "");
+  return packStoreZip(files);
+}
+
 module.exports = {
   crc32,
   normalizeZipPath,
+  packDirectory,
   packStoreZip,
   unpackStoreZip
 };

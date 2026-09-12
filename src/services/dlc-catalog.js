@@ -1066,6 +1066,70 @@ function resolvePluginRoot(name) {
   return { kind: "plugin", dir: path.join(dlcRoot, "plugins", safeName), name: safeName };
 }
 
+const PLUGIN_USER_DATA_DIR = "user-data";
+const PLUGIN_MEDIA_DIR = "media";
+const PLUGIN_LAYOUT_SKIP_DIRS = Object.freeze([
+  PLUGIN_USER_DATA_DIR,
+  PLUGIN_MEDIA_DIR,
+  "thumbs",
+  "node_modules"
+]);
+
+function pluginLayout(pluginDir) {
+  const root = path.resolve(pluginDir);
+  return {
+    root,
+    userData: path.join(root, PLUGIN_USER_DATA_DIR),
+    media: path.join(root, PLUGIN_MEDIA_DIR),
+    logs: path.join(root, PLUGIN_USER_DATA_DIR, "logs")
+  };
+}
+
+function ensurePluginLayout(pluginDir) {
+  const layout = pluginLayout(pluginDir);
+  fs.mkdirSync(layout.userData, { recursive: true });
+  fs.mkdirSync(layout.media, { recursive: true });
+  fs.mkdirSync(layout.logs, { recursive: true });
+  return layout;
+}
+
+function firstExistingPath(paths, { directory = false } = {}) {
+  return (Array.isArray(paths) ? paths : []).find((candidate) => {
+    try {
+      if (!candidate || !fs.existsSync(candidate)) {
+        return false;
+      }
+      const stat = fs.statSync(candidate);
+      return directory ? stat.isDirectory() : stat.isFile();
+    } catch (_error) {
+      return false;
+    }
+  }) || "";
+}
+
+function resolvePluginConfigFile(pluginDir) {
+  return firstExistingPath([
+    path.join(pluginDir, PLUGIN_USER_DATA_DIR, "config.json"),
+    path.join(pluginDir, "config.json")
+  ]) || path.join(pluginDir, PLUGIN_USER_DATA_DIR, "config.json");
+}
+
+function resolvePluginContentDir(pluginDir, dirName, { forWrite = false } = {}) {
+  const layout = pluginLayout(pluginDir);
+  const safeDir = dirName ? assertSafeDirName(dirName) : "";
+  if (forWrite) {
+    ensurePluginLayout(pluginDir);
+    return safeDir ? path.join(layout.media, safeDir) : layout.media;
+  }
+  if (safeDir) {
+    return firstExistingPath([
+      path.join(layout.media, safeDir),
+      path.join(pluginDir, safeDir)
+    ], { directory: true }) || path.join(layout.media, safeDir);
+  }
+  return firstExistingPath([layout.media, pluginDir], { directory: true }) || layout.media;
+}
+
 function normalizePluginRole(value, section, overhaul) {
   const role = String(value || "").trim().toLowerCase();
   if (role === "skin" || role === "overhaul" || role === "ui" || overhaul === true) {
@@ -1167,17 +1231,12 @@ function resolvePluginAsset(name, fileName, dirName = "") {
   }
   const safeDir = assertSafeDirName(dirName);
   const root = resolvePluginRoot(safeName);
-  const fullPath = safeDir
-    ? path.join(root.dir, safeDir, safeFile)
-    : path.join(root.dir, safeFile);
-  try {
-    if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
-      return null;
-    }
-  } catch {
-    return null;
-  }
-  return fullPath;
+  const layout = pluginLayout(root.dir);
+  const candidates = safeDir
+    ? [path.join(layout.media, safeDir, safeFile), path.join(root.dir, safeDir, safeFile)]
+    : [path.join(root.dir, safeFile), path.join(layout.media, safeFile)];
+  const fullPath = firstExistingPath(candidates);
+  return fullPath || null;
 }
 
 function assertSafeDirName(value) {
@@ -1193,28 +1252,33 @@ function assertSafeDirName(value) {
 // whitelisted extensions are returned.
 function listPluginAssets(name, dirName = "") {
   const safeName = assertSafePluginName(name);
+  const pluginDir = resolvePluginRoot(safeName).dir;
+  const layout = pluginLayout(pluginDir);
   const safeDir = assertSafeDirName(dirName);
-  const baseDir = safeDir
-    ? path.join(resolvePluginRoot(safeName).dir, safeDir)
-    : resolvePluginRoot(safeName).dir;
-  if (!isDirectory(baseDir)) return [];
-
-  return fs.readdirSync(baseDir, { withFileTypes: true })
-    .filter((entry) => {
-      if (!entry.isFile() || entry.name.startsWith(".")) return false;
-      return PLUGIN_ASSET_EXTENSIONS.has(path.extname(entry.name).toLowerCase());
-    })
-    .map((entry) => {
+  const dirs = safeDir
+    ? [path.join(layout.media, safeDir), path.join(pluginDir, safeDir)]
+    : [pluginDir, layout.media];
+  const byName = new Map();
+  dirs.forEach((baseDir) => {
+    if (!isDirectory(baseDir)) {
+      return;
+    }
+    fs.readdirSync(baseDir, { withFileTypes: true }).forEach((entry) => {
+      if (!entry.isFile() || entry.name.startsWith(".")) {
+        return;
+      }
+      if (!PLUGIN_ASSET_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+        return;
+      }
       const fullPath = path.join(baseDir, entry.name);
       let size = 0;
       try {
         size = fs.statSync(fullPath).size;
-      } catch {
-        // Unreadable file: list it with size 0 rather than aborting the listing.
-      }
-      return { name: entry.name, size };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
+      } catch (_error) {}
+      byName.set(entry.name, { name: entry.name, size });
+    });
+  });
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // List subdirectories inside a plugin folder (or the plugin root when
@@ -1222,16 +1286,28 @@ function listPluginAssets(name, dirName = "") {
 // admin-created playlists. Hidden folders are skipped.
 function listPluginSubdirs(name, dirName = "") {
   const safeName = assertSafePluginName(name);
+  const pluginDir = resolvePluginRoot(safeName).dir;
+  const layout = pluginLayout(pluginDir);
   const safeDir = assertSafeDirName(dirName);
-  const baseDir = safeDir
-    ? path.join(resolvePluginRoot(safeName).dir, safeDir)
-    : resolvePluginRoot(safeName).dir;
-  if (!isDirectory(baseDir)) return [];
-
-  return fs.readdirSync(baseDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
-    .map((entry) => ({ name: entry.name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const dirs = safeDir
+    ? [path.join(layout.media, safeDir), path.join(pluginDir, safeDir)]
+    : [layout.media, pluginDir];
+  const names = new Set();
+  dirs.forEach((baseDir) => {
+    if (!isDirectory(baseDir)) {
+      return;
+    }
+    fs.readdirSync(baseDir, { withFileTypes: true }).forEach((entry) => {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) {
+        return;
+      }
+      if (baseDir === pluginDir && PLUGIN_LAYOUT_SKIP_DIRS.includes(entry.name)) {
+        return;
+      }
+      names.add(entry.name);
+    });
+  });
+  return [...names].sort((a, b) => a.localeCompare(b)).map((dir) => ({ name: dir }));
 }
 
 // Playlists are plain folders inside the plugin (the music player treats every
@@ -1247,7 +1323,8 @@ function createPluginPlaylist(name, playlistName) {
   if (!isDirectory(pluginDir)) {
     throw new Error(`Plugin '${safeName}' is not installed.`);
   }
-  const playlistDir = path.join(pluginDir, safePlaylist);
+  const layout = ensurePluginLayout(pluginDir);
+  const playlistDir = path.join(layout.media, safePlaylist);
   if (fs.existsSync(playlistDir) && !fs.statSync(playlistDir).isDirectory()) {
     throw new Error(`'${safePlaylist}' exists and is not a folder.`);
   }
@@ -1270,12 +1347,20 @@ function removePluginPlaylist(name, playlistName) {
   if (!isDirectory(pluginDir)) {
     throw new Error(`Plugin '${safeName}' is not installed.`);
   }
-  const playlistDir = path.join(pluginDir, safePlaylist);
-  if (!isDirectory(playlistDir)) {
-    return { name: safePlaylist, removed: false };
-  }
-  fs.rmSync(playlistDir, { recursive: true, force: true });
-  return { name: safePlaylist, removed: true };
+  const layout = pluginLayout(pluginDir);
+  const candidates = [
+    path.join(layout.media, safePlaylist),
+    path.join(pluginDir, safePlaylist)
+  ];
+  let removed = false;
+  candidates.forEach((playlistDir) => {
+    if (!isDirectory(playlistDir)) {
+      return;
+    }
+    fs.rmSync(playlistDir, { recursive: true, force: true });
+    removed = true;
+  });
+  return { name: safePlaylist, removed };
 }
 
 // Plugin settings live in config.json inside the plugin folder. Admins can
@@ -1284,7 +1369,7 @@ const MAX_PLUGIN_CONFIG_BYTES = 256 * 1024;
 
 function readPluginConfig(name) {
   const safeName = assertSafePluginName(name);
-  return readJsonIfPresent(path.join(resolvePluginRoot(safeName).dir, "config.json"));
+  return readJsonIfPresent(resolvePluginConfigFile(resolvePluginRoot(safeName).dir));
 }
 
 function writePluginConfig(name, config) {
@@ -1299,7 +1384,8 @@ function writePluginConfig(name, config) {
   if (Buffer.byteLength(serialized, "utf8") > MAX_PLUGIN_CONFIG_BYTES) {
     throw new Error(`Plugin config exceeds ${MAX_PLUGIN_CONFIG_BYTES} bytes.`);
   }
-  fs.writeFileSync(path.join(root.dir, "config.json"), `${serialized}\n`, "utf8");
+  const layout = ensurePluginLayout(root.dir);
+  fs.writeFileSync(path.join(layout.userData, "config.json"), `${serialized}\n`, "utf8");
   return config;
 }
 
@@ -1335,9 +1421,8 @@ function assertSafePluginFileName(value) {
 function writePluginAssetFile(name, dirName, fileName, dataBuffer) {
   const safeName = assertSafePluginName(name);
   const safeDir = assertSafeDirName(dirName);
-  const contentDir = safeDir
-    ? path.join(resolvePluginRoot(safeName).dir, safeDir)
-    : resolvePluginRoot(safeName).dir;
+  const pluginDir = resolvePluginRoot(safeName).dir;
+  const contentDir = resolvePluginContentDir(pluginDir, safeDir || "", { forWrite: true });
   const safeFile = assertSafePluginFileName(fileName);
   if (!safeFile) {
     throw new Error("Invalid file name.");
@@ -1353,7 +1438,6 @@ function writePluginAssetFile(name, dirName, fileName, dataBuffer) {
   if (dataBuffer.length > uploadLimit) {
     throw new Error(`File exceeds the ${Math.round(uploadLimit / (1024 * 1024))}MB plugin upload limit.`);
   }
-  const pluginDir = resolvePluginRoot(safeName).dir;
   if (!isDirectory(pluginDir)) {
     throw new Error(`Plugin '${safeName}' is not installed.`);
   }
@@ -1370,19 +1454,89 @@ function writePluginAssetFile(name, dirName, fileName, dataBuffer) {
 function removePluginAssetFile(name, dirName, fileName) {
   const safeName = assertSafePluginName(name);
   const safeDir = assertSafeDirName(dirName);
-  const contentDir = safeDir
-    ? path.join(resolvePluginRoot(safeName).dir, safeDir)
-    : resolvePluginRoot(safeName).dir;
+  const pluginDir = resolvePluginRoot(safeName).dir;
+  const layout = pluginLayout(pluginDir);
   const safeFile = assertSafePluginFileName(fileName);
   if (!safeFile) {
     throw new Error("Invalid file name.");
   }
-  const fullPath = path.join(contentDir, safeFile);
-  if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
-    return false;
+  const candidates = safeDir
+    ? [path.join(layout.media, safeDir, safeFile), path.join(pluginDir, safeDir, safeFile)]
+    : [path.join(layout.media, safeFile), path.join(pluginDir, safeFile)];
+  let removed = false;
+  candidates.forEach((fullPath) => {
+    try {
+      if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+        fs.unlinkSync(fullPath);
+        removed = true;
+      }
+    } catch (_error) {}
+  });
+  return removed;
+}
+
+const MAX_PLUGIN_LOG_BYTES = 512 * 1024;
+
+function pluginLogFile(pluginDir) {
+  return path.join(pluginLayout(pluginDir).logs, "plugin.log");
+}
+
+function appendPluginLog(name, entry = {}) {
+  const safeName = assertSafePluginName(name);
+  const pluginDir = resolvePluginRoot(safeName).dir;
+  if (!isDirectory(pluginDir)) {
+    return null;
   }
-  fs.unlinkSync(fullPath);
-  return true;
+  const layout = ensurePluginLayout(pluginDir);
+  const file = path.join(layout.logs, "plugin.log");
+  const record = {
+    timestamp: new Date().toISOString(),
+    level: String(entry.level || "info").toLowerCase(),
+    message: String(entry.message == null ? "" : entry.message).slice(0, 2000)
+  };
+  if (entry.details && typeof entry.details === "object") {
+    record.details = entry.details;
+  }
+  fs.appendFileSync(file, `${JSON.stringify(record)}\n`, "utf8");
+  try {
+    if (fs.statSync(file).size > MAX_PLUGIN_LOG_BYTES) {
+      const lines = fs.readFileSync(file, "utf8").split(/\r?\n/).filter(Boolean);
+      fs.writeFileSync(file, `${lines.slice(-400).join("\n")}\n`, "utf8");
+    }
+  } catch (_error) {}
+  return record;
+}
+
+function readPluginLogs(name, { limit = 200, level = "" } = {}) {
+  const safeName = assertSafePluginName(name);
+  const file = pluginLogFile(resolvePluginRoot(safeName).dir);
+  if (!fs.existsSync(file)) {
+    return [];
+  }
+  const wanted = String(level || "").toLowerCase();
+  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/).filter(Boolean);
+  const entries = [];
+  lines.forEach((line) => {
+    try {
+      const parsed = JSON.parse(line);
+      if (wanted && String(parsed.level || "") !== wanted) {
+        return;
+      }
+      entries.push(parsed);
+    } catch (_error) {
+      entries.push({ timestamp: "", level: "info", message: line });
+    }
+  });
+  return entries.slice(-Math.min(500, Math.max(1, Number(limit) || 200))).reverse();
+}
+
+function clearPluginLogs(name) {
+  const safeName = assertSafePluginName(name);
+  const file = pluginLogFile(resolvePluginRoot(safeName).dir);
+  if (fs.existsSync(file)) {
+    fs.writeFileSync(file, "", "utf8");
+  }
+  return { cleared: true };
 }
 
 // --- Third-party plugin scaffolding ------------------------------------------
@@ -1530,6 +1684,7 @@ function createPluginScaffold(name, input = {}) {
   }
 
   fs.mkdirSync(pluginDir, { recursive: true });
+  const layout = ensurePluginLayout(pluginDir);
 
   const manifest = {
     id: safeName,
@@ -1554,7 +1709,22 @@ function createPluginScaffold(name, input = {}) {
       : PLUGIN_ENTRY_TEMPLATE(safeName, title, version),
     "utf8"
   );
-  fs.writeFileSync(path.join(pluginDir, "config.json"), "{}\n", "utf8");
+  fs.writeFileSync(path.join(layout.userData, "config.json"), "{}\n", "utf8");
+  fs.writeFileSync(
+    path.join(pluginDir, "README.md"),
+    [
+      `# ${title}`,
+      "",
+      "Stock plugin files live in this folder (`manifest.json`, entry JS/CSS).",
+      "Operator data is separate and is not exported:",
+      "",
+      "- `user-data/config.json` — settings",
+      "- `user-data/logs/plugin.log` — plugin logs",
+      "- `media/` — uploads, playlists, extra assets",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
   if (css) {
     fs.writeFileSync(
       path.join(pluginDir, css),
@@ -1821,6 +1991,168 @@ function runInstallAll({ kind = "", log = () => {} } = {}) {
   });
 }
 
+function resolveExportDir(kind, name) {
+  const safe = assertSafeName(name);
+  const category = categoryByKind(kind);
+  if (!category || category.kind === "pack") {
+    return "";
+  }
+  if (category.kind === "plugin" || category.kind === "api") {
+    try {
+      const root = resolvePluginRoot(safe);
+      if (root?.dir && isDirectory(root.dir)) {
+        return root.dir;
+      }
+    } catch (_error) {}
+  }
+  const candidates = [path.join(dlcRoot, category.dir, safe)];
+  if (category.kind === "deck") {
+    candidates.push(path.join(decksImportRoot, safe), path.join(sourceDecksRoot, safe));
+  }
+  if (category.kind === "text") {
+    candidates.push(path.join(textImportRoot, safe));
+  }
+  if (category.kind === "reference") {
+    candidates.push(path.join(referencesImportRoot, safe));
+  }
+  return candidates.find((dir) => isDirectory(dir)) || "";
+}
+
+function exportDlcItem(kind, name) {
+  const safe = assertSafeName(name);
+  const category = categoryByKind(kind);
+  if (!category || category.kind === "pack") {
+    throw new Error("That DLC kind cannot be exported.");
+  }
+  const dir = resolveExportDir(kind, safe);
+  if (!dir) {
+    throw new Error(`'${safe}' is not installed or staged.`);
+  }
+  const { packDirectory, packStoreZip, unpackStoreZip } = require("../lib/zip-store");
+  const isPlugin = category.kind === "plugin" || category.kind === "api";
+  const packed = packDirectory(dir, isPlugin
+    ? {
+      skipNames: ["user-data", "media", "thumbs", "node_modules", "music", "uploads", "data", "storage", "playlists"],
+      skipFiles: ["config.json", "presets.json", ".env"],
+      skipFilePattern: /secret|credential|apikey|api-key|password|token/i
+    }
+    : {
+      skipNames: ["thumbs", "node_modules"],
+      skipFiles: ["config.json", ".env"]
+    });
+  const files = unpackStoreZip(packed);
+  files.unshift({
+    name: "kabbak-dlc.json",
+    data: Buffer.from(`${JSON.stringify({
+      schema: 1,
+      kind: category.kind,
+      name: safe,
+      exportedAt: new Date().toISOString()
+    }, null, 2)}\n`, "utf8")
+  });
+  return {
+    filename: `${safe}.kabbak.zip`,
+    buffer: packStoreZip(files)
+  };
+}
+
+function stripZipRoot(files) {
+  const names = files.map((file) => file.name).filter(Boolean);
+  if (!names.length) {
+    return files;
+  }
+  const top = names[0].split("/")[0];
+  if (!top || !names.every((name) => name === top || name.startsWith(`${top}/`))) {
+    return files;
+  }
+  return files
+    .map((file) => ({ ...file, name: file.name === top ? "" : file.name.slice(top.length + 1) }))
+    .filter((file) => file.name);
+}
+
+function detectImportedKind(files, meta) {
+  const declared = String(meta?.kind || "").trim().toLowerCase();
+  if (declared && categoryByKind(declared) && declared !== "pack") {
+    return categoryByKind(declared).kind;
+  }
+  const names = files.map((file) => file.name.replace(/\\/g, "/").toLowerCase());
+  if (names.some((name) => name === "deck.json" || name.endsWith("/deck.json"))) {
+    return "deck";
+  }
+  if (names.some((name) => name === "reference.json" || name.endsWith("/reference.json"))) {
+    return "reference";
+  }
+  if (names.some((name) => name === "metadata.json" || name.endsWith("/metadata.json"))) {
+    return "text";
+  }
+  if (names.some((name) => name === "manifest.json" || name.endsWith("/manifest.json"))) {
+    return "plugin";
+  }
+  throw new Error("Could not detect DLC kind. Include kabbak-dlc.json, deck.json, metadata.json, or manifest.json.");
+}
+
+function importDlcZip(buffer, { log = () => {} } = {}) {
+  const { unpackStoreZip } = require("../lib/zip-store");
+  const files = stripZipRoot(unpackStoreZip(buffer));
+  if (!files.length) {
+    throw new Error("The zip is empty.");
+  }
+  const metaEntry = files.find((file) => /(^|\/)kabbak-dlc\.json$/i.test(file.name));
+  let meta = {};
+  if (metaEntry) {
+    try {
+      meta = JSON.parse(metaEntry.data.toString("utf8"));
+    } catch (_error) {
+      meta = {};
+    }
+  }
+  const kind = detectImportedKind(files, meta);
+  const category = categoryByKind(kind);
+  const name = assertSafeName(meta.name || path.basename(files[0].name.split("/")[0] || "imported-dlc"));
+  const dest = path.join(dlcRoot, category.dir, name);
+  if (isDirectory(dest)) {
+    throw new Error(`'${name}' already exists in the DLC checkout.`);
+  }
+  fs.mkdirSync(dest, { recursive: true });
+  try {
+    files.forEach((file) => {
+      if (/(^|\/)kabbak-dlc\.json$/i.test(file.name)) {
+        return;
+      }
+      const relative = String(file.name || "").replace(/\\/g, "/");
+      const parts = relative.split("/").filter((part) => part && part !== ".." && part !== ".");
+      if (!parts.length) {
+        return;
+      }
+      const target = path.join(dest, ...parts);
+      if (!target.startsWith(dest + path.sep)) {
+        throw new Error("Zip entry path escaped the DLC folder.");
+      }
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, file.data);
+    });
+    if (kind === "deck") {
+      stageDeck(name, log, dest);
+    } else if (kind === "text") {
+      stageText(name, log, dest);
+    } else if (kind === "reference") {
+      stageReference(name, log, dest);
+    } else {
+      log(`[${kind}] ${name} imported (${category.dir}/${name})`);
+    }
+  } catch (error) {
+    fs.rmSync(dest, { recursive: true, force: true });
+    throw error;
+  }
+  invalidateCatalogCache();
+  if (kind !== "plugin" && kind !== "api") {
+    try {
+      require("./storage-bootstrap").startBackgroundHotReload();
+    } catch (_error) {}
+  }
+  return { kind, name, title: name };
+}
+
 function startInstallAll(options = {}) {
   if (installAllPromise) {
     return installAllPromise;
@@ -1837,12 +2169,16 @@ module.exports = {
   REFERENCE_KINDS,
   REFERENCE_KEY_SCHEMES,
   SUPPORTED_TEXT_FORMATS,
+  appendPluginLog,
   assertSafeName,
   categoryByKind,
+  clearPluginLogs,
   createPluginPlaylist,
   createPluginScaffold,
   createTextDlc,
   createDeckDlcFromZip,
+  exportDlcItem,
+  importDlcZip,
   dematerialize,
   MISSING_DLC_REPO_MESSAGE,
   ensureRepo,
@@ -1866,6 +2202,7 @@ module.exports = {
   normalizePackItems,
   readJsonIfPresent,
   readPluginConfig,
+  readPluginLogs,
   readPluginManifest,
   removePluginAssetFile,
   removePluginPlaylist,
