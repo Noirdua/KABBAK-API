@@ -28,7 +28,6 @@ const {
   listPluginSubdirs,
   readPluginConfig,
   readPluginLogs,
-  appendPluginLog,
   clearPluginLogs,
   removePluginAssetFile,
   removePluginPlaylist,

@@ -47,12 +47,22 @@ function buildContext(name, rootDir) {
     apiRoot: root,
     logger: console,
     log(level, message, details) {
-      const text = String(message == null ? "" : message);
+      const LEVELS = new Set(["debug", "info", "warn", "error"]);
+      let resolvedLevel = String(level || "info").toLowerCase();
+      let text = message;
+      let extra = details;
+      if (!LEVELS.has(resolvedLevel)) {
+        // log("message") or log("message", details)
+        extra = message && typeof message === "object" ? message : details;
+        text = level;
+        resolvedLevel = "info";
+      }
+      const out = String(text == null ? "" : text);
       try {
-        appendPluginLog(name, { level, message: text, details });
+        appendPluginLog(name, { level: resolvedLevel, message: out, details: extra });
       } catch (_error) {}
-      const method = level === "error" ? "error" : (level === "warn" ? "warn" : "log");
-      console[method](`[plugins:${name}] ${text}`);
+      const method = resolvedLevel === "error" ? "error" : (resolvedLevel === "warn" ? "warn" : "log");
+      console[method](`[plugins:${name}] ${out}`);
     },
     createHttpError,
     createNotFoundError,

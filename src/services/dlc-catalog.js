@@ -1118,7 +1118,7 @@ function resolvePluginContentDir(pluginDir, dirName, { forWrite = false } = {}) 
   const layout = pluginLayout(pluginDir);
   const safeDir = dirName ? assertSafeDirName(dirName) : "";
   if (forWrite) {
-    ensurePluginLayout(pluginDir);
+    fs.mkdirSync(layout.media, { recursive: true });
     return safeDir ? path.join(layout.media, safeDir) : layout.media;
   }
   if (safeDir) {
@@ -1232,9 +1232,10 @@ function resolvePluginAsset(name, fileName, dirName = "") {
   const safeDir = assertSafeDirName(dirName);
   const root = resolvePluginRoot(safeName);
   const layout = pluginLayout(root.dir);
+  // media/ overrides stock files so edited entry scripts/uploads win.
   const candidates = safeDir
     ? [path.join(layout.media, safeDir, safeFile), path.join(root.dir, safeDir, safeFile)]
-    : [path.join(root.dir, safeFile), path.join(layout.media, safeFile)];
+    : [path.join(layout.media, safeFile), path.join(root.dir, safeFile)];
   const fullPath = firstExistingPath(candidates);
   return fullPath || null;
 }
@@ -1265,6 +1266,9 @@ function listPluginAssets(name, dirName = "") {
     }
     fs.readdirSync(baseDir, { withFileTypes: true }).forEach((entry) => {
       if (!entry.isFile() || entry.name.startsWith(".")) {
+        return;
+      }
+      if (/^config\.json$/i.test(entry.name)) {
         return;
       }
       if (!PLUGIN_ASSET_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
@@ -1421,7 +1425,13 @@ function assertSafePluginFileName(value) {
 function writePluginAssetFile(name, dirName, fileName, dataBuffer) {
   const safeName = assertSafePluginName(name);
   const safeDir = assertSafeDirName(dirName);
+  if (dirName && !safeDir) {
+    throw new Error("Invalid folder name.");
+  }
   const pluginDir = resolvePluginRoot(safeName).dir;
+  if (!isDirectory(pluginDir)) {
+    throw new Error(`Plugin '${safeName}' is not installed.`);
+  }
   const contentDir = resolvePluginContentDir(pluginDir, safeDir || "", { forWrite: true });
   const safeFile = assertSafePluginFileName(fileName);
   if (!safeFile) {
@@ -1437,9 +1447,6 @@ function writePluginAssetFile(name, dirName, fileName, dataBuffer) {
   const uploadLimit = resolvePluginUploadLimit();
   if (dataBuffer.length > uploadLimit) {
     throw new Error(`File exceeds the ${Math.round(uploadLimit / (1024 * 1024))}MB plugin upload limit.`);
-  }
-  if (!isDirectory(pluginDir)) {
-    throw new Error(`Plugin '${safeName}' is not installed.`);
   }
   fs.mkdirSync(contentDir, { recursive: true });
   const fullPath = path.join(contentDir, safeFile);
