@@ -8,16 +8,10 @@ tests/
 imports*
 .playwright-mcp
 KABBAK.code-workspace
-# Decks are add-ons — not shipped with the base distribution.
-# Install via git submodule:  npm run imports -- submodule add --deck <repo-url>
-source/assets/tarot deck/BOTA/
-source/assets/tarot deck/Golden Dawn/
-source/assets/tarot deck/Golden Dawn Cicero/
-source/assets/tarot deck/Rider Waite/
-source/assets/tarot deck/Tarot of Ceremonial Magick/
-source/assets/tarot deck/Thoth Tarot/
-
-# Deck registry is auto-generated — do not commit.
+# Decks, texts, and other DLC copies live in KABBAK-DLC / imports — not this repo.
+# Hot reload copies them into source/ for the snapshot; never commit those copies.
+source/assets/tarot deck/*
+!source/assets/tarot deck/.gitkeep
 source/assets/tarot deck/decks.json
 
 # Text sources — operator-provided content, registered by source/data/text/library.json.
