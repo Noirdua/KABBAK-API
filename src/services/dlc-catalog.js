@@ -132,6 +132,40 @@ function readJsonIfPresent(filePath) {
   }
 }
 
+function readReferenceDisplayConfig(id) {
+  const wanted = String(id || "").trim();
+  if (!wanted) return null;
+  const files = [];
+  const seen = new Set();
+  const addFile = (filePath) => {
+    const key = String(filePath || "").toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    files.push(filePath);
+  };
+  addFile(path.join(dlcRoot, "references", wanted, "reference.json"));
+  for (const { root } of dlcSources.listEnabledSourceRoots()) {
+    addFile(path.join(root, "references", wanted, "reference.json"));
+  }
+  for (const filePath of files) {
+    const manifest = readJsonIfPresent(filePath);
+    if (!manifest || typeof manifest !== "object") continue;
+    const fieldConfig = manifest.fieldConfig && typeof manifest.fieldConfig === "object" && !Array.isArray(manifest.fieldConfig)
+      ? manifest.fieldConfig
+      : null;
+    const listOrder = Array.isArray(manifest.listOrder)
+      ? manifest.listOrder.map((key) => String(key || "").trim()).filter(Boolean)
+      : null;
+    if (fieldConfig || listOrder) {
+      return {
+        ...(fieldConfig ? { fieldConfig } : {}),
+        ...(listOrder ? { listOrder } : {})
+      };
+    }
+  }
+  return null;
+}
+
 function isDirectory(dirPath) {
   try {
     return fs.statSync(dirPath).isDirectory();
@@ -761,6 +795,15 @@ async function getCatalog({ refresh = false, log = () => {} } = {}) {
     if (scanned) {
       addItems(normalizeCatalog(scanned, root), source, origin === "none" ? "scan" : origin);
     }
+  }
+
+  const localRaw = scanLocalTree(dlcRoot);
+  if (localRaw) {
+    addItems(
+      normalizeCatalog(localRaw, dlcRoot),
+      dlcSources.getPrimarySource() || { id: "primary", name: "local" },
+      origin === "none" ? "scan" : origin
+    );
   }
 
   resolvePackRollups(items);
@@ -1843,22 +1886,20 @@ function normalizeReferenceEntries(raw, keyScheme = "word") {
     if (!id || entries[id]) {
       return;
     }
-    const record = {
-      title: String(title || id).trim() || id,
-      body: String(body || "").trim()
-    };
-    if (extra && typeof extra === "object") {
-      ["icon", "category", "url", "whatYourDream", "theScience", "psychology", "shadowQuestion"].forEach((key) => {
-        if (extra[key]) {
-          record[key] = extra[key];
+    const record = {};
+    if (extra && typeof extra === "object" && !Array.isArray(extra)) {
+      Object.entries(extra).forEach(([field, value]) => {
+        if (value == null || value === "") {
+          return;
         }
+        record[field] = value;
       });
-      if (Array.isArray(extra.scenarioMatrix) && extra.scenarioMatrix.length) {
-        record.scenarioMatrix = extra.scenarioMatrix;
-      }
-      if (Array.isArray(extra.spiritualRemedies) && extra.spiritualRemedies.length) {
-        record.spiritualRemedies = extra.spiritualRemedies;
-      }
+    }
+    if (!String(record.title || "").trim()) {
+      record.title = String(title || id).trim() || id;
+    }
+    if (!String(record.body || "").trim()) {
+      record.body = String(body || "").trim();
     }
     entries[id] = record;
   };
@@ -1924,7 +1965,13 @@ function previewReferenceImport(input = {}) {
   const filename = String(input.filename || "").replace(/\.[^.]+$/, "");
   const title = String(input.title || parsed.title || filename.replace(/[-_]+/g, " ") || "Untitled reference").trim().slice(0, 120);
   const id = slugifyText(input.id || parsed.id || title) || "untitled-reference";
-  const list = keys.map((key) => ({
+  const shuffled = keys.slice();
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swap]] = [shuffled[swap], shuffled[index]];
+  }
+  const previewKeys = shuffled.slice(0, 9);
+  const list = previewKeys.map((key) => ({
     id: key,
     title: entries[key].title,
     body: String(entries[key].body || "").slice(0, 140),
@@ -1940,7 +1987,7 @@ function previewReferenceImport(input = {}) {
       : "dictionary",
     keyScheme,
     count: keys.length,
-    sample: list.slice(0, 12),
+    sample: list,
     list,
     entries
   };
@@ -1980,6 +2027,43 @@ function createReferenceDlc(input = {}, { log = () => {} } = {}) {
     keyScheme,
     entriesFile: "entries.json"
   };
+  if (input.fieldConfig && typeof input.fieldConfig === "object") {
+    const fieldConfig = {};
+    Object.entries(input.fieldConfig).forEach(([key, value]) => {
+      const name = String(key || "").trim();
+      if (!name || !value || typeof value !== "object") {
+        return;
+      }
+      const columns = {};
+      if (value.columns && typeof value.columns === "object") {
+        Object.entries(value.columns).forEach(([columnKey, columnValue]) => {
+          const columnName = String(columnKey || "").trim();
+          if (!columnName || !columnValue || typeof columnValue !== "object") {
+            return;
+          }
+          columns[columnName] = {
+            label: String(columnValue.label || columnName).trim().slice(0, 80) || columnName,
+            visible: columnValue.visible !== false
+          };
+        });
+      }
+      fieldConfig[name] = {
+        label: String(value.label || name).trim().slice(0, 80) || name,
+        visible: value.visible !== false,
+        list: value.list === true,
+        ...(Object.keys(columns).length ? { columns } : {})
+      };
+    });
+    if (Object.keys(fieldConfig).length) {
+      manifest.fieldConfig = fieldConfig;
+    }
+    if (Array.isArray(input.listOrder)) {
+      const allowed = new Set(Object.keys(fieldConfig).filter((key) => fieldConfig[key].list));
+      manifest.listOrder = input.listOrder
+        .map((key) => String(key || "").trim())
+        .filter((key) => allowed.has(key));
+    }
+  }
   fs.mkdirSync(refDir, { recursive: true });
   fs.writeFileSync(path.join(refDir, "reference.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   fs.writeFileSync(path.join(refDir, "entries.json"), `${JSON.stringify(preview.entries, null, 2)}\n`, "utf8");
@@ -2364,6 +2448,7 @@ module.exports = {
   createPluginScaffold,
   createReferenceDlc,
   previewReferenceImport,
+  readReferenceDisplayConfig,
   createTextDlc,
   createDeckDlcFromZip,
   exportDlcItem,

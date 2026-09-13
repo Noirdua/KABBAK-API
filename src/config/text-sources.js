@@ -72,13 +72,21 @@ function loadLibraryTextSourceDefinitions() {
 }
 
 function normalizeReferenceDefinition(reference) {
+  const fieldConfig = reference?.fieldConfig && typeof reference.fieldConfig === "object" && !Array.isArray(reference.fieldConfig)
+    ? reference.fieldConfig
+    : null;
+  const listOrder = Array.isArray(reference?.listOrder)
+    ? reference.listOrder.map((key) => String(key || "").trim()).filter(Boolean)
+    : null;
   return {
     id: normalizeDocumentId(reference?.id),
     filePath: path.join(sourceTextDataRoot, String(reference?.fileName || `${reference?.id}.json`)),
     title: String(reference?.title || "").trim(),
     description: String(reference?.description || "").trim(),
     kind: String(reference?.kind || "dictionary").trim(),
-    keyScheme: String(reference?.keyScheme || "word").trim()
+    keyScheme: String(reference?.keyScheme || "word").trim(),
+    ...(fieldConfig ? { fieldConfig } : {}),
+    ...(listOrder ? { listOrder } : {})
   };
 }
 

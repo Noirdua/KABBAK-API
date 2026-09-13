@@ -13,8 +13,27 @@ function getCatalogSources(catalog) {
   return Array.isArray(catalog?.sources) ? catalog.sources : [];
 }
 
+function decorateReferenceDisplay(reference) {
+  if (!reference || typeof reference !== "object") {
+    return reference;
+  }
+  if (reference.fieldConfig && typeof reference.fieldConfig === "object") {
+    return reference;
+  }
+  let extra = null;
+  try {
+    extra = require("./dlc-catalog").readReferenceDisplayConfig(reference.id);
+  } catch (_error) {
+    extra = null;
+  }
+  if (!extra) {
+    return reference;
+  }
+  return { ...reference, ...extra };
+}
+
 function getCatalogReferences(catalog) {
-  return Array.isArray(catalog?.references) ? catalog.references : [];
+  return (Array.isArray(catalog?.references) ? catalog.references : []).map(decorateReferenceDisplay);
 }
 
 function normalizeLookupId(value) {
@@ -718,21 +737,33 @@ async function matchTextReferenceInHaystack(referenceId, haystack, options = {})
     ? referenceDocument.entries
     : {};
   const candidates = Object.entries(entries)
-    .map(([key, entry]) => ({
-      key,
-      entry,
-      title: String(entry?.title || key).trim()
-    }))
-    .filter((item) => item.title.length >= 3)
-    .sort((left, right) => right.title.length - left.title.length);
+    .map(([key, entry]) => {
+      const terms = [];
+      const addTerm = (value) => {
+        const term = String(value || "").trim();
+        if (term.length < 3) return;
+        if (terms.some((existing) => existing.toLowerCase() === term.toLowerCase())) return;
+        terms.push(term);
+      };
+      addTerm(entry?.title || key);
+      addTerm(entry?.keyword);
+      addTerm(String(key || "").replace(/[-_]+/g, " "));
+      const longest = terms.reduce((max, term) => (term.length > max.length ? term : max), "");
+      return { key, entry, title: String(entry?.title || key).trim(), terms, longest };
+    })
+    .filter((item) => item.terms.length)
+    .sort((left, right) => right.longest.length - left.longest.length);
 
   const matches = [];
   candidates.forEach((item) => {
     if (matches.length >= limit) {
       return;
     }
-    const matcher = buildWholeWordMatcher(item.title);
-    if (matcher && matcher.test(text)) {
+    const hit = item.terms.some((term) => {
+      const matcher = buildWholeWordMatcher(term);
+      return matcher && matcher.test(text);
+    });
+    if (hit) {
       matches.push({
         entryId: item.key,
         title: item.title,

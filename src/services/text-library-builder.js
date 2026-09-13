@@ -248,7 +248,9 @@ function buildReferenceSummary(reference, sources) {
     kind: reference.kind,
     keyScheme: reference.keyScheme,
     entryCount: reference.entryCount,
-    sourceIds
+    sourceIds,
+    ...(reference.fieldConfig ? { fieldConfig: reference.fieldConfig } : {}),
+    ...(Array.isArray(reference.listOrder) ? { listOrder: reference.listOrder } : {})
   };
 }
 
@@ -417,7 +419,9 @@ async function buildTextReference(definition) {
     kind: definition.kind,
     keyScheme: definition.keyScheme,
     entryCount: Object.keys(entries && typeof entries === "object" ? entries : {}).length,
-    entries: entries && typeof entries === "object" ? entries : {}
+    entries: entries && typeof entries === "object" ? entries : {},
+    ...(definition.fieldConfig ? { fieldConfig: definition.fieldConfig } : {}),
+    ...(Array.isArray(definition.listOrder) ? { listOrder: definition.listOrder } : {})
   };
 }
 

@@ -1440,13 +1440,21 @@ async function importReferenceSources() {
     const targetFileName = `${id}.json`;
     await fs.copyFile(entriesPath, path.join(sourceTextDataRoot, targetFileName));
 
+    const fieldConfig = manifest?.fieldConfig && typeof manifest.fieldConfig === "object" && !Array.isArray(manifest.fieldConfig)
+      ? manifest.fieldConfig
+      : null;
+    const listOrder = Array.isArray(manifest?.listOrder)
+      ? manifest.listOrder.map((key) => String(key || "").trim()).filter(Boolean)
+      : null;
     references.push({
       id,
       fileName: targetFileName,
       title: normalizeWhitespace(manifest?.title) || folder.name,
       description: normalizeWhitespace(manifest?.description),
       kind: String(manifest?.kind || "dictionary").trim(),
-      keyScheme: String(manifest?.keyScheme || "word").trim()
+      keyScheme: String(manifest?.keyScheme || "word").trim(),
+      ...(fieldConfig ? { fieldConfig } : {}),
+      ...(listOrder ? { listOrder } : {})
     });
 
     await fs.rm(folderPath, { recursive: true, force: true });
