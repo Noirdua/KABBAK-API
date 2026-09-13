@@ -758,6 +758,101 @@ function collectReferenceMatchTerms(key, entry) {
   return terms;
 }
 
+const MATCH_STOPWORDS = new Set([
+  "a", "an", "the", "and", "or", "of", "to", "in", "on", "at", "for", "with", "from",
+  "is", "was", "were", "be", "been", "being", "it", "its", "as", "by", "this", "that",
+  "these", "those", "i", "me", "my", "we", "you", "he", "she", "they", "them", "his",
+  "her", "our", "your", "into", "onto", "over", "under", "about", "came", "come",
+  "started", "start", "myself", "yourself", "himself", "herself", "their", "also",
+  "just", "then", "than", "too", "very", "so", "if", "but", "not", "nor", "only",
+  "own", "same", "other", "some", "any", "all", "both", "each", "few", "more", "most",
+  "such", "can", "will", "now", "did", "does", "have", "has", "had", "out", "off", "via"
+]);
+
+function tokenizeMatchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .split(/[^\p{L}\p{N}]+/u)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3 && !MATCH_STOPWORDS.has(token));
+}
+
+function stemMatchToken(token) {
+  let word = String(token || "").toLowerCase();
+  if (word.length > 6 && word.endsWith("ing")) {
+    word = word.slice(0, -3);
+  } else if (word.length > 5 && word.endsWith("ies")) {
+    word = `${word.slice(0, -3)}y`;
+  } else if (word.length > 4 && word.endsWith("es") && !word.endsWith("ss")) {
+    word = word.slice(0, -2);
+  } else if (word.length > 4 && word.endsWith("ed")) {
+    word = word.slice(0, -2);
+  } else if (word.length > 4 && word.endsWith("s") && !word.endsWith("ss")) {
+    word = word.slice(0, -1);
+  }
+  return word;
+}
+
+function haystackStemSet(haystack) {
+  const stems = new Set();
+  tokenizeMatchText(haystack).forEach((token) => {
+    stems.add(token);
+    const stemmed = stemMatchToken(token);
+    stems.add(stemmed);
+    if (stemmed.length > 4 && stemmed.endsWith("e")) {
+      stems.add(stemmed.slice(0, -1));
+    } else if (stemmed.length >= 4 && !stemmed.endsWith("e")) {
+      stems.add(`${stemmed}e`);
+    }
+  });
+  return stems;
+}
+
+function tokenInHaystack(token, haystackStems) {
+  const stemmed = stemMatchToken(token);
+  return haystackStems.has(token)
+    || haystackStems.has(stemmed)
+    || (stemmed.length > 4 && stemmed.endsWith("e") && haystackStems.has(stemmed.slice(0, -1)))
+    || (stemmed.length >= 4 && !stemmed.endsWith("e") && haystackStems.has(`${stemmed}e`));
+}
+
+function scoreReferenceTerm(term, haystack, haystackStems) {
+  const phrase = buildWholeWordMatcher(term);
+  if (phrase && phrase.test(haystack)) {
+    return { score: 1, matched: term };
+  }
+  const tokens = tokenizeMatchText(term);
+  if (!tokens.length) {
+    return null;
+  }
+  const hits = tokens.filter((token) => tokenInHaystack(token, haystackStems));
+  if (!hits.length) {
+    return null;
+  }
+  const longest = hits.reduce((best, token) => (token.length >= best.length ? token : best));
+  if (longest.length < 4) {
+    return null;
+  }
+  const ratio = hits.length / tokens.length;
+  let score = ratio;
+  if (tokens.length === 1) {
+    score = longest.length >= 8 ? 0.9 : longest.length >= 6 ? 0.78 : 0.62;
+  } else if (ratio >= 0.5 && longest.length >= 8) {
+    score = Math.max(score, 0.82);
+  } else if (ratio >= 0.5 && longest.length >= 6) {
+    score = Math.max(score, 0.7);
+  }
+  if (score < 0.5) {
+    return null;
+  }
+  return {
+    score: Math.min(1, Number(score.toFixed(2))),
+    matched: tokens.length === 1 ? hits[0] : term
+  };
+}
+
 async function matchTextReferenceInHaystack(referenceId, haystack, options = {}) {
   const normalizedReferenceId = normalizeLookupId(referenceId);
   if (!normalizedReferenceId) {
@@ -776,33 +871,31 @@ async function matchTextReferenceInHaystack(referenceId, haystack, options = {})
   const entries = referenceDocument?.entries && typeof referenceDocument.entries === "object"
     ? referenceDocument.entries
     : {};
-  const candidates = Object.entries(entries)
-    .map(([key, entry]) => {
-      const terms = collectReferenceMatchTerms(key, entry);
-      const longest = terms.reduce((max, term) => (term.length > max.length ? term : max), "");
-      return { key, entry, title: String(entry?.title || key).trim(), terms, longest };
-    })
-    .filter((item) => item.terms.length)
-    .sort((left, right) => right.longest.length - left.longest.length);
-
-  const matches = [];
-  candidates.forEach((item) => {
-    if (matches.length >= limit) {
-      return;
-    }
-    const matchedTerms = item.terms.filter((term) => {
-      const matcher = buildWholeWordMatcher(term);
-      return matcher && matcher.test(text);
+  const haystackStems = haystackStemSet(text);
+  const scored = [];
+  Object.entries(entries).forEach(([key, entry]) => {
+    const terms = collectReferenceMatchTerms(key, entry);
+    let best = null;
+    const matchedTerms = [];
+    terms.forEach((term) => {
+      const hit = scoreReferenceTerm(term, text, haystackStems);
+      if (!hit) return;
+      matchedTerms.push(hit.matched);
+      if (!best || hit.score > best.score) {
+        best = hit;
+      }
     });
-    if (matchedTerms.length) {
-      matches.push({
-        entryId: item.key,
-        title: item.title,
-        entry: item.entry,
-        matchedTerms
-      });
-    }
+    if (!best) return;
+    scored.push({
+      entryId: key,
+      title: String(entry?.title || key).trim(),
+      entry,
+      matchedTerms: [...new Set(matchedTerms)],
+      confidence: best.score
+    });
   });
+  scored.sort((left, right) => right.confidence - left.confidence || right.title.length - left.title.length);
+  const matches = scored.slice(0, limit);
 
   return {
     reference: referenceSummary,
