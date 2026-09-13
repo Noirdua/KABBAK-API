@@ -44,6 +44,7 @@ const {
   invalidateCatalogCache
 } = require("../services/dlc-catalog");
 const dlcSources = require("../services/dlc-sources");
+const dlcPublish = require("../services/dlc-publish");
 const { reloadPluginServers } = require("../services/plugin-servers");
 const {
   ADMIN_API_MANAGEMENT_CAPABILITY,
@@ -668,6 +669,86 @@ router.post("/admin/dlc/sources/:sourceId/sync", (request, response) => {
     source,
     sources: dlcSources.listDescribedSources()
   });
+});
+
+// --- Publish DLC items back to a git source (admin-supplied HTTPS token) ----
+
+router.get("/admin/dlc/publish", (_request, response) => {
+  response.apiSuccess({ sources: dlcPublish.getPublishStatus() });
+});
+
+router.put("/admin/dlc/publish/credentials", (request, response) => {
+  const body = getPatchBody(request);
+  let sources;
+  try {
+    sources = dlcPublish.setPublishCredential(body.sourceId, {
+      username: body.username,
+      token: body.token
+    });
+  } catch (error) {
+    throw createHttpError(400, "invalid_publish_credential", error.message);
+  }
+  emitAdminMutationAuditEvent(request, response, {
+    action: "set_dlc_publish_credential",
+    sourceId: String(body.sourceId || "").trim()
+  });
+  response.apiSuccess({ sources });
+});
+
+router.delete("/admin/dlc/publish/credentials/:sourceId", (request, response) => {
+  const sourceId = String(request.params.sourceId || "").trim();
+  let sources;
+  try {
+    sources = dlcPublish.clearPublishCredential(sourceId);
+  } catch (error) {
+    throw createHttpError(400, "invalid_publish_credential", error.message);
+  }
+  emitAdminMutationAuditEvent(request, response, {
+    action: "clear_dlc_publish_credential",
+    sourceId
+  });
+  response.apiSuccess({ sources });
+});
+
+router.post("/admin/dlc/publish", (request, response) => {
+  const body = getPatchBody(request);
+  const kind = String(body?.kind || "").trim();
+  const name = String(body?.name || "").trim();
+  if (!kind || !name) {
+    throw createHttpError(400, "invalid_publish_request", "Both `kind` and `name` are required.");
+  }
+  let result;
+  try {
+    result = dlcPublish.publishItem({
+      kind,
+      name,
+      sourceId: body?.sourceId,
+      message: body?.message
+    }, {
+      log: (message) => {
+        const writeLog = createLogWriter(request.app?.locals?.logger || console);
+        if (!writeLog) return;
+        writeLog(JSON.stringify({
+          timestamp: new Date().toISOString(),
+          event: "api_dlc",
+          action: "publish_dlc_item",
+          message: String(message || "")
+        }));
+      }
+    });
+  } catch (error) {
+    throw createHttpError(502, "dlc_publish_failed", error.message);
+  }
+  invalidateCatalogCache();
+  emitAdminMutationAuditEvent(request, response, {
+    action: "publish_dlc_item",
+    itemKind: result.kind,
+    itemName: result.name,
+    sourceId: result.sourceId,
+    branch: result.branch,
+    committed: result.committed
+  });
+  response.apiSuccess(result);
 });
 
 // --- Access level definitions (what basic/premium/pro+ mean) -----------------
