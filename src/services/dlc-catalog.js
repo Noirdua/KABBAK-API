@@ -1878,6 +1878,39 @@ function makeReferenceEntryId(key, title, keyScheme, slugifyText) {
   return slugifyText(rawKey || rawTitle) || rawKey.toLowerCase();
 }
 
+function parseReferenceDocument(rawText) {
+  const text = String(rawText || "").trim();
+  if (!text) {
+    throw new Error("Upload a JSON or JSONL file of reference entries first.");
+  }
+  try {
+    return JSON.parse(text);
+  } catch (_error) {
+    const rows = [];
+    const lines = text.split(/\r?\n/);
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index].trim();
+      if (!line) continue;
+      try {
+        rows.push(JSON.parse(line));
+      } catch {
+        throw new Error(`That file is not valid JSON. JSONL failed on line ${index + 1}.`);
+      }
+    }
+    if (!rows.length) {
+      throw new Error("That file is not valid JSON or JSONL.");
+    }
+    return rows;
+  }
+}
+
+function referenceEntryBody(item) {
+  const direct = item?.summary || item?.body || item?.definition || item?.meaning || item?.gloss;
+  if (direct) return direct;
+  const senses = Array.isArray(item?.senses) ? item.senses : [];
+  return senses.map((sense) => String(sense?.gloss || "").trim()).filter(Boolean).join(" · ");
+}
+
 function normalizeReferenceEntries(raw, keyScheme = "word") {
   const { slugify: slugifyText } = require("./text-importer");
   const entries = {};
@@ -1914,9 +1947,9 @@ function normalizeReferenceEntries(raw, keyScheme = "word") {
         return;
       }
       add(
-        item.slug || item.id || item.keyword || item.title,
-        item.keyword || item.title || item.slug,
-        item.summary || item.body || item.definition || item.meaning,
+        item.slug || item.id || item.keyword || item.word || item.term || item.title,
+        item.keyword || item.word || item.term || item.title || item.slug,
+        referenceEntryBody(item),
         item
       );
     });
@@ -1937,22 +1970,18 @@ function normalizeReferenceEntries(raw, keyScheme = "word") {
     if (!value || typeof value !== "object") {
       return;
     }
-    add(key, value.title || value.keyword || key, value.body || value.summary || value.definition, value);
+    add(
+      key,
+      value.title || value.keyword || value.word || value.term || key,
+      referenceEntryBody(value) || value.body || value.summary || value.definition,
+      value
+    );
   });
   return entries;
 }
 
 function previewReferenceImport(input = {}) {
-  const rawText = String(input.text || "").trim();
-  if (!rawText) {
-    throw new Error("Upload a JSON file of reference entries first.");
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(rawText);
-  } catch (_error) {
-    throw new Error("That file is not valid JSON.");
-  }
+  const parsed = parseReferenceDocument(input.text);
   const keyScheme = REFERENCE_KEY_SCHEMES.has(String(input.keyScheme || parsed.keyScheme || "").trim())
     ? String(input.keyScheme || parsed.keyScheme).trim()
     : "word";

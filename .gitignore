@@ -37,3 +37,5 @@ imports/decks/*
 # Do not ship a default URL.
 imports/dlc/*
 !imports/dlc/.gitkeep
+temp/*
+temp

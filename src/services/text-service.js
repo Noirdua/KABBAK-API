@@ -718,6 +718,46 @@ async function getTextReferenceEntryOccurrences(referenceId, entryId, options = 
   };
 }
 
+function addReferenceMatchTerm(terms, seen, value) {
+  const term = String(value || "").trim();
+  if (term.length < 3) return;
+  const lower = term.toLowerCase();
+  if (seen.has(lower)) return;
+  seen.add(lower);
+  terms.push(term);
+}
+
+function addReferenceMatchWordList(terms, seen, list) {
+  (Array.isArray(list) ? list : []).forEach((item) => {
+    if (typeof item === "string") {
+      addReferenceMatchTerm(terms, seen, item);
+      return;
+    }
+    if (item && typeof item === "object") {
+      addReferenceMatchTerm(terms, seen, item.word || item.title || item.term || item.keyword);
+    }
+  });
+}
+
+function collectReferenceMatchTerms(key, entry) {
+  const terms = [];
+  const seen = new Set();
+  addReferenceMatchTerm(terms, seen, entry?.title || key);
+  addReferenceMatchTerm(terms, seen, entry?.keyword);
+  addReferenceMatchTerm(terms, seen, entry?.word);
+  addReferenceMatchTerm(terms, seen, entry?.term);
+  addReferenceMatchTerm(terms, seen, String(key || "").replace(/[-_]+/g, " "));
+  addReferenceMatchWordList(terms, seen, entry?.synonyms);
+  addReferenceMatchWordList(terms, seen, entry?.near_synonyms);
+  addReferenceMatchWordList(terms, seen, entry?.nearSynonyms);
+  (Array.isArray(entry?.senses) ? entry.senses : []).forEach((sense) => {
+    addReferenceMatchWordList(terms, seen, sense?.synonyms);
+    addReferenceMatchWordList(terms, seen, sense?.near_synonyms);
+    addReferenceMatchWordList(terms, seen, sense?.nearSynonyms);
+  });
+  return terms;
+}
+
 async function matchTextReferenceInHaystack(referenceId, haystack, options = {}) {
   const normalizedReferenceId = normalizeLookupId(referenceId);
   if (!normalizedReferenceId) {
@@ -738,16 +778,7 @@ async function matchTextReferenceInHaystack(referenceId, haystack, options = {})
     : {};
   const candidates = Object.entries(entries)
     .map(([key, entry]) => {
-      const terms = [];
-      const addTerm = (value) => {
-        const term = String(value || "").trim();
-        if (term.length < 3) return;
-        if (terms.some((existing) => existing.toLowerCase() === term.toLowerCase())) return;
-        terms.push(term);
-      };
-      addTerm(entry?.title || key);
-      addTerm(entry?.keyword);
-      addTerm(String(key || "").replace(/[-_]+/g, " "));
+      const terms = collectReferenceMatchTerms(key, entry);
       const longest = terms.reduce((max, term) => (term.length > max.length ? term : max), "");
       return { key, entry, title: String(entry?.title || key).trim(), terms, longest };
     })
@@ -759,15 +790,16 @@ async function matchTextReferenceInHaystack(referenceId, haystack, options = {})
     if (matches.length >= limit) {
       return;
     }
-    const hit = item.terms.some((term) => {
+    const matchedTerms = item.terms.filter((term) => {
       const matcher = buildWholeWordMatcher(term);
       return matcher && matcher.test(text);
     });
-    if (hit) {
+    if (matchedTerms.length) {
       matches.push({
         entryId: item.key,
         title: item.title,
-        entry: item.entry
+        entry: item.entry,
+        matchedTerms
       });
     }
   });
