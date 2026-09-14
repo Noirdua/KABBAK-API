@@ -84,6 +84,50 @@ function resolveDeckLocation(name, sourceId) {
   return { source, root, safeName, relDir: `decks/${safeName}`, working: path.join(root, "decks", safeName), local: false };
 }
 
+function readDeckManifest(root, relDir, working) {
+  const workingManifest = path.join(working, "deck.json");
+  if (fs.existsSync(workingManifest)) {
+    try {
+      return JSON.parse(fs.readFileSync(workingManifest, "utf8"));
+    } catch (_error) {
+      return null;
+    }
+  }
+  try {
+    const buffer = execFileSync("git", ["-c", "core.pager=cat", "show", `HEAD:${relDir}/deck.json`], {
+      cwd: root,
+      maxBuffer: 16 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    return JSON.parse(buffer.toString("utf8"));
+  } catch (_error) {
+    return null;
+  }
+}
+
+function titleCase(value) {
+  return String(value || "").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+// Map file path -> intended card label from the deck manifest (explicit maps).
+function buildDeckLabelMap(manifest) {
+  const map = new Map();
+  const add = (file, label) => {
+    if (!file || !label) return;
+    (Array.isArray(file) ? file : [file]).forEach((entry) => map.set(String(entry), label));
+  };
+  const majors = manifest?.majors?.cards;
+  if (majors && typeof majors === "object") {
+    Object.entries(majors).forEach(([trump, file]) => add(file, `Major ${trump}`));
+  }
+  const minors = manifest?.minors?.cards;
+  if (minors && typeof minors === "object") {
+    Object.entries(minors).forEach(([key, file]) => add(file, titleCase(key)));
+  }
+  if (manifest?.cardBack) add(manifest.cardBack, "Card back");
+  return map;
+}
+
 function listDeckImages(name, sourceId) {
   const { root, safeName, relDir, working } = resolveDeckLocation(name, sourceId);
   let files = [];
@@ -113,14 +157,17 @@ function listDeckImages(name, sourceId) {
   }
 
   files.sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }));
+  const manifest = readDeckManifest(root, relDir, working);
+  const labels = buildDeckLabelMap(manifest);
   return {
     name: safeName,
-    title: safeName,
+    title: String(manifest?.name || manifest?.title || safeName).trim() || safeName,
     materialized,
     count: files.length,
     images: files.map((relative) => ({
       path: relative,
-      name: path.basename(relative)
+      name: path.basename(relative),
+      label: labels.get(relative) || ""
     }))
   };
 }
