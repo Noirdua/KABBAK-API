@@ -265,6 +265,7 @@ function deleteItem(kind, name, sourceId, id) {
 }
 
 module.exports = {
+  assertItemNotLive: (kind, name, id) => assertNotLive(kind, name, id),
   deleteItem,
   getItemDraft,
   listItemFiles,

@@ -191,16 +191,21 @@ function stageItem(root, relPath) {
 }
 
 function stageDeletion(root, relPath) {
-  try {
-    git(["add", "--sparse", "-A", "--", relPath], root);
-    return;
-  } catch (_error) {
-    // Fall through to the non-sparse form.
-  }
-  try {
-    git(["add", "-A", "--", relPath], root);
-  } catch (_error) {
-    // The path may already be gone from the index.
+  // `--sparse` is required to stage deletions of tracked paths that a sparse
+  // checkout hasn't materialized (skip-worktree entries are otherwise skipped).
+  const attempts = [
+    ["rm", "-r", "--cached", "--ignore-unmatch", "--sparse", "--", relPath],
+    ["rm", "-r", "--cached", "--ignore-unmatch", "--", relPath],
+    ["add", "--sparse", "-A", "--", relPath],
+    ["add", "-A", "--", relPath]
+  ];
+  for (const args of attempts) {
+    try {
+      git(args, root);
+      return;
+    } catch (_error) {
+      // Try the next form.
+    }
   }
 }
 
@@ -369,6 +374,27 @@ function getPublishPending({ kind, name, sourceId } = {}, ctx = {}) {
   }
 }
 
+function pushBranchWithRetry(root, authedUrl, branch, credential, log) {
+  const pushOnce = () => git(["push", authedUrl, `HEAD:${branch}`], root);
+  try {
+    pushOnce();
+    return;
+  } catch (error) {
+    const firstMessage = redact((error && (error.stderr || error.message)) || "git push failed", credential.token);
+    if (!/rejected|non-fast-forward|fetch first|behind/i.test(firstMessage)) {
+      throw new Error(firstMessage);
+    }
+  }
+  log("Remote moved ahead; rebasing and retrying push.");
+  try {
+    git(["pull", "--rebase", "--autostash", authedUrl, branch], root);
+    pushOnce();
+  } catch (retryError) {
+    const retryText = redact((retryError && (retryError.stderr || retryError.message)) || "", credential.token);
+    throw new Error(`Push failed after rebase. ${retryText}`.trim());
+  }
+}
+
 function publishItem({ kind, name, sourceId, message } = {}, { log = () => {} } = {}) {
   const source = resolveTargetSource(sourceId);
   if (!source) {
@@ -482,25 +508,7 @@ function publishItem({ kind, name, sourceId, message } = {}, { log = () => {} } 
   }
 
   const authedUrl = buildAuthedUrl(source.url, credential);
-  const pushOnce = () => git(["push", authedUrl, `HEAD:${branch}`], root);
-
-  try {
-    pushOnce();
-  } catch (error) {
-    const firstMessage = redact((error && (error.stderr || error.message)) || "git push failed", credential.token);
-    if (/rejected|non-fast-forward|fetch first|behind/i.test(firstMessage)) {
-      log("Remote moved ahead; rebasing and retrying push.");
-      try {
-        git(["pull", "--rebase", "--autostash", authedUrl, branch], root);
-        pushOnce();
-      } catch (retryError) {
-        const retryText = redact((retryError && (retryError.stderr || retryError.message)) || "", credential.token);
-        throw new Error(`Push failed after rebase. ${retryText}`.trim());
-      }
-    } else {
-      throw new Error(firstMessage);
-    }
-  }
+  pushBranchWithRetry(root, authedUrl, branch, credential, log);
 
   recordSnapshot(source.id, kind, targetName, destDir);
   const head = tryGit(["rev-parse", "--short", "HEAD"], root).trim();
@@ -518,8 +526,122 @@ function publishItem({ kind, name, sourceId, message } = {}, { log = () => {} } 
   };
 }
 
+// Delete an item from the repository: remove its folder(s) from the checkout
+// (matching by folder name and by manifest id, so renames are covered), stage
+// the deletions, and commit + push. Also drops the local workspace copy.
+function deleteItemFromRepo({ kind, name, sourceId, message } = {}, { log = () => {} } = {}) {
+  const source = resolveTargetSource(sourceId);
+  if (!source) throw new Error("No DLC repository is configured. Add one under Admin → DLC first.");
+  const credential = getCredential(source.id);
+  if (!credential) throw new Error(`No access token saved for '${source.name}'. Add one in Admin → DLC → Repository access.`);
+  const root = dlcSources.getSourceRoot(source);
+  if (!fs.existsSync(path.join(root, ".git"))) throw new Error(`'${source.name}' has no git checkout yet. Sync it first.`);
+
+  const dir = resolveItemDir(kind);
+  if (!dir) throw new Error(`Unknown DLC kind '${kind}'.`);
+  const safeName = assertSafeName(name);
+  const workspaceDir = path.join(dlcRoot, dir, safeName);
+  const checkoutDir = path.join(root, dir, safeName);
+  const metaSource = fs.existsSync(workspaceDir) ? workspaceDir : (fs.existsSync(checkoutDir) ? checkoutDir : "");
+  const meta = metaSource ? readItemMeta(kind, metaSource) : { id: "", title: "" };
+
+  const targets = new Set([`${dir}/${safeName}`]);
+  if (meta.id) {
+    const base = path.join(root, dir);
+    if (fs.existsSync(base)) {
+      fs.readdirSync(base, { withFileTypes: true }).forEach((entry) => {
+        if (entry.isDirectory() && readItemMeta(kind, path.join(base, entry.name)).id === meta.id) {
+          targets.add(`${dir}/${entry.name}`);
+        }
+      });
+    }
+  }
+
+  const tracked = gitHeadPaths(root);
+  const relPaths = [...targets];
+  const trackedUnderItem = relPaths.some((rel) => tracked.has(rel) || [...tracked].some((p) => p.startsWith(`${rel}/`)));
+  relPaths.forEach((rel) => {
+    const absolute = path.join(root, rel);
+    if (fs.existsSync(absolute)) {
+      fs.rmSync(absolute, { recursive: true, force: true });
+    }
+  });
+
+  const headBefore = tryGit(["rev-parse", "--short", "HEAD"], root).trim();
+  if (!trackedUnderItem) {
+    if (fs.existsSync(workspaceDir)) {
+      fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+    return {
+      kind,
+      name: safeName,
+      committed: false,
+      pushed: false,
+      removed: [],
+      note: "Nothing to delete in the repository; removed the local copy."
+    };
+  }
+
+  const branch = resolvePublishBranch(root, source);
+  relPaths.forEach((rel) => stageDeletion(root, rel));
+  const pending = tryGit(["status", "--porcelain", "--", ...relPaths], root).trim();
+
+  let committed = false;
+  if (pending) {
+    const commitMessage = String(message || "").trim() || `Delete ${kind}: ${safeName}`;
+    git(
+      [
+        "-c", `user.name=${COMMIT_NAME}`,
+        "-c", `user.email=${COMMIT_EMAIL}`,
+        "commit",
+        "-m", commitMessage,
+        "--",
+        ...relPaths
+      ],
+      root
+    );
+    committed = true;
+  }
+
+  log(`Deleting ${kind}:${safeName} from ${source.name} (${branch}).`);
+  const authedUrl = buildAuthedUrl(source.url, credential);
+  pushBranchWithRetry(root, authedUrl, branch, credential, log);
+
+  // Only drop the local workspace copy once the deletion is safely pushed.
+  if (fs.existsSync(workspaceDir)) {
+    fs.rmSync(workspaceDir, { recursive: true, force: true });
+  }
+
+  const store = readSnapshots();
+  let changed = false;
+  relPaths.forEach((rel) => {
+    const key = `${source.id}:${kind}:${rel.split("/").pop()}`;
+    if (store[key] !== undefined) {
+      delete store[key];
+      changed = true;
+    }
+  });
+  if (changed) writeSnapshots(store);
+
+  const head = tryGit(["rev-parse", "--short", "HEAD"], root).trim();
+  return {
+    sourceId: source.id,
+    sourceName: source.name,
+    kind,
+    name: safeName,
+    branch,
+    committed,
+    pushed: true,
+    head,
+    previousHead: headBefore,
+    removed: relPaths,
+    note: committed ? "" : "Nothing changed; the repository was already up to date."
+  };
+}
+
 module.exports = {
   clearPublishCredential,
+  deleteItemFromRepo,
   getPublishPending,
   getPublishStatus,
   publishItem,

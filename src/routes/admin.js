@@ -47,6 +47,7 @@ const dlcSources = require("../services/dlc-sources");
 const dlcPublish = require("../services/dlc-publish");
 const dlcEditor = require("../services/dlc-editor");
 const dlcValidate = require("../services/dlc-validate");
+const deckPreview = require("../services/deck-preview");
 const { reloadPluginServers } = require("../services/plugin-servers");
 const {
   ADMIN_API_MANAGEMENT_CAPABILITY,
@@ -790,6 +791,38 @@ router.get("/admin/dlc/validate", (request, response) => {
   response.apiSuccess(dlcValidate.validateItemDir(kind, name, dir));
 });
 
+// Read-only deck preview (works for decks that are not installed/downloaded).
+router.get("/admin/dlc/deck/preview", (request, response) => {
+  const { kind, name, sourceId } = assertItemQuery(request);
+  if (kind !== "deck") {
+    throw createHttpError(400, "invalid_deck_preview", "Only decks can be previewed.");
+  }
+  let result;
+  try {
+    result = deckPreview.listDeckImages(name, sourceId);
+  } catch (error) {
+    throw createHttpError(400, "deck_preview_failed", error.message);
+  }
+  response.apiSuccess(result);
+});
+
+router.get("/admin/dlc/deck/image", (request, response) => {
+  const { kind, name, sourceId } = assertItemQuery(request);
+  if (kind !== "deck") {
+    throw createHttpError(400, "invalid_deck_preview", "Only decks can be previewed.");
+  }
+  const filePath = String(request.query?.path || "").trim();
+  let image;
+  try {
+    image = deckPreview.readDeckImage(name, filePath, sourceId);
+  } catch (error) {
+    throw createHttpError(400, "deck_preview_failed", error.message);
+  }
+  response.setHeader("Content-Type", image.contentType);
+  response.setHeader("Cache-Control", "private, max-age=600");
+  response.send(image.buffer);
+});
+
 router.get("/admin/dlc/item/draft", (request, response) => {
   const { kind, name, sourceId, id } = assertItemQuery(request);
   let result;
@@ -854,6 +887,37 @@ router.put("/admin/dlc/item/file", (request, response) => {
     itemKind: kind,
     itemName: name,
     file: result.path
+  });
+  response.apiSuccess(result);
+});
+
+// Delete an item locally, or from the repository (commit + push the removal).
+router.post("/admin/dlc/delete", (request, response) => {
+  const body = getPatchBody(request);
+  const kind = String(body?.kind || "").trim();
+  const name = String(body?.name || "").trim();
+  const sourceId = String(body?.sourceId || "").trim();
+  const id = String(body?.id || "").trim();
+  if (!kind || !name) {
+    throw createHttpError(400, "invalid_delete_request", "Both `kind` and `name` are required.");
+  }
+  const fromRepo = body?.fromRepo === true;
+  let result;
+  try {
+    if (fromRepo) {
+      dlcEditor.assertItemNotLive(kind, name, id);
+      result = dlcPublish.deleteItemFromRepo({ kind, name, sourceId, message: body?.message });
+    } else {
+      result = dlcEditor.deleteItem(kind, name, sourceId, id);
+    }
+  } catch (error) {
+    throw createHttpError(400, "dlc_item_delete_failed", error.message);
+  }
+  invalidateCatalogCache();
+  emitAdminMutationAuditEvent(request, response, {
+    action: fromRepo ? "delete_dlc_item_repo" : "delete_dlc_item",
+    itemKind: kind,
+    itemName: name
   });
   response.apiSuccess(result);
 });
