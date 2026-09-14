@@ -10,7 +10,8 @@ const {
   referencesImportRoot,
   sourceDecksRoot,
   sourceTextDataRoot,
-  decksRoot
+  decksRoot,
+  storageRoot
 } = require("../config/paths");
 const dlcSources = require("./dlc-sources");
 
@@ -342,50 +343,9 @@ function updateRepo({ log = () => {} } = {}) {
   git(["fetch", "--filter=blob:none", "origin", branch], { cwd: dlcRoot, stdio: "inherit" });
   git(["checkout", branch], { cwd: dlcRoot, stdio: "inherit" });
 
-  const mergeAttempt = tryGit(["merge", "--ff-only", `origin/${branch}`], { cwd: dlcRoot });
-  if (!mergeAttempt.ok) {
-    const stderr = String(mergeAttempt.error?.stderr || "").trim();
-    const isAncestor = tryGit(["merge-base", "--is-ancestor", "HEAD", `origin/${branch}`], { cwd: dlcRoot }).ok;
-    const dirty = listWorktreeDirtyPaths();
-
-    if (isAncestor && dirty.size > 0) {
-      // Admin-edited files (plugin configs, uploaded pages, presets, logos)
-      // live inside the checkout. A plain fast-forward refuses to run when one
-      // of those files is dirty, so fall back to a selective update: move the
-      // branch to the fetched commit, then re-apply the incoming content only
-      // for clean paths that are present on disk. Locally modified/added files
-      // keep the admin's version.
-      const changed = String(tryGit(["diff", "--name-only", "HEAD", `origin/${branch}`], { cwd: dlcRoot }).output || "")
-        .split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-      const keptPaths = changed.filter((changedPath) => dirty.has(changedPath) || !fs.existsSync(path.join(dlcRoot, changedPath)));
-      const updatePaths = changed.filter((changedPath) => !keptPaths.includes(changedPath));
-
-      keptPaths.forEach((keptPath) => log(`Keeping local version: ${keptPath}`));
-      git(["reset", "--mixed", `origin/${branch}`], { cwd: dlcRoot, stdio: "inherit" });
-      if (updatePaths.length) {
-        git(["checkout", "HEAD", "--", ...updatePaths], { cwd: dlcRoot, stdio: "inherit" });
-      }
-      log("DLC updated selectively; admin-edited files were kept.");
-    } else if (!isAncestor && dirty.size === 0) {
-      // Diverged (e.g. an unpushed local commit plus new remote work). Rebase
-      // the local commits onto origin so refresh can continue.
-      const rebase = tryGit(["rebase", `origin/${branch}`], { cwd: dlcRoot });
-      if (!rebase.ok) {
-        tryGit(["rebase", "--abort"], { cwd: dlcRoot });
-        const rebaseStderr = String(rebase.error?.stderr || "").trim();
-        throw new Error(
-          `DLC checkout has diverged and could not be rebased onto origin/${branch}. `
-          + `${rebaseStderr || stderr || "Resolve it manually with git."}`
-        );
-      }
-      log(`Rebased local DLC commits onto origin/${branch}.`);
-    } else {
-      throw new Error(
-        `Could not update the DLC checkout: ${stderr || "git merge --ff-only failed"}. `
-        + (dirty.size ? "Commit or stash local edits inside the checkout, then retry." : "")
-      );
-    }
-  }
+  // Shared pull-only update (fast-forward, or selective/rebase while keeping
+  // local files). Never commits.
+  dlcSources.pullCheckout(dlcRoot, branch, { log });
 
   const head = tryGit(["rev-parse", "--short", "HEAD"], { cwd: dlcRoot }).output.trim();
   invalidateCatalogCache();
@@ -1152,6 +1112,11 @@ function resolvePluginRoot(name) {
   return { kind: "plugin", dir: path.join(dlcRoot, "plugins", safeName), name: safeName };
 }
 
+// Plugin user data lives OUTSIDE the DLC checkout, under
+// storage/plugin-data/<name>/ — so configs, logs, uploads and playlists never
+// dirty the repo and can't be committed/pushed. Legacy in-checkout locations
+// (plugins/<name>/user-data, media, config.json) are read and migrated once.
+const PLUGIN_DATA_ROOT = path.join(storageRoot, "plugin-data");
 const PLUGIN_USER_DATA_DIR = "user-data";
 const PLUGIN_MEDIA_DIR = "media";
 const PLUGIN_LAYOUT_SKIP_DIRS = Object.freeze([
@@ -1161,7 +1126,7 @@ const PLUGIN_LAYOUT_SKIP_DIRS = Object.freeze([
   "node_modules"
 ]);
 
-function pluginLayout(pluginDir) {
+function legacyPluginLayout(pluginDir) {
   const root = path.resolve(pluginDir);
   return {
     root,
@@ -1171,12 +1136,15 @@ function pluginLayout(pluginDir) {
   };
 }
 
-function ensurePluginLayout(pluginDir) {
-  const layout = pluginLayout(pluginDir);
-  fs.mkdirSync(layout.userData, { recursive: true });
-  fs.mkdirSync(layout.media, { recursive: true });
-  fs.mkdirSync(layout.logs, { recursive: true });
-  return layout;
+function pluginDataLayout(name) {
+  const safeName = assertSafePluginName(name);
+  const root = path.join(PLUGIN_DATA_ROOT, safeName);
+  return {
+    root,
+    configFile: path.join(root, "config.json"),
+    media: path.join(root, "media"),
+    logs: path.join(root, "logs")
+  };
 }
 
 function firstExistingPath(paths, { directory = false } = {}) {
@@ -1193,27 +1161,94 @@ function firstExistingPath(paths, { directory = false } = {}) {
   }) || "";
 }
 
-function resolvePluginConfigFile(pluginDir) {
-  return firstExistingPath([
-    path.join(pluginDir, PLUGIN_USER_DATA_DIR, "config.json"),
-    path.join(pluginDir, "config.json")
-  ]) || path.join(pluginDir, PLUGIN_USER_DATA_DIR, "config.json");
+function copyDirIfMissing(source, dest) {
+  if (!isDirectory(source) || fs.existsSync(dest)) return false;
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.cpSync(source, dest, { recursive: true });
+  return true;
 }
 
-function resolvePluginContentDir(pluginDir, dirName, { forWrite = false } = {}) {
-  const layout = pluginLayout(pluginDir);
+// One-time move of legacy in-checkout user data into storage/plugin-data.
+function migrateLegacyPluginData(name, pluginDir) {
+  const layout = pluginDataLayout(name);
+  if (fs.existsSync(layout.root)) return layout;
+  const legacy = legacyPluginLayout(pluginDir);
+  let migrated = false;
+  if (isDirectory(legacy.userData)) {
+    fs.mkdirSync(layout.root, { recursive: true });
+    fs.readdirSync(legacy.userData, { withFileTypes: true }).forEach((entry) => {
+      const source = path.join(legacy.userData, entry.name);
+      const dest = path.join(layout.root, entry.name);
+      try {
+        if (entry.isDirectory()) {
+          migrated = copyDirIfMissing(source, dest) || migrated;
+        } else if (entry.isFile() && !fs.existsSync(dest)) {
+          fs.copyFileSync(source, dest);
+          migrated = true;
+        }
+      } catch (_error) {
+        // Best-effort migration; reads still fall back to the legacy path.
+      }
+    });
+  }
+  if (isDirectory(legacy.media)) {
+    migrated = copyDirIfMissing(legacy.media, layout.media) || migrated;
+  }
+  const legacyConfig = path.join(pluginDir, "config.json");
+  if (!fs.existsSync(layout.configFile) && fs.existsSync(legacyConfig)) {
+    fs.mkdirSync(layout.root, { recursive: true });
+    fs.copyFileSync(legacyConfig, layout.configFile);
+    migrated = true;
+  }
+  if (migrated) {
+    // Leave a marker so we only probe once.
+    try {
+      fs.writeFileSync(path.join(layout.root, ".migrated-from-checkout"), new Date().toISOString(), "utf8");
+    } catch (_error) {}
+  }
+  return layout;
+}
+
+function ensurePluginDataLayout(name, pluginDir = "") {
+  const safeName = assertSafePluginName(name);
+  const layout = pluginDataLayout(safeName);
+  if (!fs.existsSync(layout.root) && pluginDir) {
+    migrateLegacyPluginData(safeName, pluginDir);
+  }
+  fs.mkdirSync(layout.root, { recursive: true });
+  fs.mkdirSync(layout.media, { recursive: true });
+  fs.mkdirSync(layout.logs, { recursive: true });
+  return layout;
+}
+
+function resolvePluginConfigFile(name, pluginDir) {
+  const layout = pluginDataLayout(name);
+  const legacy = legacyPluginLayout(pluginDir);
+  return firstExistingPath([
+    layout.configFile,
+    path.join(legacy.userData, "config.json"),
+    path.join(pluginDir, "config.json")
+  ]) || layout.configFile;
+}
+
+// Read order: storage media (uploads/overrides) -> legacy media -> stock files
+// in the checkout. Write order: always storage media.
+function pluginContentDirs(name, pluginDir, safeDir) {
+  const layout = pluginDataLayout(name);
+  const legacy = legacyPluginLayout(pluginDir);
+  return safeDir
+    ? [path.join(layout.media, safeDir), path.join(legacy.media, safeDir), path.join(pluginDir, safeDir)]
+    : [layout.media, legacy.media, pluginDir];
+}
+
+function resolvePluginContentDir(name, pluginDir, dirName, { forWrite = false } = {}) {
   const safeDir = dirName ? assertSafeDirName(dirName) : "";
   if (forWrite) {
-    fs.mkdirSync(layout.media, { recursive: true });
+    const layout = ensurePluginDataLayout(name, pluginDir);
     return safeDir ? path.join(layout.media, safeDir) : layout.media;
   }
-  if (safeDir) {
-    return firstExistingPath([
-      path.join(layout.media, safeDir),
-      path.join(pluginDir, safeDir)
-    ], { directory: true }) || path.join(layout.media, safeDir);
-  }
-  return firstExistingPath([layout.media, pluginDir], { directory: true }) || layout.media;
+  const dirs = pluginContentDirs(name, pluginDir, safeDir);
+  return firstExistingPath(dirs, { directory: true }) || path.join(pluginDataLayout(name).media, safeDir || "");
 }
 
 function normalizePluginRole(value, section, overhaul) {
@@ -1317,11 +1352,8 @@ function resolvePluginAsset(name, fileName, dirName = "") {
   }
   const safeDir = assertSafeDirName(dirName);
   const root = resolvePluginRoot(safeName);
-  const layout = pluginLayout(root.dir);
-  // media/ overrides stock files so edited entry scripts/uploads win.
-  const candidates = safeDir
-    ? [path.join(layout.media, safeDir, safeFile), path.join(root.dir, safeDir, safeFile)]
-    : [path.join(layout.media, safeFile), path.join(root.dir, safeFile)];
+  // User uploads/overrides (storage) win over legacy media and stock files.
+  const candidates = pluginContentDirs(safeName, root.dir, safeDir).map((baseDir) => path.join(baseDir, safeFile));
   const fullPath = firstExistingPath(candidates);
   return fullPath || null;
 }
@@ -1340,11 +1372,9 @@ function assertSafeDirName(value) {
 function listPluginAssets(name, dirName = "") {
   const safeName = assertSafePluginName(name);
   const pluginDir = resolvePluginRoot(safeName).dir;
-  const layout = pluginLayout(pluginDir);
   const safeDir = assertSafeDirName(dirName);
-  const dirs = safeDir
-    ? [path.join(layout.media, safeDir), path.join(pluginDir, safeDir)]
-    : [pluginDir, layout.media];
+  // Stock first, then legacy media, then storage media, so later entries win.
+  const dirs = pluginContentDirs(safeName, pluginDir, safeDir).slice().reverse();
   const byName = new Map();
   dirs.forEach((baseDir) => {
     if (!isDirectory(baseDir)) {
@@ -1377,11 +1407,8 @@ function listPluginAssets(name, dirName = "") {
 function listPluginSubdirs(name, dirName = "") {
   const safeName = assertSafePluginName(name);
   const pluginDir = resolvePluginRoot(safeName).dir;
-  const layout = pluginLayout(pluginDir);
   const safeDir = assertSafeDirName(dirName);
-  const dirs = safeDir
-    ? [path.join(layout.media, safeDir), path.join(pluginDir, safeDir)]
-    : [layout.media, pluginDir];
+  const dirs = pluginContentDirs(safeName, pluginDir, safeDir);
   const names = new Set();
   dirs.forEach((baseDir) => {
     if (!isDirectory(baseDir)) {
@@ -1413,7 +1440,7 @@ function createPluginPlaylist(name, playlistName) {
   if (!isDirectory(pluginDir)) {
     throw new Error(`Plugin '${safeName}' is not installed.`);
   }
-  const layout = ensurePluginLayout(pluginDir);
+  const layout = ensurePluginDataLayout(safeName, pluginDir);
   const playlistDir = path.join(layout.media, safePlaylist);
   if (fs.existsSync(playlistDir) && !fs.statSync(playlistDir).isDirectory()) {
     throw new Error(`'${safePlaylist}' exists and is not a folder.`);
@@ -1437,10 +1464,13 @@ function removePluginPlaylist(name, playlistName) {
   if (!isDirectory(pluginDir)) {
     throw new Error(`Plugin '${safeName}' is not installed.`);
   }
-  const layout = pluginLayout(pluginDir);
+  // Only user-data playlists are removable; stock folders in the checkout are
+  // left alone so the repo stays pull-only.
+  const layout = pluginDataLayout(safeName);
+  const legacy = legacyPluginLayout(pluginDir);
   const candidates = [
     path.join(layout.media, safePlaylist),
-    path.join(pluginDir, safePlaylist)
+    path.join(legacy.media, safePlaylist)
   ];
   let removed = false;
   candidates.forEach((playlistDir) => {
@@ -1459,7 +1489,7 @@ const MAX_PLUGIN_CONFIG_BYTES = 256 * 1024;
 
 function readPluginConfig(name) {
   const safeName = assertSafePluginName(name);
-  return readJsonIfPresent(resolvePluginConfigFile(resolvePluginRoot(safeName).dir));
+  return readJsonIfPresent(resolvePluginConfigFile(safeName, resolvePluginRoot(safeName).dir));
 }
 
 function writePluginConfig(name, config) {
@@ -1474,8 +1504,8 @@ function writePluginConfig(name, config) {
   if (Buffer.byteLength(serialized, "utf8") > MAX_PLUGIN_CONFIG_BYTES) {
     throw new Error(`Plugin config exceeds ${MAX_PLUGIN_CONFIG_BYTES} bytes.`);
   }
-  const layout = ensurePluginLayout(root.dir);
-  fs.writeFileSync(path.join(layout.userData, "config.json"), `${serialized}\n`, "utf8");
+  const layout = ensurePluginDataLayout(root.name, root.dir);
+  fs.writeFileSync(layout.configFile, `${serialized}\n`, "utf8");
   return config;
 }
 
@@ -1518,7 +1548,7 @@ function writePluginAssetFile(name, dirName, fileName, dataBuffer) {
   if (!isDirectory(pluginDir)) {
     throw new Error(`Plugin '${safeName}' is not installed.`);
   }
-  const contentDir = resolvePluginContentDir(pluginDir, safeDir || "", { forWrite: true });
+  const contentDir = resolvePluginContentDir(safeName, pluginDir, safeDir || "", { forWrite: true });
   const safeFile = assertSafePluginFileName(fileName);
   if (!safeFile) {
     throw new Error("Invalid file name.");
@@ -1548,14 +1578,16 @@ function removePluginAssetFile(name, dirName, fileName) {
   const safeName = assertSafePluginName(name);
   const safeDir = assertSafeDirName(dirName);
   const pluginDir = resolvePluginRoot(safeName).dir;
-  const layout = pluginLayout(pluginDir);
+  const layout = pluginDataLayout(safeName);
+  const legacy = legacyPluginLayout(pluginDir);
   const safeFile = assertSafePluginFileName(fileName);
   if (!safeFile) {
     throw new Error("Invalid file name.");
   }
+  // Only user-data files are removed; stock files in the checkout are kept.
   const candidates = safeDir
-    ? [path.join(layout.media, safeDir, safeFile), path.join(pluginDir, safeDir, safeFile)]
-    : [path.join(layout.media, safeFile), path.join(pluginDir, safeFile)];
+    ? [path.join(layout.media, safeDir, safeFile), path.join(legacy.media, safeDir, safeFile)]
+    : [path.join(layout.media, safeFile), path.join(legacy.media, safeFile)];
   let removed = false;
   candidates.forEach((fullPath) => {
     try {
@@ -1570,8 +1602,11 @@ function removePluginAssetFile(name, dirName, fileName) {
 
 const MAX_PLUGIN_LOG_BYTES = 512 * 1024;
 
-function pluginLogFile(pluginDir) {
-  return path.join(pluginLayout(pluginDir).logs, "plugin.log");
+function resolvePluginLogFile(name, pluginDir) {
+  const storageFile = path.join(pluginDataLayout(name).logs, "plugin.log");
+  if (fs.existsSync(storageFile)) return storageFile;
+  const legacyFile = path.join(legacyPluginLayout(pluginDir).logs, "plugin.log");
+  return fs.existsSync(legacyFile) ? legacyFile : storageFile;
 }
 
 function appendPluginLog(name, entry = {}) {
@@ -1580,7 +1615,7 @@ function appendPluginLog(name, entry = {}) {
   if (!isDirectory(pluginDir)) {
     return null;
   }
-  const layout = ensurePluginLayout(pluginDir);
+  const layout = ensurePluginDataLayout(safeName, pluginDir);
   const file = path.join(layout.logs, "plugin.log");
   const record = {
     timestamp: new Date().toISOString(),
@@ -1602,7 +1637,7 @@ function appendPluginLog(name, entry = {}) {
 
 function readPluginLogs(name, { limit = 200, level = "" } = {}) {
   const safeName = assertSafePluginName(name);
-  const file = pluginLogFile(resolvePluginRoot(safeName).dir);
+  const file = resolvePluginLogFile(safeName, resolvePluginRoot(safeName).dir);
   if (!fs.existsSync(file)) {
     return [];
   }
@@ -1625,10 +1660,13 @@ function readPluginLogs(name, { limit = 200, level = "" } = {}) {
 
 function clearPluginLogs(name) {
   const safeName = assertSafePluginName(name);
-  const file = pluginLogFile(resolvePluginRoot(safeName).dir);
-  if (fs.existsSync(file)) {
-    fs.writeFileSync(file, "", "utf8");
-  }
+  const pluginDir = resolvePluginRoot(safeName).dir;
+  [path.join(pluginDataLayout(safeName).logs, "plugin.log"), path.join(legacyPluginLayout(pluginDir).logs, "plugin.log")]
+    .forEach((file) => {
+      if (fs.existsSync(file)) {
+        fs.writeFileSync(file, "", "utf8");
+      }
+    });
   return { cleared: true };
 }
 
@@ -1777,7 +1815,7 @@ function createPluginScaffold(name, input = {}) {
   }
 
   fs.mkdirSync(pluginDir, { recursive: true });
-  const layout = ensurePluginLayout(pluginDir);
+  const layout = ensurePluginDataLayout(safeName, pluginDir);
 
   const manifest = {
     id: safeName,
@@ -1802,18 +1840,20 @@ function createPluginScaffold(name, input = {}) {
       : PLUGIN_ENTRY_TEMPLATE(safeName, title, version),
     "utf8"
   );
-  fs.writeFileSync(path.join(layout.userData, "config.json"), "{}\n", "utf8");
+  if (!fs.existsSync(layout.configFile)) {
+    fs.writeFileSync(layout.configFile, "{}\n", "utf8");
+  }
   fs.writeFileSync(
     path.join(pluginDir, "README.md"),
     [
       `# ${title}`,
       "",
       "Stock plugin files live in this folder (`manifest.json`, entry JS/CSS).",
-      "Operator data is separate and is not exported:",
+      "Operator data is stored outside the repository and is never published:",
       "",
-      "- `user-data/config.json` — settings",
-      "- `user-data/logs/plugin.log` — plugin logs",
-      "- `media/` — uploads, playlists, extra assets",
+      "- `storage/plugin-data/" + safeName + "/config.json` — settings",
+      "- `storage/plugin-data/" + safeName + "/logs/plugin.log` — plugin logs",
+      "- `storage/plugin-data/" + safeName + "/media/` — uploads, playlists, extra assets",
       ""
     ].join("\n"),
     "utf8"

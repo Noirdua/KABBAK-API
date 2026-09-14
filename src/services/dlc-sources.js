@@ -237,6 +237,64 @@ function rememberSourceBranch(sourceId, branch) {
   persist(sources);
 }
 
+function worktreeDirtyPaths(root) {
+  const paths = new Set();
+  const collect = (output) => {
+    String(output || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean).forEach((line) => paths.add(line));
+  };
+  collect(tryGit(["diff", "--name-only"], { cwd: root }).output);
+  collect(tryGit(["diff", "--name-only", "--cached"], { cwd: root }).output);
+  collect(tryGit(["ls-files", "--others", "--exclude-standard"], { cwd: root }).output);
+  return paths;
+}
+
+// Pull-only checkout update: fast-forward when possible, otherwise preserve
+// local files (selective update) so a DLC refresh never commits or discards
+// admin/plugin edits. Only publish ever creates commits.
+function pullCheckout(root, branch, { log = () => {} } = {}) {
+  const mergeAttempt = tryGit(["merge", "--ff-only", `origin/${branch}`], { cwd: root });
+  if (mergeAttempt.ok) {
+    return;
+  }
+  const stderr = String(mergeAttempt.error?.stderr || "").trim();
+  const isAncestor = tryGit(["merge-base", "--is-ancestor", "HEAD", `origin/${branch}`], { cwd: root }).ok;
+  const dirty = worktreeDirtyPaths(root);
+
+  if (isAncestor && dirty.size > 0) {
+    // Incoming commits touch locally edited files; apply only the clean paths
+    // and keep the local versions of the rest.
+    const changed = String(tryGit(["diff", "--name-only", "HEAD", `origin/${branch}`], { cwd: root }).output || "")
+      .split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const keptPaths = changed.filter((changedPath) => dirty.has(changedPath) || !fs.existsSync(path.join(root, changedPath)));
+    const updatePaths = changed.filter((changedPath) => !keptPaths.includes(changedPath));
+    keptPaths.forEach((keptPath) => log(`Keeping local version: ${keptPath}`));
+    git(["reset", "--mixed", `origin/${branch}`], { cwd: root, stdio: "inherit" });
+    if (updatePaths.length) {
+      git(["checkout", "HEAD", "--", ...updatePaths], { cwd: root, stdio: "inherit" });
+    }
+    log("DLC updated selectively; local files were kept.");
+    return;
+  }
+
+  if (!isAncestor && dirty.size === 0) {
+    // Diverged only because of local commits (e.g. an unpushed publish); replay
+    // them on top of origin.
+    const rebase = tryGit(["rebase", `origin/${branch}`], { cwd: root });
+    if (!rebase.ok) {
+      tryGit(["rebase", "--abort"], { cwd: root });
+      const rebaseStderr = String(rebase.error?.stderr || "").trim();
+      throw new Error(`DLC checkout diverged and could not be rebased onto origin/${branch}. ${rebaseStderr || stderr}`);
+    }
+    log(`Rebased local DLC commits onto origin/${branch}.`);
+    return;
+  }
+
+  throw new Error(
+    `Could not update the DLC checkout: ${stderr || "git merge --ff-only failed"}.`
+    + (dirty.size ? " Commit or stash local edits inside the checkout, then retry." : "")
+  );
+}
+
 function syncSource(sourceOrId, { log = () => {} } = {}) {
   const source = typeof sourceOrId === "string" ? getSource(sourceOrId) : sourceOrId;
   if (!source) {
@@ -263,7 +321,7 @@ function syncSource(sourceOrId, { log = () => {} } = {}) {
   log(`Updating ${source.name} (${branch})...`);
   git(["fetch", "--filter=blob:none", "origin", branch], { cwd: root, stdio: "inherit" });
   git(["checkout", branch], { cwd: root, stdio: "inherit" });
-  git(["merge", "--ff-only", `origin/${branch}`], { cwd: root, stdio: "inherit" });
+  pullCheckout(root, branch, { log });
   return describeSource(getSource(source.id) || source);
 }
 
@@ -360,6 +418,7 @@ module.exports = {
   listEnabledSourceRoots,
   listSources,
   normalizeUrl,
+  pullCheckout,
   removeSource,
   syncAllEnabledSources,
   syncSource,
