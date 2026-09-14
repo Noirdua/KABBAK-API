@@ -342,32 +342,49 @@ function updateRepo({ log = () => {} } = {}) {
   git(["fetch", "--filter=blob:none", "origin", branch], { cwd: dlcRoot, stdio: "inherit" });
   git(["checkout", branch], { cwd: dlcRoot, stdio: "inherit" });
 
-  try {
-    git(["merge", "--ff-only", `origin/${branch}`], { cwd: dlcRoot, stdio: "inherit" });
-  } catch (mergeError) {
-    // Admin-edited files (plugin configs, uploaded pages, presets, logos)
-    // live inside the checkout. A plain fast-forward refuses to run when one
-    // of those files is dirty, so fall back to a selective update: move the
-    // branch to the fetched commit, then re-apply the incoming content only
-    // for clean paths that are present on disk. Locally modified/added files
-    // keep the admin's version.
+  const mergeAttempt = tryGit(["merge", "--ff-only", `origin/${branch}`], { cwd: dlcRoot });
+  if (!mergeAttempt.ok) {
+    const stderr = String(mergeAttempt.error?.stderr || "").trim();
     const isAncestor = tryGit(["merge-base", "--is-ancestor", "HEAD", `origin/${branch}`], { cwd: dlcRoot }).ok;
     const dirty = listWorktreeDirtyPaths();
-    if (!isAncestor || dirty.size === 0) {
-      throw mergeError;
-    }
 
-    const changed = String(tryGit(["diff", "--name-only", "HEAD", `origin/${branch}`], { cwd: dlcRoot }).output || "")
-      .split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const keptPaths = changed.filter((changedPath) => dirty.has(changedPath) || !fs.existsSync(path.join(dlcRoot, changedPath)));
-    const updatePaths = changed.filter((changedPath) => !keptPaths.includes(changedPath));
+    if (isAncestor && dirty.size > 0) {
+      // Admin-edited files (plugin configs, uploaded pages, presets, logos)
+      // live inside the checkout. A plain fast-forward refuses to run when one
+      // of those files is dirty, so fall back to a selective update: move the
+      // branch to the fetched commit, then re-apply the incoming content only
+      // for clean paths that are present on disk. Locally modified/added files
+      // keep the admin's version.
+      const changed = String(tryGit(["diff", "--name-only", "HEAD", `origin/${branch}`], { cwd: dlcRoot }).output || "")
+        .split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      const keptPaths = changed.filter((changedPath) => dirty.has(changedPath) || !fs.existsSync(path.join(dlcRoot, changedPath)));
+      const updatePaths = changed.filter((changedPath) => !keptPaths.includes(changedPath));
 
-    keptPaths.forEach((keptPath) => log(`Keeping local version: ${keptPath}`));
-    git(["reset", "--mixed", `origin/${branch}`], { cwd: dlcRoot, stdio: "inherit" });
-    if (updatePaths.length) {
-      git(["checkout", "HEAD", "--", ...updatePaths], { cwd: dlcRoot, stdio: "inherit" });
+      keptPaths.forEach((keptPath) => log(`Keeping local version: ${keptPath}`));
+      git(["reset", "--mixed", `origin/${branch}`], { cwd: dlcRoot, stdio: "inherit" });
+      if (updatePaths.length) {
+        git(["checkout", "HEAD", "--", ...updatePaths], { cwd: dlcRoot, stdio: "inherit" });
+      }
+      log("DLC updated selectively; admin-edited files were kept.");
+    } else if (!isAncestor && dirty.size === 0) {
+      // Diverged (e.g. an unpushed local commit plus new remote work). Rebase
+      // the local commits onto origin so refresh can continue.
+      const rebase = tryGit(["rebase", `origin/${branch}`], { cwd: dlcRoot });
+      if (!rebase.ok) {
+        tryGit(["rebase", "--abort"], { cwd: dlcRoot });
+        const rebaseStderr = String(rebase.error?.stderr || "").trim();
+        throw new Error(
+          `DLC checkout has diverged and could not be rebased onto origin/${branch}. `
+          + `${rebaseStderr || stderr || "Resolve it manually with git."}`
+        );
+      }
+      log(`Rebased local DLC commits onto origin/${branch}.`);
+    } else {
+      throw new Error(
+        `Could not update the DLC checkout: ${stderr || "git merge --ff-only failed"}. `
+        + (dirty.size ? "Commit or stash local edits inside the checkout, then retry." : "")
+      );
     }
-    log("DLC updated selectively; admin-edited files were kept.");
   }
 
   const head = tryGit(["rev-parse", "--short", "HEAD"], { cwd: dlcRoot }).output.trim();
