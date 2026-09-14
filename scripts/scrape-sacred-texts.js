@@ -454,7 +454,7 @@ function extractBlocks(html) {
   current.text += source.slice(cursor);
   flush();
 
-  return blocks.filter((block) => !shouldDropBlock(block.text));
+  return mergeFootnoteBlocks(blocks.filter((block) => !shouldDropBlock(block.text)));
 }
 
 function cleanInline(value) {
@@ -476,6 +476,47 @@ function shouldDropBlock(text) {
   if (text.length < 400 && ATTRIBUTION_HINTS.some((hint) => lower.includes(hint))) return true;
   if (/^url:\s*https?:/i.test(text)) return true;
   return false;
+}
+
+// Footnotes/endnotes are usually one block per note ("[1] …", "[2] …"), which
+// the reader lists as dozens of tiny entries. Merge consecutive note blocks
+// (and everything under an ENDNOTES/FOOTNOTES heading) into a single paragraph.
+const NOTE_HEADING_RE = /^(?:end\s*notes?|foot\s*notes?|notes?|editor'?s?\s+notes?|appendix(?:\s+[a-z])?)\s*[:.]?$/i;
+const NOTE_MARKER_RE = /^(?:\[\d{1,4}\]|\(\d{1,4}\)|\d{1,4}[.)])\s+\S/;
+
+function mergeFootnoteBlocks(blocks) {
+  const out = [];
+  let pending = [];
+  let notesMode = false;
+  const flush = () => {
+    if (pending.length) {
+      out.push({ heading: false, text: pending.join(" ").replace(/\s+/g, " ").trim() });
+      pending = [];
+    }
+  };
+  (Array.isArray(blocks) ? blocks : []).forEach((block) => {
+    const text = cleanInline(block.text);
+    if (!text) return;
+    if (block.heading) {
+      flush();
+      notesMode = NOTE_HEADING_RE.test(text);
+      out.push({ heading: true, text });
+      return;
+    }
+    if (NOTE_MARKER_RE.test(text)) {
+      pending.push(text);
+      return;
+    }
+    if (pending.length && notesMode) {
+      // A wrapped footnote line inside a notes section.
+      pending.push(text);
+      return;
+    }
+    flush();
+    out.push({ heading: false, text });
+  });
+  flush();
+  return out;
 }
 
 function buildVerse(number, reference, text) {
@@ -707,12 +748,13 @@ function collectTextFiles(dir) {
 }
 
 function parsePlainTextBlocks(raw) {
-  return String(raw)
+  const blocks = String(raw)
     .replace(/\r\n?/g, "\n")
     .split(/\n[ \t]*\n+/)
     .map((chunk) => cleanInline(chunk))
     .filter((text) => text && !shouldDropBlock(text))
-    .map((text) => ({ heading: false, text }));
+    .map((text) => ({ heading: NOTE_HEADING_RE.test(text), text }));
+  return mergeFootnoteBlocks(blocks);
 }
 
 function isBoilerplateLine(line) {
@@ -797,6 +839,7 @@ function parseArgs(argv) {
     limit: 0,
     dryRun: false,
     install: false,
+    dlc: false,
     quiet: false,
     list: false,
     force: false,
@@ -819,6 +862,7 @@ function parseArgs(argv) {
       case "--exclude": options.exclude = String(next() || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean); break;
       case "--dry-run": options.dryRun = true; break;
       case "--install": options.install = true; break;
+      case "--dlc": options.dlc = true; break;
       case "--quiet": options.quiet = true; break;
       case "--list": options.list = true; break;
       case "--force": options.force = true; break;
@@ -848,7 +892,8 @@ function printHelp() {
     "  --limit <n>         Stop after n books.",
     "  --max-chapters <n>  Skip books exceeding n chapters (0 = unlimited, default 4000).",
     "  --no-text           Ignore folders that hold only plain .txt books.",
-    "  --install           Copy documents into source/data/text and refresh library.json.",
+    "  --install           Copy documents into source/data/text, refresh library.json, and write DLC text items (merged).",
+    "  --dlc               Write DLC text items only (imports/dlc/texts) without copying into source/data/text.",
     "  --force             Overwrite existing output files.",
     "  --dry-run           Discover and parse, but write nothing.",
     "  --list              List discovered books without parsing them.",
@@ -997,9 +1042,61 @@ async function main() {
     }
     const scan = await refreshTextLibraryRegistry();
     process.stdout.write(`Installed ${copied} documents into source/data/text; library now lists ${scan.sources.length} sources.\n`);
+    process.stdout.write("Reload the API (or POST /api/v1/admin/dlc/reload) so the reader catalog picks them up.\n");
   } else if (!options.quiet) {
     process.stdout.write(`Output: ${options.out}\n`);
     process.stdout.write("Register them with: npm run imports -- library --write\n");
+  }
+
+  // DLC items: writes the canonical DLC text layout (metadata.json + <id>.json)
+  // into imports/dlc/texts so scraped/imported texts show in Admin → DLC → Texts
+  // and can be installed/published like any other DLC item. `--install` merges
+  // both targets (runtime library + DLC items); `--dlc` writes only DLC items.
+  if (options.dlc || options.install) {
+    if (options.dryRun) {
+      process.stdout.write("Dry run: skipping DLC text items.\n");
+      return;
+    }
+    const { dlcRoot } = require("../src/config/paths");
+    const textsRoot = path.join(dlcRoot, "texts");
+    await fsp.mkdir(textsRoot, { recursive: true });
+    const usedIds = new Set();
+    let created = 0;
+    for (const item of manifest) {
+      const base = slugify(item.title || item.file);
+      if (!base) continue;
+      let id = base;
+      let suffix = 2;
+      while (usedIds.has(id)) {
+        id = `${base}-${suffix}`;
+        suffix += 1;
+      }
+      usedIds.add(id);
+      const itemDir = path.join(textsRoot, id);
+      const metaPath = path.join(itemDir, "metadata.json");
+      if (fs.existsSync(metaPath) && !options.force) continue;
+      await fsp.mkdir(itemDir, { recursive: true });
+      const contentFile = `${id}.json`;
+      await fsp.copyFile(path.join(options.out, item.file), path.join(itemDir, contentFile));
+      const metadata = {
+        id,
+        title: item.title || id,
+        shortTitle: item.title || id,
+        description: "",
+        language: "English",
+        script: "Latin",
+        tradition: item.category || "",
+        workLabel: "Book",
+        sectionLabel: "Chapter",
+        verseLabel: "Verse",
+        input: { path: contentFile, format: "structured-json" }
+      };
+      await fsp.writeFile(metaPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
+      created += 1;
+    }
+    process.stdout.write(
+      `Wrote ${created} DLC text item(s) into imports/dlc/texts. They appear under Admin → DLC → Texts; install or publish from there.\n`
+    );
   }
 }
 
