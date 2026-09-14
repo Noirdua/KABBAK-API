@@ -1147,6 +1147,10 @@ function pluginDataLayout(name) {
   };
 }
 
+function resolvePluginDataDir(name) {
+  return pluginDataLayout(name).root;
+}
+
 function firstExistingPath(paths, { directory = false } = {}) {
   return (Array.isArray(paths) ? paths : []).find((candidate) => {
     try {
@@ -1168,12 +1172,30 @@ function copyDirIfMissing(source, dest) {
   return true;
 }
 
-// One-time move of legacy in-checkout user data into storage/plugin-data.
+// Write via a temp file + rename so readers never see a partial file.
+function writeFileAtomic(target, data) {
+  const dir = path.dirname(target);
+  fs.mkdirSync(dir, { recursive: true });
+  const tmp = path.join(dir, `.${path.basename(target)}.${process.pid}.${Date.now()}.tmp`);
+  fs.writeFileSync(tmp, data);
+  try {
+    fs.renameSync(tmp, target);
+  } catch (error) {
+    try {
+      fs.unlinkSync(tmp);
+    } catch (_error) {}
+    throw error;
+  }
+}
+
+const MIGRATION_MARKER = ".migrated-from-checkout";
+
+// One-time (resumable) move of legacy in-checkout user data into storage.
 function migrateLegacyPluginData(name, pluginDir) {
   const layout = pluginDataLayout(name);
-  if (fs.existsSync(layout.root)) return layout;
+  const marker = path.join(layout.root, MIGRATION_MARKER);
+  if (fs.existsSync(marker)) return layout;
   const legacy = legacyPluginLayout(pluginDir);
-  let migrated = false;
   if (isDirectory(legacy.userData)) {
     fs.mkdirSync(layout.root, { recursive: true });
     fs.readdirSync(legacy.userData, { withFileTypes: true }).forEach((entry) => {
@@ -1181,10 +1203,9 @@ function migrateLegacyPluginData(name, pluginDir) {
       const dest = path.join(layout.root, entry.name);
       try {
         if (entry.isDirectory()) {
-          migrated = copyDirIfMissing(source, dest) || migrated;
+          copyDirIfMissing(source, dest);
         } else if (entry.isFile() && !fs.existsSync(dest)) {
           fs.copyFileSync(source, dest);
-          migrated = true;
         }
       } catch (_error) {
         // Best-effort migration; reads still fall back to the legacy path.
@@ -1192,33 +1213,79 @@ function migrateLegacyPluginData(name, pluginDir) {
     });
   }
   if (isDirectory(legacy.media)) {
-    migrated = copyDirIfMissing(legacy.media, layout.media) || migrated;
+    copyDirIfMissing(legacy.media, layout.media);
   }
   const legacyConfig = path.join(pluginDir, "config.json");
   if (!fs.existsSync(layout.configFile) && fs.existsSync(legacyConfig)) {
     fs.mkdirSync(layout.root, { recursive: true });
     fs.copyFileSync(legacyConfig, layout.configFile);
-    migrated = true;
   }
-  if (migrated) {
-    // Leave a marker so we only probe once.
-    try {
-      fs.writeFileSync(path.join(layout.root, ".migrated-from-checkout"), new Date().toISOString(), "utf8");
-    } catch (_error) {}
-  }
+  // Marker makes migration idempotent and resumable even if it was interrupted.
+  // Legacy dirs are intentionally left in place (gitignored) as a safety net;
+  // reads fall back to them if a storage file is ever missing.
+  try {
+    fs.mkdirSync(layout.root, { recursive: true });
+    writeFileAtomic(marker, new Date().toISOString());
+  } catch (_error) {}
   return layout;
 }
 
 function ensurePluginDataLayout(name, pluginDir = "") {
   const safeName = assertSafePluginName(name);
   const layout = pluginDataLayout(safeName);
-  if (!fs.existsSync(layout.root) && pluginDir) {
+  if (pluginDir && !fs.existsSync(path.join(layout.root, MIGRATION_MARKER))) {
     migrateLegacyPluginData(safeName, pluginDir);
   }
   fs.mkdirSync(layout.root, { recursive: true });
   fs.mkdirSync(layout.media, { recursive: true });
   fs.mkdirSync(layout.logs, { recursive: true });
   return layout;
+}
+
+// Tombstones hide a stock/legacy asset (or folder) without touching the repo,
+// so "delete" works on pull-only checkouts. A later upload clears the entry.
+function tombstonesFile(name) {
+  return path.join(pluginDataLayout(name).root, ".tombstones.json");
+}
+
+function readTombstones(name) {
+  const parsed = readJsonIfPresent(tombstonesFile(name));
+  return new Set(Array.isArray(parsed) ? parsed.map((entry) => String(entry)) : []);
+}
+
+function writeTombstones(name, set) {
+  writeFileAtomic(tombstonesFile(name), `${JSON.stringify([...set].sort(), null, 2)}\n`);
+}
+
+function isTombstoned(set, relative) {
+  const key = String(relative || "").replace(/\\/g, "/");
+  if (!key) return false;
+  if (set.has(key)) return true;
+  for (const entry of set) {
+    if (entry.endsWith("/") && key.startsWith(entry)) return true;
+  }
+  return false;
+}
+
+function addTombstone(name, relative) {
+  try {
+    const set = readTombstones(name);
+    set.add(String(relative || "").replace(/\\/g, "/"));
+    writeTombstones(name, set);
+  } catch (_error) {
+    // Best-effort: the asset is removed/overridden anyway.
+  }
+}
+
+function removeTombstone(name, relative) {
+  try {
+    const set = readTombstones(name);
+    if (set.delete(String(relative || "").replace(/\\/g, "/"))) {
+      writeTombstones(name, set);
+    }
+  } catch (_error) {
+    // Best-effort.
+  }
 }
 
 function resolvePluginConfigFile(name, pluginDir) {
@@ -1353,8 +1420,12 @@ function resolvePluginAsset(name, fileName, dirName = "") {
   const safeDir = assertSafeDirName(dirName);
   const root = resolvePluginRoot(safeName);
   // User uploads/overrides (storage) win over legacy media and stock files.
-  const candidates = pluginContentDirs(safeName, root.dir, safeDir).map((baseDir) => path.join(baseDir, safeFile));
-  const fullPath = firstExistingPath(candidates);
+  const contentDirs = pluginContentDirs(safeName, root.dir, safeDir);
+  const storageOverride = firstExistingPath([path.join(contentDirs[0], safeFile)]);
+  if (storageOverride) return storageOverride;
+  const relative = safeDir ? `${safeDir}/${safeFile}` : safeFile;
+  if (isTombstoned(readTombstones(safeName), relative)) return null;
+  const fullPath = firstExistingPath(contentDirs.slice(1).map((baseDir) => path.join(baseDir, safeFile)));
   return fullPath || null;
 }
 
@@ -1375,6 +1446,7 @@ function listPluginAssets(name, dirName = "") {
   const safeDir = assertSafeDirName(dirName);
   // Stock first, then legacy media, then storage media, so later entries win.
   const dirs = pluginContentDirs(safeName, pluginDir, safeDir).slice().reverse();
+  const tombstones = readTombstones(safeName);
   const byName = new Map();
   dirs.forEach((baseDir) => {
     if (!isDirectory(baseDir)) {
@@ -1385,6 +1457,10 @@ function listPluginAssets(name, dirName = "") {
         return;
       }
       if (/^config\.json$/i.test(entry.name)) {
+        return;
+      }
+      const relative = safeDir ? `${safeDir}/${entry.name}` : entry.name;
+      if (isTombstoned(tombstones, relative)) {
         return;
       }
       if (!PLUGIN_ASSET_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
@@ -1409,6 +1485,7 @@ function listPluginSubdirs(name, dirName = "") {
   const pluginDir = resolvePluginRoot(safeName).dir;
   const safeDir = assertSafeDirName(dirName);
   const dirs = pluginContentDirs(safeName, pluginDir, safeDir);
+  const tombstones = readTombstones(safeName);
   const names = new Set();
   dirs.forEach((baseDir) => {
     if (!isDirectory(baseDir)) {
@@ -1419,6 +1496,10 @@ function listPluginSubdirs(name, dirName = "") {
         return;
       }
       if (baseDir === pluginDir && PLUGIN_LAYOUT_SKIP_DIRS.includes(entry.name)) {
+        return;
+      }
+      const relative = safeDir ? `${safeDir}/${entry.name}` : entry.name;
+      if (isTombstoned(tombstones, relative) || isTombstoned(tombstones, `${relative}/`)) {
         return;
       }
       names.add(entry.name);
@@ -1446,6 +1527,8 @@ function createPluginPlaylist(name, playlistName) {
     throw new Error(`'${safePlaylist}' exists and is not a folder.`);
   }
   fs.mkdirSync(playlistDir, { recursive: true });
+  removeTombstone(safeName, safePlaylist);
+  removeTombstone(safeName, `${safePlaylist}/`);
   return { name: safePlaylist, created: true };
 }
 
@@ -1464,10 +1547,11 @@ function removePluginPlaylist(name, playlistName) {
   if (!isDirectory(pluginDir)) {
     throw new Error(`Plugin '${safeName}' is not installed.`);
   }
-  // Only user-data playlists are removable; stock folders in the checkout are
-  // left alone so the repo stays pull-only.
+  // Only user-data playlists are removed from disk; a stock folder in the
+  // checkout is hidden with a tombstone so the repo stays pull-only.
   const layout = pluginDataLayout(safeName);
   const legacy = legacyPluginLayout(pluginDir);
+  const stockDir = path.join(pluginDir, safePlaylist);
   const candidates = [
     path.join(layout.media, safePlaylist),
     path.join(legacy.media, safePlaylist)
@@ -1480,6 +1564,10 @@ function removePluginPlaylist(name, playlistName) {
     fs.rmSync(playlistDir, { recursive: true, force: true });
     removed = true;
   });
+  if (isDirectory(stockDir)) {
+    addTombstone(safeName, `${safePlaylist}/`);
+    removed = true;
+  }
   return { name: safePlaylist, removed };
 }
 
@@ -1505,7 +1593,7 @@ function writePluginConfig(name, config) {
     throw new Error(`Plugin config exceeds ${MAX_PLUGIN_CONFIG_BYTES} bytes.`);
   }
   const layout = ensurePluginDataLayout(root.name, root.dir);
-  fs.writeFileSync(layout.configFile, `${serialized}\n`, "utf8");
+  writeFileAtomic(layout.configFile, `${serialized}\n`);
   return config;
 }
 
@@ -1566,7 +1654,8 @@ function writePluginAssetFile(name, dirName, fileName, dataBuffer) {
   }
   fs.mkdirSync(contentDir, { recursive: true });
   const fullPath = path.join(contentDir, safeFile);
-  fs.writeFileSync(fullPath, dataBuffer);
+  writeFileAtomic(fullPath, dataBuffer);
+  removeTombstone(safeName, safeDir ? `${safeDir}/${safeFile}` : safeFile);
   return {
     name: safeFile,
     size: dataBuffer.length,
@@ -1584,12 +1673,21 @@ function removePluginAssetFile(name, dirName, fileName) {
   if (!safeFile) {
     throw new Error("Invalid file name.");
   }
-  // Only user-data files are removed; stock files in the checkout are kept.
-  const candidates = safeDir
-    ? [path.join(layout.media, safeDir, safeFile), path.join(legacy.media, safeDir, safeFile)]
-    : [path.join(layout.media, safeFile), path.join(legacy.media, safeFile)];
+  const dirKey = safeDir || "";
+  const relative = dirKey ? `${dirKey}/${safeFile}` : safeFile;
+  const joinAsset = (base) => (dirKey ? path.join(base, dirKey, safeFile) : path.join(base, safeFile));
+  const storagePath = joinAsset(layout.media);
+  const legacyPath = joinAsset(legacy.media);
+  const stockPath = joinAsset(pluginDir);
+  const existed = [storagePath, legacyPath, stockPath].some((fullPath) => {
+    try {
+      return fs.existsSync(fullPath) && fs.statSync(fullPath).isFile();
+    } catch (_error) {
+      return false;
+    }
+  });
   let removed = false;
-  candidates.forEach((fullPath) => {
+  [storagePath, legacyPath].forEach((fullPath) => {
     try {
       if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
         fs.unlinkSync(fullPath);
@@ -1597,7 +1695,9 @@ function removePluginAssetFile(name, dirName, fileName) {
       }
     } catch (_error) {}
   });
-  return removed;
+  // Hide a stock copy without touching the checkout (pull-only).
+  if (existed) addTombstone(safeName, relative);
+  return existed || removed;
 }
 
 const MAX_PLUGIN_LOG_BYTES = 512 * 1024;
@@ -2647,6 +2747,7 @@ module.exports = {
   readJsonIfPresent,
   readPluginConfig,
   readPluginLogs,
+  resolvePluginDataDir,
   readPluginManifest,
   removePluginAssetFile,
   removePluginPlaylist,

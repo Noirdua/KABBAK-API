@@ -5,7 +5,14 @@ const path = require("path");
 const express = require("express");
 
 const { createHttpError, createNotFoundError } = require("../lib/http-errors");
-const { appendPluginLog, listInstalledPlugins, resolvePluginRoot } = require("./dlc-catalog");
+const {
+  appendPluginLog,
+  listInstalledPlugins,
+  readPluginConfig,
+  resolvePluginDataDir,
+  resolvePluginRoot,
+  writePluginConfig
+} = require("./dlc-catalog");
 
 // DLC plugins are normally browser-only. A plugin can opt into contributing
 // Express routes by declaring a `server` entry in its manifest, e.g.
@@ -41,11 +48,22 @@ function readManifest(rootDir) {
 
 function buildContext(name, rootDir) {
   const root = apiRoot();
+  const dataDir = resolvePluginDataDir(name);
   return {
     name,
+    // Stock code lives in rootDir (pull-only checkout); operator data lives in
+    // dataDir (storage, never published).
     rootDir,
+    dataDir,
+    mediaDir: path.join(dataDir, "media"),
     apiRoot: root,
     logger: console,
+    readConfig() {
+      return readPluginConfig(name);
+    },
+    writeConfig(config) {
+      return writePluginConfig(name, config);
+    },
     log(level, message, details) {
       const LEVELS = new Set(["debug", "info", "warn", "error"]);
       let resolvedLevel = String(level || "info").toLowerCase();

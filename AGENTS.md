@@ -70,7 +70,9 @@ Plugin list: `GET /api/v1/plugins` → `{ plugins[], uploadLimitBytes }`. Fields
 
 Plugin JS/CSS: `GET /plugins/:name/:file` (`Cache-Control: no-cache` for code). Nested files: `/plugins/:name/files/:dir/:file`. Config GET redacts `*key*` / `*secret*` fields; POST is admin-only.
 
-**Do not delete `source/` on uninstall.** Shop uninstall removes import/checkout copies only. Plugin I/O must go through `resolvePluginRoot` (multi-source).
+**Do not delete `source/` on uninstall.** Shop uninstall removes import/checkout copies only.
+
+**Plugin data is split:** stock code in the checkout (`resolvePluginRoot`, multi-source); operator data in `storage/plugin-data/<name>/` (`config.json`, `logs/`, `media/`, `.tombstones.json`). That dir is outside git, so refresh is pull-only and data survives update/uninstall. Legacy in-checkout `user-data/` + `media/` + root `config.json` are read and migrated once (marker `.migrated-from-checkout`). Deleting a stock asset writes a tombstone instead of touching the repo. Plugin servers receive `ctx.dataDir` / `ctx.mediaDir` / `ctx.readConfig()` / `ctx.writeConfig()`.
 
 Layout skins currently in the DLC checkout:
 
