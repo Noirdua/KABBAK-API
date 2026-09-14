@@ -212,6 +212,7 @@ function assertDlcMutationBody(body) {
   const kind = String(body?.kind || "").trim().toLowerCase();
   const name = String(body?.name || "").trim();
   const sourceId = String(body?.sourceId || body?.source || "").trim();
+  const id = String(body?.id || "").trim();
   if (!kind || !name) {
     throw createHttpError(400, "invalid_dlc_request", "Both `kind` and `name` are required.");
   }
@@ -223,7 +224,7 @@ function assertDlcMutationBody(body) {
   } catch (error) {
     throw createHttpError(400, "invalid_dlc_name", error.message);
   }
-  return { kind, name, sourceId };
+  return { kind, name, sourceId, id };
 }
 
 // Available catalog (all categories). Plugins are what the shop installs.
@@ -701,6 +702,9 @@ router.post(
     let deck;
     try {
       deck = createDeckDlcFromZip(buffer, {
+        overwrite: request.query?.overwrite === "1" || request.query?.overwrite === "true",
+        folderName: String(request.query?.name || "").trim(),
+        renameFrom: String(request.query?.renameFrom || "").trim(),
         log: (message) => emitDlcLog(request, message)
       });
     } catch (error) {
@@ -878,7 +882,7 @@ router.post(
     errorMessage: "This route requires the admin role or api:admin scope."
   }),
   async (request, response) => {
-    const { kind, name, sourceId } = assertDlcMutationBody(getRequestBody(request));
+    const { kind, name, sourceId, id } = assertDlcMutationBody(getRequestBody(request));
 
     let removed = 0;
     try {
@@ -897,7 +901,7 @@ router.post(
           }
         }
       } else {
-        removed = uninstallItem({ kind, name }, { purge: true });
+        removed = uninstallItem({ kind, name, id }, { purge: true });
       }
     } catch (error) {
       emitDlcLog(request, error.message || "DLC uninstall failed.", {

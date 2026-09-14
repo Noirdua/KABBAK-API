@@ -9,7 +9,8 @@ const {
   textImportRoot,
   referencesImportRoot,
   sourceDecksRoot,
-  sourceTextDataRoot
+  sourceTextDataRoot,
+  decksRoot
 } = require("../config/paths");
 const dlcSources = require("./dlc-sources");
 
@@ -956,22 +957,33 @@ function installItem(item, { log = () => {} } = {}) {
   if (!category) throw new Error(`Unknown DLC kind '${item.kind}'.`);
   if (category.kind === "pack") throw new Error(`'${name}' is a pack; expand it before installing.`);
 
-  const sourceRecord = item.sourceId
-    ? dlcSources.getSource(item.sourceId)
-    : dlcSources.getPrimarySource();
-  const root = dlcSources.getSourceRoot(sourceRecord);
-  if (sourceRecord && !sourceRecord.primary) {
-    dlcSources.syncSource(sourceRecord, { log });
+  // Locally created/edited DLC lives in the workspace checkout, not the git
+  // source. Install it from there when present; otherwise fetch from the repo.
+  const workspaceSource = path.join(dlcRoot, category.dir, name);
+  let source = "";
+  if (isDirectory(workspaceSource) && fs.readdirSync(workspaceSource).length) {
+    source = workspaceSource;
+    log(`Installing ${category.dir}/${name} from the local DLC checkout...`);
   } else {
-    updateRepo({ log });
+    const sourceRecord = item.sourceId
+      ? dlcSources.getSource(item.sourceId)
+      : dlcSources.getPrimarySource();
+    const root = dlcSources.getSourceRoot(sourceRecord);
+    if (sourceRecord && !sourceRecord.primary) {
+      dlcSources.syncSource(sourceRecord, { log });
+    } else {
+      updateRepo({ log });
+    }
+    materialize(`${category.dir}/${name}`, { log, root });
+    source = path.join(root, category.dir, name);
   }
 
-  materialize(`${category.dir}/${name}`, { log, root });
-
-  const source = path.join(root, category.dir, name);
   if (!isDirectory(source) || !fs.readdirSync(source).length) {
     throw new Error(`'${name}' could not be downloaded from the DLC repository (expected ${category.dir}/${name}).`);
   }
+
+  // Refuse to install content that is structurally broken.
+  require("./dlc-validate").assertItemValid(category.kind, name, source);
 
   if (category.kind === "deck") {
     const staged = stageDeck(name, log, source);
@@ -1065,8 +1077,20 @@ function uninstallItem(item, { purge = false, log = () => {} } = {}) {
     removed += 1;
   };
 
+  // Installed content is copied out of imports/ into source/ by the migration
+  // (decks -> source/assets, texts/references -> source/data/text). Uninstall
+  // has to remove both the staged import and the installed canonical artifact.
+  const removeInstalledCanonical = () => {
+    const installedFile = resolveInstalledSourceFileName(item.id, name);
+    if (installedFile) {
+      removePath(path.join(sourceTextDataRoot, installedFile));
+    }
+  };
+
   if (category.kind === "deck") {
+    removePath(path.join(sourceDecksRoot, name));
     removePath(path.join(decksImportRoot, name));
+    removePath(path.join(decksRoot, name));
   } else if (category.kind === "plugin" || category.kind === "api") {
     try {
       removePath(resolvePluginRoot(name).dir);
@@ -1075,12 +1099,14 @@ function uninstallItem(item, { purge = false, log = () => {} } = {}) {
     }
   } else if (category.kind === "reference") {
     removePath(path.join(referencesImportRoot, name));
+    removeInstalledCanonical();
   } else {
     const manifestPath = path.join(textImportRoot, `${name}.manifest.json`);
     const manifest = readJsonIfPresent(manifestPath);
     const extension = path.extname(String(manifest?.input?.path || ".txt")) || ".txt";
     removePath(path.join(textImportRoot, name + extension));
     removePath(manifestPath);
+    removeInstalledCanonical();
   }
 
   if (purge) {
@@ -1801,9 +1827,21 @@ function createTextDlc(input = {}, { log = () => {} } = {}) {
   const safeId = assertSafePluginName(
     (slugifyText(input?.id || title) || "untitled-text").slice(0, 40).replace(/-+$/g, "") || "untitled-text"
   );
-  const textDir = path.join(dlcRoot, "texts", safeId);
+  const textFolder = String(input.folderName || "").trim() ? assertSafeName(input.folderName) : safeId;
+  const previousTextFolder = String(input.renameFrom || "").trim() ? assertSafeName(input.renameFrom) : "";
+  if (input.overwrite === true && previousTextFolder && previousTextFolder !== textFolder) {
+    const previousDir = path.join(dlcRoot, "texts", previousTextFolder);
+    if (isDirectory(previousDir)) {
+      fs.rmSync(previousDir, { recursive: true, force: true });
+    }
+  }
+  const textDir = path.join(dlcRoot, "texts", textFolder);
   if (isDirectory(textDir)) {
-    throw new Error(`Text '${safeId}' already exists.`);
+    if (input.overwrite === true) {
+      fs.rmSync(textDir, { recursive: true, force: true });
+    } else {
+      throw new Error(`Text '${textFolder}' already exists.`);
+    }
   }
 
   const works = Array.isArray(input?.document?.works) ? input.document.works : [];
@@ -1846,21 +1884,18 @@ function createTextDlc(input = {}, { log = () => {} } = {}) {
     fs.writeFileSync(path.join(textDir, "source.txt"), originalText.endsWith("\n") ? originalText : `${originalText}\n`, "utf8");
   }
 
-  const staged = stageText(safeId, log, textDir);
+  // Created DLC stays in the local checkout so the admin can review, publish,
+  // or install it deliberately. No auto-install / hot reload here.
   invalidateCatalogCache();
-  if (staged) {
-    try {
-      require("./storage-bootstrap").startBackgroundHotReload();
-    } catch (_error) {}
-  }
 
   return {
     id: safeId,
-    name: safeId,
+    name: textFolder,
     title,
     kind: "text",
-    staged: Boolean(staged),
-    path: `texts/${safeId}`
+    staged: false,
+    overwritten: input.overwrite === true,
+    path: `texts/${textFolder}`
   };
 }
 
@@ -2042,9 +2077,21 @@ function createReferenceDlc(input = {}, { log = () => {} } = {}) {
   const safeId = assertSafePluginName(
     (slugifyText(preview.id || title) || "untitled-reference").slice(0, 40).replace(/-+$/g, "") || "untitled-reference"
   );
-  const refDir = path.join(dlcRoot, "references", safeId);
+  const refFolder = String(input.folderName || "").trim() ? assertSafeName(input.folderName) : safeId;
+  const previousRefFolder = String(input.renameFrom || "").trim() ? assertSafeName(input.renameFrom) : "";
+  if (input.overwrite === true && previousRefFolder && previousRefFolder !== refFolder) {
+    const previousDir = path.join(dlcRoot, "references", previousRefFolder);
+    if (isDirectory(previousDir)) {
+      fs.rmSync(previousDir, { recursive: true, force: true });
+    }
+  }
+  const refDir = path.join(dlcRoot, "references", refFolder);
   if (isDirectory(refDir)) {
-    throw new Error(`Reference '${safeId}' already exists.`);
+    if (input.overwrite === true) {
+      fs.rmSync(refDir, { recursive: true, force: true });
+    } else {
+      throw new Error(`Reference '${refFolder}' already exists.`);
+    }
   }
   const kind = REFERENCE_KINDS.has(String(preview.kind || "").trim()) ? String(preview.kind).trim() : "dictionary";
   const keyScheme = REFERENCE_KEY_SCHEMES.has(String(preview.keyScheme || "").trim()) ? String(preview.keyScheme).trim() : "word";
@@ -2096,27 +2143,24 @@ function createReferenceDlc(input = {}, { log = () => {} } = {}) {
   fs.mkdirSync(refDir, { recursive: true });
   fs.writeFileSync(path.join(refDir, "reference.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   fs.writeFileSync(path.join(refDir, "entries.json"), `${JSON.stringify(preview.entries, null, 2)}\n`, "utf8");
-  const staged = stageReference(safeId, log, refDir);
+  // Created DLC stays in the local checkout so the admin can review, publish,
+  // or install it deliberately. No auto-install / hot reload here.
   invalidateCatalogCache();
-  if (staged) {
-    try {
-      require("./storage-bootstrap").startBackgroundHotReload();
-    } catch (_error) {}
-  }
   return {
     id: safeId,
-    name: safeId,
+    name: refFolder,
     title,
     kind: "reference",
     count: preview.count,
-    staged: Boolean(staged),
-    path: `references/${safeId}`
+    staged: false,
+    overwritten: input.overwrite === true,
+    path: `references/${refFolder}`
   };
 }
 
 const DECK_IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 
-function createDeckDlcFromZip(buffer, { log = () => {} } = {}) {
+function createDeckDlcFromZip(buffer, { log = () => {}, overwrite = false, folderName = "", renameFrom = "" } = {}) {
   const { unpackStoreZip } = require("../lib/zip-store");
   const { slugify: slugifyText } = require("./text-importer");
   const entries = unpackStoreZip(buffer);
@@ -2142,9 +2186,52 @@ function createDeckDlcFromZip(buffer, { log = () => {} } = {}) {
   const safeId = assertSafePluginName(
     (slugifyText(manifest.id || title) || "untitled-deck").slice(0, 40).replace(/-+$/g, "") || "untitled-deck"
   );
-  const deckDir = path.join(dlcRoot, "decks", safeId);
+  // The folder name is the catalog identity; deck.json id can be a slug that
+  // differs from it (e.g. "Rider Waite" folder, "rider-waite" id). Editing must
+  // overwrite the original folder, so callers can pin it explicitly.
+  // Decks live under their display name ("Sola Busca"), matching built-in decks.
+  let folderId;
+  if (String(folderName || "").trim()) {
+    folderId = assertSafeName(folderName);
+  } else {
+    try {
+      folderId = assertSafeName(title);
+    } catch (_error) {
+      folderId = safeId;
+    }
+  }
+  const previousFolder = String(renameFrom || "").trim() ? assertSafeName(renameFrom) : "";
+  if (overwrite === true && previousFolder && previousFolder !== folderId) {
+    // Remove the old workspace folder plus any installed runtime copies so a
+    // rename updates the same deck instead of leaving an orphan behind. Runtime
+    // copies are matched by old folder name or by deck.json id/title, which
+    // also sweeps up copies installed under a stale folder name.
+    const previousWorkspace = path.join(dlcRoot, "decks", previousFolder);
+    if (isDirectory(previousWorkspace)) {
+      fs.rmSync(previousWorkspace, { recursive: true, force: true });
+    }
+    [decksImportRoot, sourceDecksRoot, decksRoot].forEach((base) => {
+      if (!isDirectory(base)) return;
+      fs.readdirSync(base, { withFileTypes: true }).forEach((entry) => {
+        if (!entry.isDirectory()) return;
+        const record = readJsonIfPresent(path.join(base, entry.name, "deck.json"));
+        if (!record) return;
+        const sameId = String(record.id || "").trim() === String(safeId || "").trim();
+        const sameTitle = String(record.name || record.title || record.label || "").trim() === previousFolder;
+        if (sameId || sameTitle) {
+          fs.rmSync(path.join(base, entry.name), { recursive: true, force: true });
+        }
+      });
+    });
+    log(`Renamed decks/${previousFolder} -> decks/${folderId}.`);
+  }
+  const deckDir = path.join(dlcRoot, "decks", folderId);
   if (isDirectory(deckDir)) {
-    throw new Error(`Deck '${safeId}' already exists.`);
+    if (overwrite === true) {
+      fs.rmSync(deckDir, { recursive: true, force: true });
+    } else {
+      throw new Error(`Deck '${folderId}' already exists.`);
+    }
   }
 
   manifest.id = safeId;
@@ -2192,22 +2279,19 @@ function createDeckDlcFromZip(buffer, { log = () => {} } = {}) {
     throw error;
   }
 
-  const staged = stageDeck(safeId, log, deckDir);
+  // Created DLC stays in the local checkout so the admin can review, publish,
+  // or install it deliberately. No auto-install / hot reload here.
   invalidateCatalogCache();
-  if (staged) {
-    try {
-      require("./storage-bootstrap").startBackgroundHotReload();
-    } catch (_error) {}
-  }
 
   return {
     id: safeId,
-    name: safeId,
+    name: folderId,
     title,
     kind: "deck",
     images: imageCount,
-    staged: Boolean(staged),
-    path: `decks/${safeId}`
+    staged: false,
+    overwritten: overwrite === true,
+    path: `decks/${folderId}`
   };
 }
 

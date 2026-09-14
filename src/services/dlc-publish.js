@@ -17,6 +17,7 @@ const { execFileSync } = require("node:child_process");
 const { storageConfigRoot, dlcRoot } = require("../config/paths");
 const dlcSources = require("./dlc-sources");
 const { assertSafeName, categoryByKind } = require("./dlc-catalog");
+const { assertItemValid } = require("./dlc-validate");
 
 const PUBLISH_PATH = path.join(storageConfigRoot, "dlc-publish.json");
 const COMMIT_NAME = "KABBAK";
@@ -189,6 +190,65 @@ function stageItem(root, relPath) {
   }
 }
 
+function stageDeletion(root, relPath) {
+  try {
+    git(["add", "--sparse", "-A", "--", relPath], root);
+    return;
+  } catch (_error) {
+    // Fall through to the non-sparse form.
+  }
+  try {
+    git(["add", "-A", "--", relPath], root);
+  } catch (_error) {
+    // The path may already be gone from the index.
+  }
+}
+
+const ITEM_MANIFEST_FILES = {
+  deck: ["deck.json"],
+  reference: ["reference.json"],
+  text: ["metadata.json", "text.json"],
+  plugin: ["manifest.json"],
+  api: ["manifest.json"],
+  gui: ["manifest.json"]
+};
+
+function readItemMeta(kind, dir) {
+  const files = ITEM_MANIFEST_FILES[kind === "gui" ? "plugin" : kind] || [];
+  for (const file of files) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(path.join(dir, file), "utf8"));
+      if (!parsed || typeof parsed !== "object") continue;
+      return {
+        id: String(parsed.id || "").trim(),
+        title: String(parsed.name || parsed.title || parsed.label || "").trim()
+      };
+    } catch (_error) {
+      // Try the next manifest candidate.
+    }
+  }
+  return { id: "", title: "" };
+}
+
+function safeFolderFromTitle(title, fallback) {
+  const text = String(title || "").trim();
+  if (!text) return fallback;
+  try {
+    return assertSafeName(text);
+  } catch (_error) {
+    return fallback;
+  }
+}
+
+function folderSlug(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
 function publishItem({ kind, name, sourceId, message } = {}, { log = () => {} } = {}) {
   const source = resolveTargetSource(sourceId);
   if (!source) {
@@ -214,37 +274,81 @@ function publishItem({ kind, name, sourceId, message } = {}, { log = () => {} } 
     throw new Error(error.message);
   }
 
-  const relPath = `${dir}/${safeName}`;
-  const destDir = path.join(root, dir, safeName);
+  // Locate the item to publish (workspace first, then any enabled checkout).
   const workspaceDir = path.join(dlcRoot, dir, safeName);
-  const workspaceIsCheckout = path.resolve(workspaceDir) === path.resolve(destDir);
-
-  if (!workspaceIsCheckout && fs.existsSync(workspaceDir)) {
-    // Created/edited DLC lives in the local workspace; promote it into the
-    // target checkout so the commit carries the admin's version.
-    log(`Copying ${relPath} into ${source.name}.`);
-    copyItemIntoCheckout(workspaceDir, destDir);
-  } else if (!fs.existsSync(destDir)) {
-    const other = dlcSources.listEnabledSourceRoots()
+  let sourceItemDir = "";
+  if (fs.existsSync(workspaceDir)) {
+    sourceItemDir = workspaceDir;
+  } else {
+    sourceItemDir = dlcSources.listEnabledSourceRoots()
       .map(({ root: otherRoot }) => path.join(otherRoot, dir, safeName))
-      .find((candidate) => fs.existsSync(candidate));
-    if (!other) {
-      throw new Error(`'${safeName}' was not found in the local workspace or any DLC checkout. Create or sync it first.`);
-    }
-    log(`Copying ${relPath} into ${source.name}.`);
-    copyItemIntoCheckout(other, destDir);
+      .find((candidate) => fs.existsSync(candidate)) || "";
+  }
+  if (!sourceItemDir) {
+    throw new Error(`'${safeName}' was not found in the local workspace or any DLC checkout. Create or sync it first.`);
   }
 
-  const branch = resolvePublishBranch(root, source);
-  log(`Publishing ${kind}:${safeName} to ${source.name} (${branch}).`);
+  // Repo folders track the manifest id (deck/reference/text). If the item was
+  // renamed, publish under the new id and remove the stale folder.
+  const isPluginKind = ["plugin", "api", "gui"].includes(kind);
+  const meta = readItemMeta(kind, sourceItemDir);
+  let targetName = safeName;
+  if (kind === "deck") {
+    // Tarot decks are stored under their display name ("Sola Busca"), not the id.
+    targetName = safeFolderFromTitle(meta.title, folderSlug(meta.id) || safeName);
+  }
+  const relPath = `${dir}/${targetName}`;
+  const destDir = path.join(root, dir, targetName);
+  const oldRelPaths = [];
 
+  if (!isPluginKind && meta.id) {
+    const base = path.join(root, dir);
+    if (fs.existsSync(base)) {
+      fs.readdirSync(base, { withFileTypes: true }).forEach((entry) => {
+        if (!entry.isDirectory() || entry.name === targetName) return;
+        const existingId = readItemMeta(kind, path.join(base, entry.name)).id;
+        if (existingId === meta.id) {
+          fs.rmSync(path.join(base, entry.name), { recursive: true, force: true });
+          oldRelPaths.push(`${dir}/${entry.name}`);
+          log(`Removing stale ${dir}/${entry.name} (renamed to ${targetName}).`);
+        }
+      });
+    }
+  }
+
+  const samePath = path.resolve(sourceItemDir) === path.resolve(destDir);
+  if (!samePath) {
+    log(`Copying ${relPath} into ${source.name}.`);
+    copyItemIntoCheckout(sourceItemDir, destDir);
+  }
+
+  // Keep the local workspace folder in sync with the published name.
+  if (path.resolve(path.dirname(sourceItemDir)) === path.resolve(path.join(dlcRoot, dir))
+    && path.basename(sourceItemDir) !== targetName) {
+    const renamedWorkspace = path.join(dlcRoot, dir, targetName);
+    try {
+      fs.rmSync(renamedWorkspace, { recursive: true, force: true });
+      fs.renameSync(sourceItemDir, renamedWorkspace);
+    } catch (_error) {
+      // The published copy is what matters; the workspace rename is cosmetic.
+    }
+  }
+
+  // Never publish a broken item to the shared repo.
+  assertItemValid(kind, targetName, destDir);
+
+  const branch = resolvePublishBranch(root, source);
+  log(`Publishing ${kind}:${targetName} to ${source.name} (${branch}).`);
+
+  const stagedPaths = [relPath, ...oldRelPaths];
   stageItem(root, relPath);
-  const pending = tryGit(["status", "--porcelain", "--", relPath], root).trim();
+  oldRelPaths.forEach((oldRelPath) => stageDeletion(root, oldRelPath));
+  const pending = tryGit(["status", "--porcelain", "--", ...stagedPaths], root).trim();
   const headBefore = tryGit(["rev-parse", "--short", "HEAD"], root).trim();
 
   let committed = false;
   if (pending) {
-    const commitMessage = String(message || "").trim() || `Add ${kind}: ${safeName}`;
+    const commitMessage = String(message || "").trim() || `Add ${kind}: ${targetName}`;
     git(
       [
         "-c", `user.name=${COMMIT_NAME}`,
@@ -252,7 +356,7 @@ function publishItem({ kind, name, sourceId, message } = {}, { log = () => {} } 
         "commit",
         "-m", commitMessage,
         "--",
-        relPath
+        ...stagedPaths
       ],
       root
     );
@@ -285,7 +389,7 @@ function publishItem({ kind, name, sourceId, message } = {}, { log = () => {} } 
     sourceId: source.id,
     sourceName: source.name,
     kind,
-    name: safeName,
+    name: targetName,
     branch,
     committed,
     pushed: true,

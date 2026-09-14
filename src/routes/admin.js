@@ -45,6 +45,8 @@ const {
 } = require("../services/dlc-catalog");
 const dlcSources = require("../services/dlc-sources");
 const dlcPublish = require("../services/dlc-publish");
+const dlcEditor = require("../services/dlc-editor");
+const dlcValidate = require("../services/dlc-validate");
 const { reloadPluginServers } = require("../services/plugin-servers");
 const {
   ADMIN_API_MANAGEMENT_CAPABILITY,
@@ -747,6 +749,115 @@ router.post("/admin/dlc/publish", (request, response) => {
     sourceId: result.sourceId,
     branch: result.branch,
     committed: result.committed
+  });
+  response.apiSuccess(result);
+});
+
+// --- Edit / delete DLC items (uninstalled content only) ---------------------
+
+function assertItemQuery(request) {
+  const kind = String(request.query?.kind || request.body?.kind || "").trim();
+  const name = String(request.query?.name || request.body?.name || "").trim();
+  const sourceId = String(request.query?.sourceId || request.body?.sourceId || "").trim();
+  const id = String(request.query?.id || request.body?.id || "").trim();
+  if (!kind || !name) {
+    throw createHttpError(400, "invalid_item_request", "Both `kind` and `name` are required.");
+  }
+  return { kind, name, sourceId, id };
+}
+
+router.get("/admin/dlc/validate", (request, response) => {
+  const { kind, name, sourceId } = assertItemQuery(request);
+  let dir;
+  try {
+    dir = dlcEditor.resolveEditableDir(kind, name, sourceId).dir;
+  } catch (error) {
+    throw createHttpError(400, "dlc_item_read_failed", error.message);
+  }
+  response.apiSuccess(dlcValidate.validateItemDir(kind, name, dir));
+});
+
+router.get("/admin/dlc/item/draft", (request, response) => {
+  const { kind, name, sourceId, id } = assertItemQuery(request);
+  let result;
+  try {
+    result = dlcEditor.getItemDraft(kind, name, sourceId, id);
+  } catch (error) {
+    throw createHttpError(400, "dlc_item_read_failed", error.message);
+  }
+  response.apiSuccess(result);
+});
+
+router.get("/admin/dlc/item/files", (request, response) => {
+  const { kind, name, sourceId, id } = assertItemQuery(request);
+  let result;
+  try {
+    result = dlcEditor.listItemFiles(kind, name, sourceId, id);
+  } catch (error) {
+    throw createHttpError(400, "dlc_item_read_failed", error.message);
+  }
+  response.apiSuccess(result);
+});
+
+router.get("/admin/dlc/item/raw", (request, response) => {
+  const { kind, name, sourceId, id } = assertItemQuery(request);
+  const filePath = String(request.query?.path || "").trim();
+  let asset;
+  try {
+    asset = dlcEditor.readItemAsset(kind, name, filePath, sourceId, id);
+  } catch (error) {
+    throw createHttpError(400, "dlc_item_read_failed", error.message);
+  }
+  response.setHeader("Content-Type", asset.contentType);
+  response.setHeader("Cache-Control", "no-store");
+  response.send(asset.buffer);
+});
+
+router.get("/admin/dlc/item/file", (request, response) => {
+  const { kind, name, sourceId, id } = assertItemQuery(request);
+  const filePath = String(request.query?.path || "").trim();
+  let result;
+  try {
+    result = dlcEditor.readItemFile(kind, name, filePath, sourceId, id);
+  } catch (error) {
+    throw createHttpError(400, "dlc_item_read_failed", error.message);
+  }
+  response.apiSuccess(result);
+});
+
+router.put("/admin/dlc/item/file", (request, response) => {
+  const body = getPatchBody(request);
+  const { kind, name, sourceId, id } = assertItemQuery(request);
+  const filePath = String(body?.path || "").trim();
+  let result;
+  try {
+    result = dlcEditor.writeItemFile(kind, name, filePath, body?.content, sourceId, id);
+  } catch (error) {
+    throw createHttpError(400, "dlc_item_write_failed", error.message);
+  }
+  invalidateCatalogCache();
+  emitAdminMutationAuditEvent(request, response, {
+    action: "edit_dlc_item_file",
+    itemKind: kind,
+    itemName: name,
+    file: result.path
+  });
+  response.apiSuccess(result);
+});
+
+router.delete("/admin/dlc/item", (request, response) => {
+  const { kind, name, sourceId, id } = assertItemQuery(request);
+  let result;
+  try {
+    result = dlcEditor.deleteItem(kind, name, sourceId, id);
+  } catch (error) {
+    throw createHttpError(400, "dlc_item_delete_failed", error.message);
+  }
+  invalidateCatalogCache();
+  emitAdminMutationAuditEvent(request, response, {
+    action: "delete_dlc_item",
+    itemKind: kind,
+    itemName: name
   });
   response.apiSuccess(result);
 });
