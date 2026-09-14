@@ -610,7 +610,8 @@ async function listDeckOptions() {
     return {
       id: deck.id,
       name,
-      label: name
+      label: name,
+      system: String(manifest?.system || deck?.system || "tarot").trim().toLowerCase() || "tarot"
     };
   }));
   return { count: options.length, decks: options };

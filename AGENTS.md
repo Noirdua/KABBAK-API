@@ -145,6 +145,26 @@ npm run check:syntax
 npm run check:html        # untagged innerHTML linter
 ```
 
+## KABBAK-BOT sync
+
+The chat bot is a sibling checkout: `../KABBAK-BOT` (Discord + Matrix adapters over one command core). It talks to this API over HTTP with `x-api-key`.
+
+**Rule: when a change here alters a route, response shape, auth behavior, or domain feature the bot consumes, update `../KABBAK-BOT` in the same change** (and note it in the commit). The bot is a plain Node app: no build step, `node --check <file>` to verify. Keep the bot-facing contract stable or bump the bot alongside.
+
+Endpoints the bot calls (keep these shapes/names):
+
+- Envelope: `{ data, meta }`; the bot unwraps `res.data.data || res.data`.
+- Key check + status: `GET /health`, `GET /profile`; bot keys may be per chat-user (`x-api-key`).
+- Astro: `GET /now`, `GET /calendar/week-events`.
+- Tarot: `GET /tarot/cards`, `GET /tarot/cards/:cardId`, `GET /tarot/cards/:cardId/image`, `GET /tarot/spreads`, `GET /tarot/spreads/:id`.
+- Decks: `GET /decks/options` (items are `{ id, name, label, system }`), `GET /decks`. `system` is `tarot` | `iching` | … — tarot-only features (spreads, card lookups) must filter out non-`tarot` decks.
+- I Ching: `GET /iching`, `GET /iching/hexagrams/:number`.
+- Texts: `GET /texts`, `GET /texts/search`, `GET /texts/:sourceId/works/:workId/sections/:sectionId`.
+- Library: `GET /tattvas`, `GET /tattvas/:id`, `GET /gematria/words`, `GET /locations/*`, `GET /quiz/*`.
+- Assets: `GET /assets/<path>` (query `apiKey` only for media tags).
+
+Bot layout: `lib/kabbak-api.js` (client), `lib/catalog.js` (autocomplete + caches), `lib/commands.js` (command core), `lib/spread-stitch.js` / `lib/tattva-image.js` (image rendering), `platforms/*` (thin adapters). Add new bot behavior in `lib/`, not in an adapter.
+
 ## Pitfalls
 
 - Bind default is `127.0.0.1`. LAN access needs `HOST=0.0.0.0` and matching `KABBAK_ALLOWED_ORIGINS`.
@@ -156,4 +176,3 @@ npm run check:html        # untagged innerHTML linter
 - Magick dataset is large; first paint should not wait on it (cache loader idles it).
 - Query-string API keys leak; do not add new ones except media tags that cannot send headers.
 - `dlc-catalog.js` is a god module — extend carefully; invalidate catalog cache on install/uninstall.
-)
