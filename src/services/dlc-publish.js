@@ -230,23 +230,143 @@ function readItemMeta(kind, dir) {
   return { id: "", title: "" };
 }
 
-function safeFolderFromTitle(title, fallback) {
-  const text = String(title || "").trim();
-  if (!text) return fallback;
+// Map of relative path -> byte size for a local item folder (publish-copy
+// exclusions applied), used to compare against the committed HEAD tree.
+function dirSignatureMap(dir) {
+  const map = new Map();
+  const walk = (current, base) => {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch (_error) {
+      return;
+    }
+    entries.forEach((entry) => {
+      if (EXCLUDED_COPY_NAMES.has(entry.name)) return;
+      if (entry.isDirectory()) {
+        walk(path.join(current, entry.name), `${base}${entry.name}/`);
+        return;
+      }
+      if (!entry.isFile()) return;
+      let size = 0;
+      try {
+        size = fs.statSync(path.join(current, entry.name)).size;
+      } catch (_error) {
+        size = -1;
+      }
+      map.set(`${base}${entry.name}`, size);
+    });
+  };
+  walk(dir, "");
+  return map;
+}
+
+// Tracked paths at HEAD (fast; no blob fetch, safe for blobless clones).
+function gitHeadPaths(root) {
+  const output = tryGit(["ls-tree", "-r", "--name-only", "HEAD"], root) || "";
+  return new Set(output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
+}
+
+// Stamp of an item's user-visible files (path:size:mtime). Compared against the
+// snapshot recorded at the last successful publish to detect local edits.
+function itemStamp(dir) {
+  const parts = [];
+  dirSignatureMap(dir).forEach((size, relative) => {
+    let mtime = 0;
+    try {
+      mtime = fs.statSync(path.join(dir, relative)).mtimeMs;
+    } catch (_error) {
+      mtime = 0;
+    }
+    parts.push(`${relative}:${size}:${Math.round(mtime)}`);
+  });
+  parts.sort();
+  return parts.join("\n");
+}
+
+const SNAPSHOTS_PATH = path.join(storageConfigRoot, "dlc-publish-snapshots.json");
+
+function readSnapshots() {
   try {
-    return assertSafeName(text);
+    const parsed = JSON.parse(fs.readFileSync(SNAPSHOTS_PATH, "utf8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   } catch (_error) {
-    return fallback;
+    return {};
   }
 }
 
-function folderSlug(value) {
-  return String(value || "")
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
+function writeSnapshots(store) {
+  try {
+    fs.mkdirSync(path.dirname(SNAPSHOTS_PATH), { recursive: true });
+    fs.writeFileSync(SNAPSHOTS_PATH, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+  } catch (_error) {
+    // Snapshot is best-effort; a miss only shows Publish once more.
+  }
+}
+
+function recordSnapshot(sourceId, kind, name, dir) {
+  const store = readSnapshots();
+  store[`${sourceId}:${kind}:${name}`] = itemStamp(dir);
+  writeSnapshots(store);
+}
+
+// Whether an item has anything to publish: it isn't tracked at HEAD, its files
+// changed since the last publish snapshot, or the checkout is dirty. `ctx`
+// caches git reads across a batch of items.
+function getPublishPending({ kind, name, sourceId } = {}, ctx = {}) {
+  try {
+    const source = resolveTargetSource(sourceId);
+    if (!source) return { pending: false, reason: "no source" };
+    const root = dlcSources.getSourceRoot(source);
+    if (!fs.existsSync(path.join(root, ".git"))) return { pending: true, reason: "no checkout" };
+
+    const dir = resolveItemDir(kind);
+    if (!dir) return { pending: false, reason: "unknown kind" };
+    const safeName = assertSafeName(name);
+    const workspaceDir = path.join(dlcRoot, dir, safeName);
+    let sourceItemDir = fs.existsSync(workspaceDir) ? workspaceDir : "";
+    if (!sourceItemDir) {
+      sourceItemDir = dlcSources.listEnabledSourceRoots()
+        .map(({ root: otherRoot }) => path.join(otherRoot, dir, safeName))
+        .find((candidate) => fs.existsSync(candidate)) || "";
+    }
+    if (!sourceItemDir) return { pending: false, reason: "not local" };
+
+    const targetName = safeName;
+    const relPath = `${dir}/${targetName}`;
+
+    if (!ctx.paths) ctx.paths = new Map();
+    if (!ctx.dirty) ctx.dirty = new Map();
+    if (!ctx.paths.has(root)) ctx.paths.set(root, gitHeadPaths(root));
+    if (!ctx.dirty.has(root)) {
+      const output = tryGit(["status", "--porcelain"], root) || "";
+      ctx.dirty.set(root, output.split(/\r?\n/).map((line) => line.replace(/^..\s+/, "").trim()).filter(Boolean));
+    }
+
+    const tracked = ctx.paths.get(root);
+    if (![...tracked].some((filePath) => filePath === relPath || filePath.startsWith(`${relPath}/`))) {
+      return { pending: true, reason: "notpublished" };
+    }
+
+    const key = `${source.id}:${kind}:${targetName}`;
+    const snapshots = readSnapshots();
+    const stamp = itemStamp(sourceItemDir);
+    if (!snapshots[key]) {
+      // First time we see a tracked, already-published item: baseline it so
+      // later edits show Publish without flagging everything as changed.
+      snapshots[key] = stamp;
+      writeSnapshots(snapshots);
+    } else if (snapshots[key] !== stamp) {
+      return { pending: true, reason: "changes" };
+    }
+
+    if (ctx.dirty.get(root).some((p) => p === relPath || p.startsWith(`${relPath}/`))) {
+      return { pending: true, reason: "uncommitted" };
+    }
+    return { pending: false, reason: "uptodate" };
+  } catch (error) {
+    return { pending: true, reason: error?.message || "error" };
+  }
 }
 
 function publishItem({ kind, name, sourceId, message } = {}, { log = () => {} } = {}) {
@@ -292,11 +412,9 @@ function publishItem({ kind, name, sourceId, message } = {}, { log = () => {} } 
   // renamed, publish under the new id and remove the stale folder.
   const isPluginKind = ["plugin", "api", "gui"].includes(kind);
   const meta = readItemMeta(kind, sourceItemDir);
-  let targetName = safeName;
-  if (kind === "deck") {
-    // Tarot decks are stored under their display name ("Sola Busca"), not the id.
-    targetName = safeFolderFromTitle(meta.title, folderSlug(meta.id) || safeName);
-  }
+  // The workspace folder name is the identity (it already follows the deck title
+  // after an edit-save); publish just mirrors it and sweeps stale id folders.
+  const targetName = safeName;
   const relPath = `${dir}/${targetName}`;
   const destDir = path.join(root, dir, targetName);
   const oldRelPaths = [];
@@ -384,6 +502,7 @@ function publishItem({ kind, name, sourceId, message } = {}, { log = () => {} } 
     }
   }
 
+  recordSnapshot(source.id, kind, targetName, destDir);
   const head = tryGit(["rev-parse", "--short", "HEAD"], root).trim();
   return {
     sourceId: source.id,
@@ -401,6 +520,7 @@ function publishItem({ kind, name, sourceId, message } = {}, { log = () => {} } 
 
 module.exports = {
   clearPublishCredential,
+  getPublishPending,
   getPublishStatus,
   publishItem,
   setPublishCredential

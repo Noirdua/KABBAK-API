@@ -712,6 +712,19 @@ router.delete("/admin/dlc/publish/credentials/:sourceId", (request, response) =>
   response.apiSuccess({ sources });
 });
 
+router.post("/admin/dlc/publish/status", (request, response) => {
+  const body = getPatchBody(request);
+  const items = Array.isArray(body?.items) ? body.items.slice(0, 500) : [];
+  const ctx = {};
+  const statuses = items.map((item) => {
+    const kind = String(item?.kind || "");
+    const name = String(item?.name || "");
+    const result = dlcPublish.getPublishPending({ kind, name, sourceId: String(item?.sourceId || "") }, ctx);
+    return { kind, name, pending: result.pending === true, reason: result.reason };
+  });
+  response.apiSuccess({ statuses });
+});
+
 router.post("/admin/dlc/publish", (request, response) => {
   const body = getPatchBody(request);
   const kind = String(body?.kind || "").trim();
