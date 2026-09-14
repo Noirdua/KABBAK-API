@@ -439,7 +439,13 @@ function describeLocalItem(category, name, root = dlcRoot) {
 
   if (category.kind === "deck") {
     const deck = readJsonIfPresent(path.join(itemPath, "deck.json"));
-    return { ...base, id: deck?.id || fallbackId(name), title: deck?.name || deck?.label || deck?.title || name, description: deck?.description || "" };
+    return {
+      ...base,
+      id: deck?.id || fallbackId(name),
+      title: deck?.name || deck?.label || deck?.title || name,
+      description: deck?.description || "",
+      system: String(deck?.system || "tarot").trim().toLowerCase() || "tarot"
+    };
   }
   if (category.kind === "pack") {
     const pack = readJsonIfPresent(path.join(itemPath, "pack.json"));
@@ -548,6 +554,11 @@ function normalizeItem(category, entry, root = dlcRoot) {
     item.keyScheme = String(entry?.keyScheme || local?.keyScheme || "word").trim();
   }
 
+  if (category.kind === "deck") {
+    // Deck system drives the Admin DLC grouping (tarot, iching, …).
+    item.system = String(entry?.system || local?.system || "tarot").trim().toLowerCase() || "tarot";
+  }
+
   if (category.kind === "plugin" || category.kind === "api") {
     if (catalogKind === "gui") item.kind = "gui";
     // The checkout manifest is the live source of truth for installed plugins.
@@ -642,7 +653,13 @@ function describeGitItem(root, category, name) {
   if (category.kind === "deck") {
     const deck = gitShowJson(root, `${prefix}/deck.json`);
     if (!deck && local) return local;
-    return { ...base, id: deck?.id || local?.id || fallbackId(name), title: deck?.name || deck?.label || deck?.title || local?.title || name, description: deck?.description || local?.description || "" };
+    return {
+      ...base,
+      id: deck?.id || local?.id || fallbackId(name),
+      title: deck?.name || deck?.label || deck?.title || local?.title || name,
+      description: deck?.description || local?.description || "",
+      system: String(deck?.system || local?.system || "tarot").trim().toLowerCase() || "tarot"
+    };
   }
   if (category.kind === "pack") {
     const pack = gitShowJson(root, `${prefix}/pack.json`);
@@ -1979,8 +1996,8 @@ function createPluginScaffold(name, input = {}) {
 }
 
 function createTextDlc(input = {}, { log = () => {} } = {}) {
-  const { slugify: slugifyText } = require("./text-importer");
-  const title = String(input?.title || "").trim().slice(0, 120) || "Untitled text";
+  const { slugify: slugifyText, sanitizeText } = require("./text-importer");
+  const title = sanitizeText(input?.title || "").trim().slice(0, 120) || "Untitled text";
   const safeId = assertSafePluginName(
     (slugifyText(input?.id || title) || "untitled-text").slice(0, 40).replace(/-+$/g, "") || "untitled-text"
   );
@@ -2001,32 +2018,48 @@ function createTextDlc(input = {}, { log = () => {} } = {}) {
     }
   }
 
-  const works = Array.isArray(input?.document?.works) ? input.document.works : [];
-  if (!works.length) {
+  const rawWorks = Array.isArray(input?.document?.works) ? input.document.works : [];
+  if (!rawWorks.length) {
     throw new Error("The text has no sections to save. Preview it first and keep at least one passage.");
   }
+  const cleanText = (value) => (typeof value === "string" ? sanitizeText(value) : value);
+  const works = rawWorks.map((work) => ({
+    ...work,
+    title: cleanText(work?.title),
+    sections: (Array.isArray(work?.sections) ? work.sections : []).map((section) => ({
+      ...section,
+      title: cleanText(section?.title),
+      label: cleanText(section?.label),
+      verses: (Array.isArray(section?.verses) ? section.verses : []).map((verse) => ({
+        ...verse,
+        text: cleanText(verse?.text)
+      }))
+    }))
+  }));
 
+  const description = sanitizeText(input?.description || "").trim().slice(0, 800);
+  const shortTitle = sanitizeText(input?.shortTitle || title).trim().slice(0, 80);
   const sourceDocument = {
     schemaVersion: 1,
     type: "structured-text-source",
     title,
-    shortTitle: String(input?.shortTitle || title).trim().slice(0, 80),
+    shortTitle,
     metadata: {
-      description: String(input?.description || "").trim().slice(0, 800)
+      description
     },
     works
   };
   const manifest = {
     id: safeId,
     title,
-    shortTitle: sourceDocument.shortTitle,
-    description: String(input?.description || "").trim().slice(0, 800),
-    language: String(input?.language || "English").trim().slice(0, 60) || "English",
-    script: String(input?.script || "Latin").trim().slice(0, 60) || "Latin",
-    tradition: String(input?.tradition || "").trim().slice(0, 80),
-    workLabel: String(input?.workLabel || "Text").trim().slice(0, 40) || "Text",
-    sectionLabel: String(input?.sectionLabel || "Section").trim().slice(0, 40) || "Section",
-    verseLabel: String(input?.verseLabel || "Passage").trim().slice(0, 40) || "Passage",
+    shortTitle,
+    description,
+    language: sanitizeText(input?.language || "English").trim().slice(0, 60) || "English",
+    script: sanitizeText(input?.script || "Latin").trim().slice(0, 60) || "Latin",
+    tradition: sanitizeText(input?.tradition || "").trim().slice(0, 80),
+    workLabel: sanitizeText(input?.workLabel || "Text").trim().slice(0, 40) || "Text",
+    sectionLabel: sanitizeText(input?.sectionLabel || "Section").trim().slice(0, 40) || "Section",
+    verseLabel: sanitizeText(input?.verseLabel || "Passage").trim().slice(0, 40) || "Passage",
     input: {
       path: `${safeId}.json`,
       format: "structured-json"
@@ -2036,7 +2069,7 @@ function createTextDlc(input = {}, { log = () => {} } = {}) {
   fs.mkdirSync(textDir, { recursive: true });
   fs.writeFileSync(path.join(textDir, "metadata.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   fs.writeFileSync(path.join(textDir, `${safeId}.json`), `${JSON.stringify(sourceDocument, null, 2)}\n`, "utf8");
-  const originalText = String(input?.text || "").trim();
+  const originalText = sanitizeText(input?.text || "").trim();
   if (originalText && !originalText.startsWith("{")) {
     fs.writeFileSync(path.join(textDir, "source.txt"), originalText.endsWith("\n") ? originalText : `${originalText}\n`, "utf8");
   }

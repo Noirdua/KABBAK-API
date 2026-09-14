@@ -415,9 +415,31 @@ function resolveMinorFile(manifest, parsedMinor) {
   return null;
 }
 
+function resolveIChingCardFiles(manifest, cardName) {
+  const hexagrams = manifest?.hexagrams && typeof manifest.hexagrams === "object" ? manifest.hexagrams : {};
+  const names = manifest?.hexagramNames && typeof manifest.hexagramNames === "object" ? manifest.hexagramNames : {};
+  const target = String(cardName || "").trim().toLowerCase();
+  if (!target) {
+    return [];
+  }
+  const numberMatch = target.match(/^(?:hexagram[\s#_-]*)?(\d{1,2})(?:\D|$)/)
+    || target.match(/^(?:hexagram|hex)[\s#_-]*(\d{1,2})$/);
+  const key = numberMatch
+    ? String(Number(numberMatch[1]))
+    : Object.keys(names).find((candidate) => String(names[candidate] || "").trim().toLowerCase() === target);
+  if (!key) {
+    return [];
+  }
+  const file = hexagrams[key];
+  return file ? normalizeCardFiles(file) : [];
+}
+
 function resolveCardRelativePaths(manifest, cardName) {
   if (!manifest) {
     return [];
+  }
+  if (String(manifest.system || "").trim().toLowerCase() === "iching") {
+    return resolveIChingCardFiles(manifest, cardName);
   }
   const canonical = canonicalMajorName(cardName);
   const majorFiles = resolveMajorFiles(manifest, canonical);
@@ -469,10 +491,38 @@ function applySuitNameOverrides(manifest, displayName) {
   return next;
 }
 
+// Court cards can be renamed deck-wide (Page → Princess, Knight → Prince…).
+function applyCourtNameOverrides(manifest, displayName) {
+  const overrides = manifest?.courtNameOverrides;
+  if (!overrides || typeof overrides !== "object") {
+    return displayName;
+  }
+  let next = String(displayName || "");
+  [["page", overrides.page], ["knight", overrides.knight], ["queen", overrides.queen], ["king", overrides.king]]
+    .forEach(([rank, to]) => {
+      const custom = String(to || "").trim();
+      if (!custom) {
+        return;
+      }
+      next = next.replace(new RegExp(`^${rank}\\b`, "i"), custom);
+    });
+  return next;
+}
+
 function resolveDisplayNameWithDeck(manifest, cardName, trumpNumber) {
   const fallbackName = String(cardName || "").trim();
   if (!manifest) {
     return fallbackName;
+  }
+
+  if (String(manifest.system || "").trim().toLowerCase() === "iching") {
+    const names = manifest.hexagramNames && typeof manifest.hexagramNames === "object" ? manifest.hexagramNames : {};
+    const target = fallbackName.toLowerCase();
+    const numberMatch = target.match(/^(?:hexagram|hex)?[\s#_-]*(\d{1,2})$/);
+    const key = numberMatch
+      ? String(Number(numberMatch[1]))
+      : Object.keys(names).find((candidate) => String(names[candidate] || "").trim().toLowerCase() === target);
+    return key ? String(names[key] || `Hexagram ${key}`) : (fallbackName || "Hexagram");
   }
 
   let resolvedTrumpNumber = normalizeTrumpNumber(trumpNumber);
@@ -494,7 +544,7 @@ function resolveDisplayNameWithDeck(manifest, cardName, trumpNumber) {
     return minorOverride;
   }
 
-  return applySuitNameOverrides(manifest, fallbackName);
+  return applyCourtNameOverrides(manifest, applySuitNameOverrides(manifest, fallbackName));
 }
 
 function walkImageFiles(dir, acc = []) {

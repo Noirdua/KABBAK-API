@@ -45,6 +45,20 @@ const FORMAT_CHOICES = [
   { id: "titled-prose-json", label: "Titled prose JSON" }
 ];
 
+// Clean copy/paste damage before parsing: replacement chars (�), BOM/zero-width
+// marks, soft hyphens, lone surrogates, stray control chars, and CRLF noise.
+// Runs on preview and import so both the preview and the exported/saved text
+// are clean.
+function sanitizeText(value) {
+  let text = String(value == null ? "" : value);
+  text = text.replace(/\r\n?/g, "\n");
+  text = text.replace(/\uFFFD/g, "");
+  text = text.replace(/[\uFEFF\u200B\u200C\u200D\u2060\u00AD]/g, "");
+  text = text.replace(/(?:[\uD800-\uDBFF](?![\uDC00-\uDFFF]))|(?:(?<![\uD800-\uDBFF])[\uDC00-\uDFFF])/g, "");
+  text = text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "");
+  return text;
+}
+
 function normalizeWhitespace(value) {
   return String(value || "")
     .replace(/\s+/g, " ")
@@ -950,7 +964,7 @@ async function readJson(filePath) {
 
 async function readText(filePath) {
   const raw = await fs.readFile(filePath, "utf8");
-  return raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+  return sanitizeText(raw);
 }
 
 function normalizeManifest(manifest, manifestPath) {
@@ -1650,6 +1664,7 @@ function convertCustomTextSource(manifest, rawText, rules = {}) {
 }
 
 function parseTextWithFormat(manifest, rawText, format, rules = {}) {
+  rawText = sanitizeText(rawText);
   if (format === "quran-verse-table") {
     let parsed = rawText;
     try {
@@ -1799,7 +1814,7 @@ function extractLooseBlocks(rawText, slimDoc, format) {
 }
 
 function previewTextImport(input = {}) {
-  const rawText = String(input.text || "");
+  const rawText = sanitizeText(input.text);
   if (!rawText.trim()) {
     throw new Error("Paste or upload some text first.");
   }
@@ -1870,5 +1885,6 @@ module.exports = {
   importTextSources,
   importReferenceSources,
   previewTextImport,
+  sanitizeText,
   slugify
 };

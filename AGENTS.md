@@ -134,6 +134,7 @@ npm test                  # integration + client CLI
 npm run check:syntax
 npm run migrate:data      # rebuild SQLite snapshot
 npm run dlc               # DLC checkout helpers
+npm run scrape:sacred-texts -- --root <folder>   # archive HTML/TXT -> canonical text JSON
 ```
 
 GUI:

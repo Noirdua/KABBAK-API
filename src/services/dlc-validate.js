@@ -223,6 +223,45 @@ function countDeckImages(dir) {
   return count;
 }
 
+// I Ching decks map 64 hexagrams (+ optional back) instead of tarot majors/minors.
+function validateIChingDeck(dir, manifest, errors, warnings) {
+  const hexagrams = manifest.hexagrams;
+  if (!isPlainObject(hexagrams)) {
+    errors.push("deck.json hexagrams must be an object mapping 1–64 to image files.");
+    return;
+  }
+  const entries = Object.entries(hexagrams);
+  if (!entries.length) {
+    errors.push("deck.json maps no hexagrams.");
+    return;
+  }
+  let missing = 0;
+  const seen = new Set();
+  entries.forEach(([number, file]) => {
+    const files = Array.isArray(file) ? file : [file];
+    files.forEach((entry) => {
+      const name = String(entry || "").trim();
+      if (!name || seen.has(name)) return;
+      seen.add(name);
+      const resolved = resolveInsideFile(dir, name);
+      if (!resolved.ok) {
+        missing += 1;
+        if (missing <= 3) errors.push(`deck.json hexagram references '${name}': ${resolved.reason}.`);
+      }
+    });
+  });
+  if (missing > 3) errors.push(`…and ${missing - 3} more hexagram references are missing.`);
+  if (manifest.cardBack) {
+    const back = resolveInsideFile(dir, String(manifest.cardBack).trim());
+    if (!back.ok) errors.push(`deck.json cardBack: ${back.reason}.`);
+  }
+  if (entries.length < 64) {
+    warnings.push(`Deck maps ${entries.length}/64 hexagrams (incomplete decks install but stay partial).`);
+  }
+  const images = countDeckImages(dir);
+  if (!images) errors.push("Deck folder contains no card images.");
+}
+
 function validateDeck(dir, errors, warnings) {
   const manifest = readJsonIfPresent(path.join(dir, "deck.json"));
   if (!manifest) {
@@ -232,6 +271,11 @@ function validateDeck(dir, errors, warnings) {
   if (!String(manifest.id || "").trim()) errors.push("deck.json is missing an `id`.");
   const deckTitle = String(manifest.name || manifest.title || manifest.label || "").trim();
   if (!deckTitle) errors.push("deck.json is missing a `name`/`label`.");
+
+  if (String(manifest.system || "").trim().toLowerCase() === "iching") {
+    validateIChingDeck(dir, manifest, errors, warnings);
+    return;
+  }
 
   const majors = isPlainObject(manifest.majors) ? manifest.majors : {};
   const minors = isPlainObject(manifest.minors) ? manifest.minors : {};

@@ -971,6 +971,18 @@ function listDeckAssetRelativePaths(manifest) {
     }
   });
 
+  // I Ching decks map 64 hexagrams instead of majors/minors.
+  if (manifest?.hexagrams && typeof manifest.hexagrams === "object") {
+    Object.values(manifest.hexagrams).forEach((value) => {
+      (Array.isArray(value) ? value : [value]).forEach((entry) => {
+        const relativePath = String(entry || "").trim();
+        if (relativePath) {
+          relativePaths.add(relativePath.replace(/^\.\//, ""));
+        }
+      });
+    });
+  }
+
   const cardBackPath = String(manifest?.cardBack || manifest?.cardBackPath || "").trim().replace(/^\.\//, "");
   if (cardBackPath) {
     relativePaths.add(cardBackPath);

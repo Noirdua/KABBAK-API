@@ -109,20 +109,47 @@ function titleCase(value) {
   return String(value || "").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-// Map file path -> intended card label from the deck manifest (explicit maps).
+const COURT_RANKS = new Set(["page", "knight", "queen", "king"]);
+
+// Map file path -> intended card label from the deck manifest (explicit maps),
+// honoring suit/court name overrides.
 function buildDeckLabelMap(manifest) {
   const map = new Map();
   const add = (file, label) => {
     if (!file || !label) return;
     (Array.isArray(file) ? file : [file]).forEach((entry) => map.set(String(entry), label));
   };
+  if (String(manifest?.system || "").trim().toLowerCase() === "iching") {
+    const names = manifest?.hexagramNames || {};
+    Object.entries(manifest?.hexagrams || {}).forEach(([number, file]) => {
+      const label = String(names[number] || "").trim();
+      add(file, label ? `Hexagram ${number} · ${label}` : `Hexagram ${number}`);
+    });
+    if (manifest?.cardBack) add(manifest.cardBack, "Card back");
+    return map;
+  }
+  const courtOverrides = manifest?.courtNameOverrides || {};
+  const suitOverrides = manifest?.suitNameOverrides || {};
   const majors = manifest?.majors?.cards;
   if (majors && typeof majors === "object") {
     Object.entries(majors).forEach(([trump, file]) => add(file, `Major ${trump}`));
   }
   const minors = manifest?.minors?.cards;
   if (minors && typeof minors === "object") {
-    Object.entries(minors).forEach(([key, file]) => add(file, titleCase(key)));
+    Object.entries(minors).forEach(([key, file]) => {
+      const match = String(key).match(/^(.+?)\s+of\s+(.+)$/i);
+      if (!match) {
+        add(file, titleCase(key));
+        return;
+      }
+      const rankId = match[1].toLowerCase();
+      const suitId = match[2].toLowerCase();
+      const rankLabel = COURT_RANKS.has(rankId) && String(courtOverrides[rankId] || "").trim()
+        ? String(courtOverrides[rankId]).trim()
+        : titleCase(match[1]);
+      const suitLabel = String(suitOverrides[suitId] || "").trim() || titleCase(match[2]);
+      add(file, `${rankLabel} of ${suitLabel}`);
+    });
   }
   if (manifest?.cardBack) add(manifest.cardBack, "Card back");
   return map;
@@ -159,6 +186,21 @@ function listDeckImages(name, sourceId) {
   files.sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }));
   const manifest = readDeckManifest(root, relDir, working);
   const labels = buildDeckLabelMap(manifest);
+  const hexagramByFile = new Map();
+  if (String(manifest?.system || "").trim().toLowerCase() === "iching") {
+    const hexNames = manifest?.hexagramNames || {};
+    const hexLines = manifest?.hexagramLines || {};
+    Object.entries(manifest?.hexagrams || {}).forEach(([number, file]) => {
+      const files = Array.isArray(file) ? file : [file];
+      files.forEach((entry) => {
+        hexagramByFile.set(String(entry), {
+          number: Number(number),
+          name: String(hexNames[number] || "").trim(),
+          lineDiagram: String(hexLines[number] || "").trim()
+        });
+      });
+    });
+  }
   return {
     name: safeName,
     title: String(manifest?.name || manifest?.title || safeName).trim() || safeName,
@@ -167,7 +209,8 @@ function listDeckImages(name, sourceId) {
     images: files.map((relative) => ({
       path: relative,
       name: path.basename(relative),
-      label: labels.get(relative) || ""
+      label: labels.get(relative) || "",
+      hexagram: hexagramByFile.get(relative) || null
     }))
   };
 }
