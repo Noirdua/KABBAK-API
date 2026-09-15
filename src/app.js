@@ -37,6 +37,7 @@ const { createPluginServerDispatch } = require("./services/plugin-servers");
 const pluginsPublicRoutes = require("./routes/plugins-public");
 const calendarFeedRoutes = require("./routes/calendar-feed");
 const shareRoutes = require("./routes/share");
+const directoryRoutes = require("./routes/directory");
 
 const assetStaticOptions = {
   etag: true,
@@ -158,6 +159,8 @@ function createApp({ logger = console } = {}) {
   app.use(apiBasePath, calendarFeedRoutes);
   // Public share pages for links and attachments (tokenized URLs, pre-auth).
   app.use(apiBasePath, shareRoutes);
+  // Public directory of opt-in profiles (pre-auth, view-only).
+  app.use(apiBasePath, directoryRoutes);
   app.use(apiBasePath, requireApiKey);
   app.use(apiBasePath, createGlobalRateLimiter());
   app.use(apiBasePath, requireApiAccessLevel);

@@ -35,6 +35,7 @@ const {
   updateProfileBio,
   updateProfileCalendarFeed,
   updateProfileDisplayName,
+  updateProfileDirectory,
   updateProfileEvent,
   updateProfileLocation,
   updateProfileQuietHours,
@@ -609,6 +610,31 @@ router.patch("/profile/quiet-hours", wrapProfileHandler((request, response) => {
   });
 
   response.apiSuccess(result.quietHours, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+// --- Public directory opt-in -------------------------------------------------
+
+router.get("/profile/directory", wrapProfileHandler((request, response) => {
+  const summary = getProfileSummary(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess({ visibility: summary.directoryVisibility });
+}));
+
+router.patch("/profile/directory", wrapProfileHandler((request, response) => {
+  const result = updateProfileDirectory(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_directory",
+    visibility: result.visibility
+  });
+
+  response.apiSuccess({ visibility: result.visibility }, {
     storageUsedBytes: result.usage.usedBytes,
     storageQuotaBytes: result.usage.quotaBytes
   });

@@ -334,6 +334,9 @@ function normalizeProfile(rawProfile, clientId, options = {}) {
     ...(source.quietHours && typeof source.quietHours === "object" && !Array.isArray(source.quietHours)
       ? { quietHours: normalizeStoredQuietHours(source.quietHours) }
       : {}),
+    ...(typeof source.directoryVisibility === "string"
+      ? { directoryVisibility: normalizeDirectoryVisibility(source.directoryVisibility, "private") }
+      : {}),
     quiz: {
       attempts: Array.isArray(source.quiz?.attempts) ? source.quiz.attempts.filter((attempt) => attempt && typeof attempt === "object") : []
     }
@@ -476,6 +479,58 @@ function listProfileClientIds(options = {}) {
   return ids.sort();
 }
 
+// "public" profiles are listed in the public directory; "private" (default)
+// keeps a profile out of it entirely.
+function normalizeDirectoryVisibility(value, fallback = "private") {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "public" || raw === "private") {
+    return raw;
+  }
+  return fallback;
+}
+
+function updateProfileDirectory(clientId, input, options = {}) {
+  const profile = readProfile(clientId, options);
+  profile.directoryVisibility = normalizeDirectoryVisibility(input?.visibility, "private");
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(clientId, profile, options);
+  return { visibility: profile.directoryVisibility, usage };
+}
+
+function listPublicDirectoryEntries(options = {}) {
+  const root = options.profilesRoot || profilesRoot;
+  let files = [];
+  try {
+    files = fs.readdirSync(root);
+  } catch (_error) {
+    return [];
+  }
+  const entries = [];
+  for (const file of files) {
+    if (!file.startsWith("profile-") || !file.endsWith(".json")) {
+      continue;
+    }
+    let profile;
+    try {
+      profile = JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
+    } catch (_error) {
+      continue;
+    }
+    const clientId = String(profile?.clientId || "").trim();
+    if (!clientId || normalizeDirectoryVisibility(profile.directoryVisibility, "private") !== "public") {
+      continue;
+    }
+    entries.push({
+      clientId,
+      displayName: String(profile.displayName || "").trim().slice(0, 80),
+      bio: String(profile.bio || "").slice(0, 300),
+      memberSince: String(profile.createdAt || "")
+    });
+  }
+  entries.sort((left, right) => left.displayName.localeCompare(right.displayName));
+  return entries;
+}
+
 function getProfileRevision(clientId) {
   return profileWriteRevisions.get(normalizeClientId(clientId)) || 0;
 }
@@ -558,6 +613,7 @@ function getProfileSummary(clientId, options = {}) {
     location: profile.location || null,
     preferredDeck: profile.preferredDeck || "",
     quietHours: normalizeStoredQuietHours(profile.quietHours),
+    directoryVisibility: normalizeDirectoryVisibility(profile.directoryVisibility, "private"),
     storage: usage,
     counts: {
       notes: profile.notes.length,
@@ -2811,6 +2867,7 @@ module.exports = {
   normalizeStoredMessageFields,
   normalizeStoredQuietHours,
   resolveDirectMessageToken,
+  updateProfileDirectory,
   updateProfileQuietHours,
   expandEventOccurrences,
   findEventAttachment,
@@ -2828,6 +2885,7 @@ module.exports = {
   getProfileLibrary,
   getProfileRevision,
   listProfileClientIds,
+  listPublicDirectoryEntries,
   getProfileNote,
   getProfilePluginState,
   getProfileQuizProgress,

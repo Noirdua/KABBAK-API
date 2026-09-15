@@ -1658,6 +1658,38 @@
         }
       }
     },
+    "/directory": {
+      "get": {
+        "tags": ["directory"],
+        "summary": "List users who opted into the public directory",
+        "operationId": "getDirectory",
+        "security": [],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" }
+        }
+      }
+    },
+    "/profile/directory": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get the profile's public directory visibility",
+        "operationId": "getProfileDirectory",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "patch": {
+        "tags": ["profile"],
+        "summary": "Set the profile's public directory visibility (public/private)",
+        "operationId": "updateProfileDirectory",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
     "/profile/quiet-hours": {
       "get": {
         "tags": ["profile"],
