@@ -1446,6 +1446,43 @@
         }
       }
     },
+    "/calendar/feed.ics": {
+      "get": {
+        "tags": ["calendar"],
+        "summary": "Get the read-only ICS calendar subscription feed for a feed token",
+        "operationId": "getCalendarFeed",
+        "security": [],
+        "parameters": [
+          { "name": "token", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "layers", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/calendar-feed": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get the authenticated profile's calendar subscription feed state",
+        "operationId": "getProfileCalendarFeed",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["profile"],
+        "summary": "Enable, disable, or rotate the authenticated profile's calendar feed",
+        "operationId": "updateProfileCalendarFeed",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
     "/calendar/months": {
       "get": {
         "tags": [

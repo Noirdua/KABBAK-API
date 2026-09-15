@@ -29,6 +29,10 @@ const MAX_EVENT_LOCATION_LENGTH = 200;
 const MAX_EVENT_COLOR_LENGTH = 32;
 const MAX_EVENT_ID_LENGTH = 64;
 const MAX_EVENT_REMINDER_MINUTES = 7 * 24 * 60; // one week ahead
+const MAX_EVENT_SEGMENTS = 12; // time blocks per split-time event
+const MAX_EVENT_OCCURRENCES = 1000; // per event per range query
+const MAX_EVENT_RANGE_DAYS = 1100; // ~3 years of expanded occurrences
+const FEED_TOKEN_PREFIX = "kbf1";
 
 module.exports = {
   profilesRoot,
@@ -53,5 +57,9 @@ module.exports = {
   MAX_EVENT_LOCATION_LENGTH,
   MAX_EVENT_COLOR_LENGTH,
   MAX_EVENT_ID_LENGTH,
-  MAX_EVENT_REMINDER_MINUTES
+  MAX_EVENT_REMINDER_MINUTES,
+  MAX_EVENT_SEGMENTS,
+  MAX_EVENT_OCCURRENCES,
+  MAX_EVENT_RANGE_DAYS,
+  FEED_TOKEN_PREFIX
 };

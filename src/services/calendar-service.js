@@ -708,5 +708,6 @@ function getTarotCardsForDate(dateInput, referenceData = {}) {
 module.exports = {
   getWeekEventsForQuery,
   getNowSnapshot,
-  getTarotCardsForDate
+  getTarotCardsForDate,
+  getMoonPhaseName
 };

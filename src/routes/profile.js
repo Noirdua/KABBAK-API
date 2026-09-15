@@ -11,6 +11,7 @@ const {
   deleteProfileNote,
   deleteProfileQuickNote,
   getProfileBio,
+  getProfileCalendarFeed,
   getProfileEvent,
   getProfileLibrary,
   getProfileNote,
@@ -18,11 +19,13 @@ const {
   getProfileQuizProgress,
   getProfileSummary,
   listProfileEvents,
+  listProfileEventsInRange,
   listProfileNotes,
   listProfileQuickNotes,
   recordQuizAttempt,
   updateProfileQuickNote,
   updateProfileBio,
+  updateProfileCalendarFeed,
   updateProfileDisplayName,
   updateProfileEvent,
   updateProfileLocation,
@@ -317,10 +320,41 @@ router.delete("/profile/notes/:noteId", wrapProfileHandler((request, response) =
 // --- Calendar events ---------------------------------------------------------
 
 router.get("/profile/events", wrapProfileHandler((request, response) => {
-  const events = listProfileEvents(getProfileClientId(request, response), getProfileOptions(request, response));
+  const clientId = getProfileClientId(request, response);
+  const options = getProfileOptions(request, response);
+  const from = String(request.query.from || "").trim();
+  const to = String(request.query.to || "").trim();
+  const events = (from || to)
+    ? listProfileEventsInRange(clientId, from, to, options)
+    : listProfileEvents(clientId, options);
   response.apiSuccess({
     count: events.length,
     events
+  });
+}));
+
+// --- Calendar subscription feed ----------------------------------------------
+
+router.get("/profile/calendar-feed", wrapProfileHandler((request, response) => {
+  const feed = getProfileCalendarFeed(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess(feed);
+}));
+
+router.post("/profile/calendar-feed", wrapProfileHandler((request, response) => {
+  const result = updateProfileCalendarFeed(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_calendar_feed",
+    enabled: result.feed.enabled
+  });
+
+  response.apiSuccess(result.feed, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
   });
 }));
 

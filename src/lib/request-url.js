@@ -1,7 +1,8 @@
 const SENSITIVE_QUERY_PARAM_NAMES = new Set([
   "apikey",
   "api_key",
-  "x-api-key"
+  "x-api-key",
+  "token"
 ]);
 
 function sanitizeRequestUrl(rawUrl) {

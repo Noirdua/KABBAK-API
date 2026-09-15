@@ -35,6 +35,7 @@ const integrationRoutes = require("./routes/integrations");
 const { createThumbFallback } = require("./middleware/thumb-fallback");
 const { createPluginServerDispatch } = require("./services/plugin-servers");
 const pluginsPublicRoutes = require("./routes/plugins-public");
+const calendarFeedRoutes = require("./routes/calendar-feed");
 
 const assetStaticOptions = {
   etag: true,
@@ -152,6 +153,8 @@ function createApp({ logger = console } = {}) {
   );
   // Public reads for plugins that opt in with "public": true (pre-auth).
   app.use(apiBasePath, pluginsPublicRoutes);
+  // Public read-only calendar subscription feed (tokenized URL, pre-auth).
+  app.use(apiBasePath, calendarFeedRoutes);
   app.use(apiBasePath, requireApiKey);
   app.use(apiBasePath, createGlobalRateLimiter());
   app.use(apiBasePath, requireApiAccessLevel);

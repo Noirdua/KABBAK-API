@@ -25,7 +25,11 @@ const {
   MAX_EVENT_LOCATION_LENGTH,
   MAX_EVENT_COLOR_LENGTH,
   MAX_EVENT_ID_LENGTH,
-  MAX_EVENT_REMINDER_MINUTES
+  MAX_EVENT_REMINDER_MINUTES,
+  MAX_EVENT_SEGMENTS,
+  MAX_EVENT_OCCURRENCES,
+  MAX_EVENT_RANGE_DAYS,
+  FEED_TOKEN_PREFIX
 } = require("../config/profile-storage");
 
 class ProfileStorageError extends Error {
@@ -305,6 +309,11 @@ function normalizeProfile(rawProfile, clientId, options = {}) {
           .filter(Boolean)
           .slice(-MAX_EVENTS_PER_PROFILE)
       : [],
+    // Only persisted once the profile actually uses the subscription feed, so
+    // profiles that never touch it keep their stored shape (and quota) stable.
+    ...(source.calendarFeed && typeof source.calendarFeed === "object"
+      ? { calendarFeed: normalizeStoredCalendarFeed(source.calendarFeed) }
+      : {}),
     quiz: {
       attempts: Array.isArray(source.quiz?.attempts) ? source.quiz.attempts.filter((attempt) => attempt && typeof attempt === "object") : []
     }
@@ -1057,6 +1066,64 @@ function safeStoredEventTime(value) {
   }
 }
 
+// A timed event holds one or more time blocks (segments) on its date. A plain
+// event is simply a single block; split events use several.
+function normalizeEventSegments(raw, allDay) {
+  if (allDay) {
+    return [];
+  }
+  let source;
+  if (Array.isArray(raw.segments)) {
+    if (raw.segments.length > MAX_EVENT_SEGMENTS) {
+      throw eventError(`An event can have at most ${MAX_EVENT_SEGMENTS} time blocks.`);
+    }
+    source = raw.segments;
+  } else {
+    source = [{ startTime: raw.startTime, endTime: raw.endTime }];
+  }
+
+  const segments = [];
+  for (const entry of source) {
+    const item = entry && typeof entry === "object" ? entry : {};
+    const startTime = normalizeEventTime(item.startTime, "Time block start");
+    const endTime = normalizeEventTime(item.endTime, "Time block end");
+    if (!startTime && !endTime) {
+      continue; // ignore a blank row
+    }
+    if (!startTime) {
+      throw eventError("Each time block needs a start time.");
+    }
+    segments.push({ startTime, endTime });
+  }
+  if (!segments.length) {
+    throw eventError("A timed event needs a start time.");
+  }
+  return segments;
+}
+
+function normalizeStoredEventSegments(value, allDay, startTime, endTime) {
+  if (allDay) {
+    return [];
+  }
+  const source = Array.isArray(value) ? value : [];
+  const segments = [];
+  for (const entry of source.slice(0, MAX_EVENT_SEGMENTS)) {
+    const item = entry && typeof entry === "object" ? entry : {};
+    const blockStart = safeStoredEventTime(item.startTime);
+    if (!blockStart) {
+      continue;
+    }
+    segments.push({ startTime: blockStart, endTime: safeStoredEventTime(item.endTime) });
+  }
+  if (segments.length) {
+    return segments;
+  }
+  if (startTime) {
+    return [{ startTime, endTime: endTime || "" }];
+  }
+  return [];
+}
+
 function normalizeStoredEvent(event) {
   if (!event || typeof event !== "object") {
     return null;
@@ -1068,15 +1135,20 @@ function normalizeStoredEvent(event) {
     date = dateFromIso(createdAt);
   }
   let allDay = event.allDay === true;
-  let startTime = allDay ? "" : safeStoredEventTime(event.startTime);
-  const endTime = allDay ? "" : safeStoredEventTime(event.endTime);
+  const legacyStart = allDay ? "" : safeStoredEventTime(event.startTime);
+  const legacyEnd = allDay ? "" : safeStoredEventTime(event.endTime);
+  let segments = normalizeStoredEventSegments(event.segments, allDay, legacyStart, legacyEnd);
   // Keep the stored event self-consistent with the strict writer validator:
-  // a timed event without a usable start time degrades to all-day instead of
+  // a timed event without a usable time block degrades to all-day instead of
   // becoming un-editable on the next PATCH.
-  if (!allDay && !startTime) {
+  if (!allDay && !segments.length) {
     allDay = true;
-    startTime = "";
   }
+  if (allDay) {
+    segments = [];
+  }
+  const startTime = allDay ? "" : segments[0].startTime;
+  const endTime = allDay ? "" : segments[0].endTime;
   const category = String(event.category || "personal").trim().toLowerCase();
   const color = String(event.color || "").trim().toLowerCase();
   return {
@@ -1087,6 +1159,7 @@ function normalizeStoredEvent(event) {
     allDay,
     startTime,
     endTime,
+    segments,
     location: String(event.location || "").trim().slice(0, MAX_EVENT_LOCATION_LENGTH),
     category: EVENT_CATEGORIES.has(category) ? category : "personal",
     color: EVENT_COLOR_PATTERN.test(color) ? color : "",
@@ -1141,11 +1214,9 @@ function normalizeEventInput(input, { id, createdAt } = {}) {
     throw eventError(`A linked note id cannot exceed ${MAX_EVENT_ID_LENGTH} characters.`);
   }
   const allDay = raw.allDay === true;
-  const startTime = allDay ? "" : normalizeEventTime(raw.startTime, "Start time");
-  const endTime = allDay ? "" : normalizeEventTime(raw.endTime, "End time");
-  if (!allDay && !startTime) {
-    throw eventError("A timed event needs a start time.");
-  }
+  const segments = normalizeEventSegments(raw, allDay);
+  const startTime = allDay ? "" : segments[0].startTime;
+  const endTime = allDay ? "" : segments[0].endTime;
   const createdAtIso = String(createdAt || raw.createdAt || nowIso).trim() || nowIso;
   return {
     id: String(id || raw.id || `event_${crypto.randomBytes(8).toString("hex")}`),
@@ -1155,6 +1226,7 @@ function normalizeEventInput(input, { id, createdAt } = {}) {
     allDay,
     startTime,
     endTime,
+    segments,
     location,
     category: normalizeEventCategory(raw.category),
     color: normalizeEventColor(raw.color),
@@ -1179,6 +1251,9 @@ function resolveEventsLimit(options = {}) {
 function cloneEvent(event) {
   return {
     ...event,
+    segments: Array.isArray(event.segments)
+      ? event.segments.map((segment) => ({ startTime: segment.startTime, endTime: segment.endTime }))
+      : [],
     recurrence: {
       ...(event.recurrence || {}),
       byWeekday: Array.isArray(event.recurrence?.byWeekday) ? [...event.recurrence.byWeekday] : []
@@ -1271,6 +1346,288 @@ function deleteProfileEvent(clientId, eventId, options = {}) {
   profile.updatedAt = new Date().toISOString();
   const usage = writeProfile(clientId, profile, options);
   return { removed: true, usage };
+}
+
+// --- Calendar range expansion -------------------------------------------------
+
+function parseIsoDateUtc(value) {
+  const match = String(value || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return null;
+  }
+  return date;
+}
+
+function formatIsoDateUtc(date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addUtcDays(date, days) {
+  return new Date(date.getTime() + days * 86400000);
+}
+
+function diffUtcDays(left, right) {
+  return Math.round((left.getTime() - right.getTime()) / 86400000);
+}
+
+function daysInUtcMonth(year, monthIndex) {
+  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+}
+
+// Expand an event's recurrence into concrete dates within [from, to] (inclusive).
+function expandEventOccurrences(event, fromIso, toIso) {
+  const from = parseIsoDateUtc(fromIso);
+  const to = parseIsoDateUtc(toIso);
+  const start = parseIsoDateUtc(event?.date);
+  if (!event || !from || !to || !start || to < from) {
+    return [];
+  }
+
+  const until = event.recurrence?.until ? parseIsoDateUtc(event.recurrence.until) : null;
+  const hardEnd = until && until < to ? until : to;
+  const freq = event.recurrence?.freq || "none";
+  const intervalRaw = Number(event.recurrence?.interval);
+  const interval = Number.isFinite(intervalRaw) && intervalRaw >= 1 ? Math.floor(intervalRaw) : 1;
+  const occurrences = [];
+
+  if (freq === "none") {
+    if (start >= from && start <= to) {
+      occurrences.push(event.date);
+    }
+    return occurrences;
+  }
+
+  const push = (date) => {
+    if (occurrences.length >= MAX_EVENT_OCCURRENCES) {
+      return false;
+    }
+    occurrences.push(formatIsoDateUtc(date));
+    return true;
+  };
+
+  if (freq === "daily") {
+    let cursor = start < from ? from : start;
+    const offset = diffUtcDays(cursor, start) % interval;
+    if (offset !== 0) {
+      cursor = addUtcDays(cursor, interval - offset);
+    }
+    for (; cursor <= hardEnd; cursor = addUtcDays(cursor, interval)) {
+      if (!push(cursor)) break;
+    }
+    return occurrences;
+  }
+
+  if (freq === "weekly") {
+    const weekdays = Array.isArray(event.recurrence?.byWeekday) && event.recurrence.byWeekday.length
+      ? event.recurrence.byWeekday
+      : [start.getUTCDay()];
+    const anchor = addUtcDays(start, -start.getUTCDay()); // Sunday of the event's week
+    let cursor = start < from ? from : start;
+    for (; cursor <= hardEnd; cursor = addUtcDays(cursor, 1)) {
+      if (!weekdays.includes(cursor.getUTCDay())) continue;
+      const weekOffset = Math.floor(diffUtcDays(cursor, anchor) / 7);
+      if (weekOffset % interval !== 0) continue;
+      if (!push(cursor)) break;
+    }
+    return occurrences;
+  }
+
+  if (freq === "monthly") {
+    const day = start.getUTCDate();
+    let cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+    const fromMonth = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1));
+    while (cursor < fromMonth) {
+      cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + interval, 1));
+    }
+    for (; cursor <= hardEnd; cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + interval, 1))) {
+      if (daysInUtcMonth(cursor.getUTCFullYear(), cursor.getUTCMonth()) < day) continue;
+      const candidate = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), day));
+      if (candidate < start || candidate < from) continue;
+      if (!push(candidate)) break;
+    }
+    return occurrences;
+  }
+
+  if (freq === "yearly") {
+    const month = start.getUTCMonth();
+    const day = start.getUTCDate();
+    let year = start.getUTCFullYear();
+    while (year < from.getUTCFullYear()) {
+      year += interval;
+    }
+    for (;; year += interval) {
+      if (daysInUtcMonth(year, month) < day) continue;
+      const candidate = new Date(Date.UTC(year, month, day));
+      if (candidate > hardEnd) break;
+      if (candidate < start || candidate < from) continue;
+      if (!push(candidate)) break;
+    }
+    return occurrences;
+  }
+
+  return occurrences;
+}
+
+function normalizeEventRangeBound(value, fallback) {
+  const iso = String(value || "").trim();
+  if (!iso) {
+    return fallback;
+  }
+  if (!isValidOccurredOn(iso)) {
+    throw new ProfileStorageError("invalid_event_range", "Event range dates must be valid calendar dates (YYYY-MM-DD).");
+  }
+  return iso;
+}
+
+function summarizeOccurrence(event, date) {
+  const summary = cloneEvent(event);
+  summary.noteLength = String(summary.notes || "").length;
+  delete summary.notes;
+  return {
+    ...summary,
+    eventId: event.id,
+    id: `${event.id}#${date}`,
+    date,
+    segmentCount: Array.isArray(summary.segments) ? summary.segments.length : 0,
+    isRecurring: (event.recurrence?.freq || "none") !== "none",
+    source: "user"
+  };
+}
+
+function listProfileEventsInRange(clientId, fromInput, toInput, options = {}) {
+  const today = dateFromIso(new Date().toISOString());
+  const from = normalizeEventRangeBound(fromInput, today);
+  const to = normalizeEventRangeBound(toInput, from);
+  const fromDate = parseIsoDateUtc(from);
+  const toDate = parseIsoDateUtc(to);
+  if (!fromDate || !toDate || toDate < fromDate) {
+    throw new ProfileStorageError("invalid_event_range", "The end of the range must be on or after the start.");
+  }
+  if (diffUtcDays(toDate, fromDate) > MAX_EVENT_RANGE_DAYS) {
+    throw new ProfileStorageError(
+      "invalid_event_range",
+      `Event ranges cannot exceed ${MAX_EVENT_RANGE_DAYS} days.`
+    );
+  }
+
+  const profile = readProfile(clientId, options);
+  const occurrences = [];
+  for (const event of profile.events || []) {
+    for (const date of expandEventOccurrences(event, from, to)) {
+      occurrences.push(summarizeOccurrence(event, date));
+    }
+  }
+  return sortEvents(occurrences);
+}
+
+// --- Calendar subscription feed ----------------------------------------------
+
+function normalizeStoredCalendarFeed(raw) {
+  const source = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  const token = String(source.token || "").trim();
+  return {
+    enabled: source.enabled === true && Boolean(token),
+    token,
+    createdAt: String(source.createdAt || "").trim(),
+    updatedAt: String(source.updatedAt || "").trim()
+  };
+}
+
+function generateCalendarFeedToken(clientId) {
+  const idPart = Buffer.from(String(clientId), "utf8").toString("base64url");
+  const secret = crypto.randomBytes(24).toString("base64url");
+  return `${FEED_TOKEN_PREFIX}.${idPart}.${secret}`;
+}
+
+function buildCalendarFeedPath(token) {
+  return `/api/v1/calendar/feed.ics?token=${encodeURIComponent(token)}`;
+}
+
+function getProfileCalendarFeed(clientId, options = {}) {
+  const profile = readProfile(clientId, options);
+  const feed = normalizeStoredCalendarFeed(profile.calendarFeed);
+  return {
+    enabled: feed.enabled,
+    token: feed.token,
+    path: feed.token ? buildCalendarFeedPath(feed.token) : "",
+    createdAt: feed.createdAt,
+    updatedAt: feed.updatedAt
+  };
+}
+
+function updateProfileCalendarFeed(clientId, input, options = {}) {
+  const action = String(input?.action || "").trim().toLowerCase();
+  if (!["enable", "disable", "rotate"].includes(action)) {
+    throw new ProfileStorageError("invalid_feed_action", "Feed action must be enable, disable, or rotate.");
+  }
+  const profile = readProfile(clientId, options);
+  const existing = normalizeStoredCalendarFeed(profile.calendarFeed);
+  const nowIso = new Date().toISOString();
+  let token = existing.token;
+  if (action === "rotate" || (action === "enable" && !token)) {
+    token = generateCalendarFeedToken(clientId);
+  }
+  profile.calendarFeed = {
+    enabled: action !== "disable",
+    token,
+    createdAt: existing.createdAt || nowIso,
+    updatedAt: nowIso
+  };
+  profile.updatedAt = nowIso;
+  const usage = writeProfile(clientId, profile, options);
+  const feed = normalizeStoredCalendarFeed(profile.calendarFeed);
+  return {
+    feed: {
+      enabled: feed.enabled,
+      token: feed.token,
+      path: buildCalendarFeedPath(feed.token),
+      createdAt: feed.createdAt,
+      updatedAt: feed.updatedAt
+    },
+    usage
+  };
+}
+
+function resolveClientIdFromFeedToken(token) {
+  const parts = String(token || "").trim().split(".");
+  if (parts.length !== 3 || parts[0] !== FEED_TOKEN_PREFIX) {
+    return "";
+  }
+  try {
+    return Buffer.from(parts[1], "base64url").toString("utf8").trim();
+  } catch {
+    return "";
+  }
+}
+
+// Returns the owning profile for a valid, enabled feed token, or null.
+function resolveCalendarFeedToken(token, options = {}) {
+  const rawToken = String(token || "").trim();
+  const clientId = resolveClientIdFromFeedToken(rawToken);
+  if (!clientId) {
+    return null;
+  }
+  let profile;
+  try {
+    profile = readProfile(clientId, options);
+  } catch {
+    return null;
+  }
+  const feed = normalizeStoredCalendarFeed(profile.calendarFeed);
+  if (!feed.enabled || feed.token !== rawToken) {
+    return null;
+  }
+  return { clientId, profile };
 }
 
 function computeQuizStats(attempts) {
@@ -1599,6 +1956,7 @@ module.exports = {
   deleteProfileNote,
   deleteProfileQuickNote,
   getProfileBio,
+  getProfileCalendarFeed,
   getProfileEvent,
   getProfileLibrary,
   getProfileNote,
@@ -1607,13 +1965,16 @@ module.exports = {
   getProfileSummary,
   getProfileUsage,
   listProfileEvents,
+  listProfileEventsInRange,
   listProfileNotes,
   listProfileQuickNotes,
   readProfile,
+  resolveCalendarFeedToken,
   updateProfileQuickNote,
   recordQuizAttempt,
   resetProfile,
   updateProfileBio,
+  updateProfileCalendarFeed,
   updateProfileDisplayName,
   updateProfileEvent,
   updateProfileLibrary,
