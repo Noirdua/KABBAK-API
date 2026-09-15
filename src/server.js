@@ -5,6 +5,8 @@ const { createApp } = require("./app");
 const { appEnv } = require("./config/app-env");
 const { apiBasePath, serviceName, serviceVersion } = require("./config/service");
 const { ensureStorageReady, startBackgroundThumbnails } = require("./services/storage-bootstrap");
+const { registerDigestJob } = require("./services/digest-service");
+const { startScheduler } = require("./services/scheduler");
 const { resolvePluginUploadLimit } = require("./services/dlc-catalog");
 const { createCapturingLogger } = require("./services/log-capture");
 
@@ -103,6 +105,9 @@ async function startServer({ logger = console } = {}) {
   await listen(server, { port: appEnv.port, host: appEnv.host });
   activeLogger.log(`[api] ${serviceName}@${serviceVersion} listening on http://${appEnv.host}:${appEnv.port}${apiBasePath}/health`);
   startBackgroundThumbnails({ logger: activeLogger });
+  // One shared scheduler drives the nightly digest and any plugin jobs.
+  startScheduler({ log: (message) => activeLogger.log(message) });
+  registerDigestJob({ log: (message) => activeLogger.log(message) });
 
   return {
     app,

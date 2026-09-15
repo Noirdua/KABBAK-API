@@ -24,7 +24,9 @@ const EDITABLE_KEYS = new Set([
   "autoMigrateEnabled",
   "profileEncryptionSecret",
   "browserTitle",
-  "overlayBackgroundUrl"
+  "overlayBackgroundUrl",
+  "digestEnabled",
+  "digestHour"
 ]);
 
 const ENV_VAR_NAMES = Object.freeze({
@@ -36,9 +38,19 @@ const ENV_VAR_NAMES = Object.freeze({
   autoMigrateEnabled: "KABBAK_AUTO_MIGRATE",
   profileEncryptionSecret: "KABBAK_PROFILE_ENCRYPTION_SECRET",
   browserTitle: "KABBAK_BROWSER_TITLE",
+  digestEnabled: "KABBAK_DIGEST_ENABLED",
+  digestHour: "KABBAK_DIGEST_HOUR",
   port: "PORT",
   host: "HOST"
 });
+
+function normalizeDigestHour(value) {
+  const numeric = Number(value);
+  if (!Number.isInteger(numeric) || numeric < 0 || numeric > 23) {
+    return 8;
+  }
+  return numeric;
+}
 
 let state = null;
 
@@ -123,6 +135,10 @@ function envDefault(key) {
       return String(appEnv.browserTitle || "");
     case "overlayBackgroundUrl":
       return "";
+    case "digestEnabled":
+      return ["1", "true", "yes", "on"].includes(String(process.env.KABBAK_DIGEST_ENABLED || "").toLowerCase());
+    case "digestHour":
+      return normalizeDigestHour(process.env.KABBAK_DIGEST_HOUR);
     default:
       return undefined;
   }
@@ -148,6 +164,10 @@ function normalizePersistedValue(key, value) {
       return String(value || "").trim().slice(0, 100);
     case "overlayBackgroundUrl":
       return String(value || "").trim().slice(0, 500);
+    case "digestEnabled":
+      return Boolean(value);
+    case "digestHour":
+      return normalizeDigestHour(value);
     default:
       return value;
   }
@@ -183,6 +203,8 @@ function getRuntimeSettings() {
     // Browser tab title (empty means "use the frontend default").
     browserTitle: state.browserTitle,
     overlayBackgroundUrl: String(state.overlayBackgroundUrl || ""),
+    digestEnabled: state.digestEnabled === true,
+    digestHour: normalizeDigestHour(state.digestHour),
     // Restart-only values (shown for reference; changing them needs a restart).
     envOnly: {
       port: appEnv.port,
@@ -252,6 +274,14 @@ function updateRuntimeSettings(input = {}) {
     changes.overlayBackgroundUrl = String(input.overlayBackgroundUrl || "").trim().slice(0, 500);
     settings.overlayBackgroundUrl = changes.overlayBackgroundUrl;
   }
+  if (Object.prototype.hasOwnProperty.call(input, "digestEnabled")) {
+    changes.digestEnabled = Boolean(input.digestEnabled);
+    settings.digestEnabled = changes.digestEnabled;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "digestHour")) {
+    changes.digestHour = normalizeDigestHour(input.digestHour);
+    settings.digestHour = changes.digestHour;
+  }
 
   if (Object.keys(changes).length) {
     persistSettings({
@@ -263,7 +293,9 @@ function updateRuntimeSettings(input = {}) {
       autoMigrateEnabled: settings.autoMigrateEnabled,
       profileEncryptionSecret: settings.profileEncryptionSecret,
       browserTitle: settings.browserTitle,
-      overlayBackgroundUrl: settings.overlayBackgroundUrl
+      overlayBackgroundUrl: settings.overlayBackgroundUrl,
+      digestEnabled: settings.digestEnabled,
+      digestHour: settings.digestHour
     });
   }
 

@@ -1483,6 +1483,214 @@
         }
       }
     },
+    "/profile/events/{eventId}/attachments/{attachmentId}": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get a calendar event attachment's bytes",
+        "operationId": "getProfileEventAttachment",
+        "parameters": [
+          { "name": "eventId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/calendar/feed/attachment/{eventId}/{attachmentId}": {
+      "get": {
+        "tags": ["calendar"],
+        "summary": "Get an event attachment for the public calendar feed",
+        "operationId": "getCalendarFeedAttachment",
+        "security": [],
+        "parameters": [
+          { "name": "eventId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "token", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/calendar/feed/note-attachment/{noteId}/{sceneId}/{attachmentId}": {
+      "get": {
+        "tags": ["calendar"],
+        "summary": "Get a note attachment for the public calendar feed",
+        "operationId": "getCalendarFeedNoteAttachment",
+        "security": [],
+        "parameters": [
+          { "name": "noteId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "sceneId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "token", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/links": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "List share links for the authenticated profile",
+        "operationId": "listProfileLinks",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["profile"],
+        "summary": "Create a share link (message and/or attachments)",
+        "operationId": "createProfileLink",
+        "responses": {
+          "201": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "409": { "$ref": "#/components/responses/JsonPayload" },
+          "413": { "$ref": "#/components/responses/JsonPayload" }
+        }
+      }
+    },
+    "/profile/links/{linkId}": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get one share link for the authenticated profile",
+        "operationId": "getProfileLink",
+        "parameters": [
+          { "name": "linkId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "patch": {
+        "tags": ["profile"],
+        "summary": "Update a share link for the authenticated profile",
+        "operationId": "updateProfileLink",
+        "parameters": [
+          { "name": "linkId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["profile"],
+        "summary": "Delete a share link for the authenticated profile",
+        "operationId": "deleteProfileLink",
+        "parameters": [
+          { "name": "linkId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/share/{token}": {
+      "get": {
+        "tags": ["share"],
+        "summary": "Render a public share page for a link or attachment token",
+        "operationId": "getSharePage",
+        "security": [],
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/share/{token}/asset/{attachmentId}": {
+      "get": {
+        "tags": ["share"],
+        "summary": "Get a share page asset's bytes",
+        "operationId": "getShareAsset",
+        "security": [],
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/inbox": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "List the inbox: broadcasts plus direct messages and plugin reports",
+        "operationId": "getProfileInbox",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/profile/inbox/{scope}/{messageId}/attachments/{attachmentId}": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get one inbox message's attachment bytes (works for internal messages)",
+        "operationId": "getInboxMessageAttachment",
+        "parameters": [
+          { "name": "scope", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "messageId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/quiet-hours": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get the profile's quiet hours (unread alerts are held during this window)",
+        "operationId": "getProfileQuietHours",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "patch": {
+        "tags": ["profile"],
+        "summary": "Update the profile's quiet hours",
+        "operationId": "updateProfileQuietHours",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/admin/messages": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "List broadcast messages sent to all users",
+        "operationId": "listAdminMessages",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
     "/calendar/months": {
       "get": {
         "tags": [

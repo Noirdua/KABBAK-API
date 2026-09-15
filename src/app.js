@@ -36,6 +36,7 @@ const { createThumbFallback } = require("./middleware/thumb-fallback");
 const { createPluginServerDispatch } = require("./services/plugin-servers");
 const pluginsPublicRoutes = require("./routes/plugins-public");
 const calendarFeedRoutes = require("./routes/calendar-feed");
+const shareRoutes = require("./routes/share");
 
 const assetStaticOptions = {
   etag: true,
@@ -155,6 +156,8 @@ function createApp({ logger = console } = {}) {
   app.use(apiBasePath, pluginsPublicRoutes);
   // Public read-only calendar subscription feed (tokenized URL, pre-auth).
   app.use(apiBasePath, calendarFeedRoutes);
+  // Public share pages for links and attachments (tokenized URLs, pre-auth).
+  app.use(apiBasePath, shareRoutes);
   app.use(apiBasePath, requireApiKey);
   app.use(apiBasePath, createGlobalRateLimiter());
   app.use(apiBasePath, requireApiAccessLevel);

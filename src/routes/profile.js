@@ -10,10 +10,18 @@ const {
   deleteProfileEvent,
   deleteProfileNote,
   deleteProfileQuickNote,
+  buildSharePath,
+  createProfileLink,
+  decodeAttachmentPayload,
+  deleteProfileLink,
   getProfileBio,
   getProfileCalendarFeed,
   getProfileEvent,
+  getProfileEventAttachment,
   getProfileLibrary,
+  getProfileLink,
+  listProfileLinks,
+  updateProfileLink,
   getProfileNote,
   getProfilePluginState,
   getProfileQuizProgress,
@@ -29,11 +37,13 @@ const {
   updateProfileDisplayName,
   updateProfileEvent,
   updateProfileLocation,
+  updateProfileQuietHours,
   updateProfileLibrary,
   updateProfileNote,
   updateProfilePluginState,
   updateProfilePreferredDeck
 } = require("../services/profile-service");
+const { getInbox, getInboxMessageAttachment, markAllInboxRead, markInboxRead } = require("../services/inbox-service");
 const { readManagedApiClients } = require("../services/api-client-registry");
 const { resolveClientLimits } = require("../services/api-roles");
 
@@ -62,6 +72,7 @@ function getProfileOptions(request, response) {
     maxNotes: limits.notes,
     maxEvents: limits.events,
     maxAttachmentsPerScene: limits.attachmentsPerScene,
+    maxAttachmentsPerEvent: limits.attachmentsPerScene,
     maxAttachmentBytes: limits.attachmentBytes
   };
   profileOptionsCache.set(clientId, {
@@ -105,6 +116,21 @@ function mapProfileStorageError(error) {
   }
   if (error.code === "events_limit_reached") {
     return createHttpError(409, "events_limit_reached", error.message);
+  }
+  if (error.code === "attachment_not_found") {
+    return createNotFoundError("attachment_not_found", error.message);
+  }
+  if (error.code === "attachments_limit_reached") {
+    return createHttpError(409, "attachments_limit_reached", error.message);
+  }
+  if (error.code === "attachment_too_large") {
+    return createHttpError(413, "attachment_too_large", error.message);
+  }
+  if (error.code === "link_not_found") {
+    return createNotFoundError("link_not_found", error.message);
+  }
+  if (error.code === "links_limit_reached") {
+    return createHttpError(409, "links_limit_reached", error.message);
   }
 
   return createHttpError(400, error.code || "invalid_profile_request", error.message);
@@ -367,6 +393,23 @@ router.get("/profile/events/:eventId", wrapProfileHandler((request, response) =>
   response.apiSuccess(event);
 }));
 
+router.get("/profile/events/:eventId/attachments/:attachmentId", wrapProfileHandler((request, response) => {
+  const attachment = getProfileEventAttachment(
+    getProfileClientId(request, response),
+    request.params.eventId,
+    request.params.attachmentId,
+    getProfileOptions(request, response)
+  );
+  const { type, buffer } = decodeAttachmentPayload(attachment);
+  response.setHeader("Content-Type", type || "application/octet-stream");
+  response.setHeader(
+    "Content-Disposition",
+    `inline; filename="${encodeURIComponent(attachment.name || "attachment")}"`
+  );
+  response.setHeader("Cache-Control", "private, max-age=300");
+  response.send(buffer);
+}));
+
 router.post("/profile/events", wrapProfileHandler((request, response) => {
   const result = createProfileEvent(
     getProfileClientId(request, response),
@@ -420,6 +463,152 @@ router.delete("/profile/events/:eventId", wrapProfileHandler((request, response)
   response.apiSuccess({
     removed: result.removed
   }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+// --- Share links -------------------------------------------------------------
+
+router.get("/profile/links", wrapProfileHandler((request, response) => {
+  const links = listProfileLinks(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess({ count: links.length, links });
+}));
+
+router.get("/profile/links/:linkId", wrapProfileHandler((request, response) => {
+  const link = getProfileLink(
+    getProfileClientId(request, response),
+    request.params.linkId,
+    getProfileOptions(request, response)
+  );
+  response.apiSuccess({ ...link, path: buildSharePath(link.token) });
+}));
+
+router.post("/profile/links", wrapProfileHandler((request, response) => {
+  const result = createProfileLink(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "create_profile_link",
+    targetLinkId: result.link.id
+  });
+
+  response.status(201).apiSuccess({ ...result.link, path: buildSharePath(result.link.token) }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.patch("/profile/links/:linkId", wrapProfileHandler((request, response) => {
+  const result = updateProfileLink(
+    getProfileClientId(request, response),
+    request.params.linkId,
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_link",
+    targetLinkId: result.link.id
+  });
+
+  response.apiSuccess({ ...result.link, path: buildSharePath(result.link.token) }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.delete("/profile/links/:linkId", wrapProfileHandler((request, response) => {
+  const result = deleteProfileLink(
+    getProfileClientId(request, response),
+    request.params.linkId,
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "delete_profile_link",
+    targetLinkId: String(request.params.linkId || ""),
+    removed: result.removed
+  });
+
+  response.apiSuccess({ removed: result.removed }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+// --- Inbox -------------------------------------------------------------------
+
+router.get("/profile/inbox", wrapProfileHandler((request, response) => {
+  const options = {
+    ...getProfileOptions(request, response),
+    kind: String(request.query.kind || "").trim(),
+    scope: String(request.query.scope || "").trim(),
+    unreadOnly: String(request.query.unread || "") === "1"
+  };
+  const inbox = getInbox(getProfileClientId(request, response), options);
+  response.apiSuccess(inbox);
+}));
+
+router.post("/profile/inbox/:scope/:messageId/read", wrapProfileHandler((request, response) => {
+  const result = markInboxRead(
+    getProfileClientId(request, response),
+    request.params.scope,
+    request.params.messageId,
+    getProfileOptions(request, response)
+  );
+  response.apiSuccess({ read: true, changed: result.changed });
+}));
+
+router.get("/profile/inbox/:scope/:messageId/attachments/:attachmentId", wrapProfileHandler((request, response) => {
+  const attachment = getInboxMessageAttachment(
+    getProfileClientId(request, response),
+    request.params.scope,
+    request.params.messageId,
+    request.params.attachmentId,
+    getProfileOptions(request, response)
+  );
+  if (!attachment || !attachment.data) {
+    throw createNotFoundError("attachment_not_found", "Attachment not found.");
+  }
+  const { type, buffer } = decodeAttachmentPayload(attachment);
+  response.setHeader("Content-Type", type || "application/octet-stream");
+  response.setHeader(
+    "Content-Disposition",
+    `inline; filename="${encodeURIComponent(attachment.name || "attachment")}"`
+  );
+  response.setHeader("Cache-Control", "private, max-age=300");
+  response.send(buffer);
+}));
+
+router.post("/profile/inbox/read-all", wrapProfileHandler((request, response) => {
+  const result = markAllInboxRead(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess({ changed: result.changed });
+}));
+
+// --- Quiet hours -------------------------------------------------------------
+
+router.get("/profile/quiet-hours", wrapProfileHandler((request, response) => {
+  const summary = getProfileSummary(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess(summary.quietHours);
+}));
+
+router.patch("/profile/quiet-hours", wrapProfileHandler((request, response) => {
+  const result = updateProfileQuietHours(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_quiet_hours",
+    enabled: result.quietHours.enabled
+  });
+
+  response.apiSuccess(result.quietHours, {
     storageUsedBytes: result.usage.usedBytes,
     storageQuotaBytes: result.usage.quotaBytes
   });

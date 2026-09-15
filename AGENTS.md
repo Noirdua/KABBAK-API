@@ -74,6 +74,8 @@ Plugin JS/CSS: `GET /plugins/:name/:file` (`Cache-Control: no-cache` for code). 
 
 **Plugin data is split:** stock code in the checkout (`resolvePluginRoot`, multi-source); operator data in `storage/plugin-data/<name>/` (`config.json`, `logs/`, `media/`, `.tombstones.json`). That dir is outside git, so refresh is pull-only and data survives update/uninstall. Legacy in-checkout `user-data/` + `media/` + root `config.json` are read and migrated once (marker `.migrated-from-checkout`). Deleting a stock asset writes a tombstone instead of touching the repo. Plugin servers receive `ctx.dataDir` / `ctx.mediaDir` / `ctx.readConfig()` / `ctx.writeConfig()`.
 
+**Plugin messaging + scheduling (generic, not calendar-specific):** `ctx.inbox.send(clientId, { title, description, kind, attachments, visibility, publishAt, expiresAt, requiresAck })` writes to one user's inbox; `ctx.inbox.broadcast(message)` sends to everyone; `ctx.inbox.listFor(clientId)` reads a user's inbox. `ctx.links.create(clientId, link)` makes a public/internal share link. `ctx.users.list()` enumerates profiles for fan-out. `ctx.schedule.daily(jobId, hour, run, { minute })` / `ctx.schedule.interval(jobId, ms, run)` register durable jobs on the shared scheduler (ids namespaced `plugin:<name>:<jobId>`, cleared on reload); `ctx.schedule.cancel/list` manage them. `visibility` defaults to `internal` (public share route refuses it; use the authenticated inbox attachment route instead).
+
 Layout skins currently in the DLC checkout:
 
 | id | What |

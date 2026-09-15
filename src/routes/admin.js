@@ -14,6 +14,8 @@ const { getRuntimeSettings, updateRuntimeSettings } = require("../services/runti
 const { clearLogEntries, getLogFacets, getRecentLogEvents } = require("../services/log-capture");
 const { listJobs } = require("../services/job-progress");
 const { listRegistry } = require("../services/user-registry");
+const { createBroadcast, deleteBroadcast, listBroadcasts } = require("../services/message-store");
+const { addProfileMessage, buildSharePath } = require("../services/profile-service");
 const { resolvePluginUploadLimit } = require("../services/dlc-catalog");
 const {
   getHotReloadState,
@@ -206,6 +208,72 @@ router.get("/admin/users", (_request, response) => {
   }
 
   response.apiSuccess({ count: users.length, users });
+});
+
+// --- Inbox messages ----------------------------------------------------------
+
+function withMessagePath(message) {
+  return {
+    ...message,
+    path: buildSharePath(message.token),
+    seenCount: Object.keys(message.readers || {}).length
+  };
+}
+
+router.get("/admin/messages", (_request, response) => {
+  const messages = listBroadcasts();
+  response.apiSuccess({ count: messages.length, messages: messages.map(withMessagePath) });
+});
+
+router.post("/admin/messages", (request, response) => {
+  const body = getPatchBody(request);
+  const message = createBroadcast(body, { sender: String(body.sender || "Admin") });
+  emitAdminMutationAuditEvent(request, response, {
+    action: "create_broadcast",
+    targetMessageId: message.id
+  });
+  response.status(201).apiSuccess(withMessagePath(message));
+});
+
+router.delete("/admin/messages/:messageId", (request, response) => {
+  let result;
+  try {
+    result = deleteBroadcast(request.params.messageId);
+  } catch (error) {
+    throw createNotFoundError("message_not_found", error.message);
+  }
+  emitAdminMutationAuditEvent(request, response, {
+    action: "delete_broadcast",
+    targetMessageId: String(request.params.messageId || ""),
+    removed: result.removed
+  });
+  response.apiSuccess(result);
+});
+
+// Send a message into one user's inbox (direct send / plugin report).
+router.post("/admin/users/:clientId/messages", (request, response) => {
+  const body = getPatchBody(request);
+  let result;
+  try {
+    result = addProfileMessage(request.params.clientId, body, { sender: String(body.sender || "Admin") });
+  } catch (error) {
+    if (error?.code === "invalid_message") {
+      throw createHttpError(400, "invalid_message", error.message);
+    }
+    if (error?.code === "attachments_limit_reached" || error?.code === "messages_limit_reached") {
+      throw createHttpError(409, error.code, error.message);
+    }
+    if (error?.code === "attachment_too_large") {
+      throw createHttpError(413, "attachment_too_large", error.message);
+    }
+    throw error;
+  }
+  emitAdminMutationAuditEvent(request, response, {
+    action: "send_direct_message",
+    targetClientId: String(request.params.clientId || ""),
+    targetMessageId: result.message.id
+  });
+  response.status(201).apiSuccess(withMessagePath(result.message));
 });
 
 // Create a managed API client. Omitted id/key are generated server-side and the

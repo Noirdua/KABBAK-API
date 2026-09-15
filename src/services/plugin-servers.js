@@ -84,6 +84,59 @@ function buildContext(name, rootDir) {
     },
     createHttpError,
     createNotFoundError,
+    // Generic messaging surface. Message shape:
+    //   { title, description, kind, attachments, visibility, publishAt, expiresAt, requiresAck }
+    inbox: {
+      // Deliver to one user's inbox (reports, alerts, follow-ups).
+      send(clientId, message, options) {
+        const { addProfileMessage } = require("./profile-service");
+        return addProfileMessage(String(clientId || "").trim(), message, { sender: `plugin:${name}` }, options);
+      },
+      // Deliver to every user's inbox at once.
+      broadcast(message) {
+        const { createBroadcast } = require("./message-store");
+        return createBroadcast(message, { sender: `plugin:${name}` });
+      },
+      // Read one message from a user's inbox (owner-scoped).
+      listFor(clientId, options) {
+        const { listProfileMessages } = require("./profile-service");
+        return listProfileMessages(String(clientId || "").trim(), options);
+      }
+    },
+    // Public/private share links backed by a profile.
+    links: {
+      create(clientId, link, options) {
+        const { createProfileLink } = require("./profile-service");
+        return createProfileLink(String(clientId || "").trim(), link, options);
+      }
+    },
+    // The user set, for fan-out jobs (daily reports, etc.).
+    users: {
+      list(options) {
+        const { listProfileClientIds } = require("./profile-service");
+        return listProfileClientIds(options);
+      }
+    },
+    // Shared scheduler: durable daily/interval jobs. Job ids are namespaced to
+    // this plugin and are cleared automatically when it reloads.
+    schedule: {
+      daily(jobId, hour, run, { minute = 0 } = {}) {
+        const { registerJob } = require("./scheduler");
+        return registerJob(`plugin:${name}:${jobId}`, { kind: "daily", hour, minute, run });
+      },
+      interval(jobId, intervalMs, run) {
+        const { registerJob } = require("./scheduler");
+        return registerJob(`plugin:${name}:${jobId}`, { kind: "interval", intervalMs, run });
+      },
+      cancel(jobId) {
+        const { cancelJob } = require("./scheduler");
+        return cancelJob(`plugin:${name}:${jobId}`);
+      },
+      list() {
+        const { listJobs } = require("./scheduler");
+        return listJobs().filter((job) => job.id.startsWith(`plugin:${name}:`));
+      }
+    },
     // Trusted helper so a plugin can reuse the API's own services/middleware.
     requireApi(relativePath) {
       const resolved = path.resolve(root, String(relativePath || ""));
@@ -125,6 +178,12 @@ function loadPluginServer(plugin, log) {
       return null;
     }
     const router = express.Router();
+    // Clear this plugin's previously-registered jobs so a reload re-registers
+    // cleanly instead of stacking duplicates.
+    try {
+      const { cancelJobsForPrefix } = require("./scheduler");
+      cancelJobsForPrefix(`plugin:${plugin.name}:`);
+    } catch (_error) {}
     register(router, buildContext(plugin.name, root.dir));
     log(`[plugins] server routes loaded for ${plugin.name}.`);
     return router;

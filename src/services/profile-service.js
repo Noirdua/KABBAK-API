@@ -27,10 +27,22 @@ const {
   MAX_EVENT_ID_LENGTH,
   MAX_EVENT_REMINDER_MINUTES,
   MAX_EVENT_SEGMENTS,
+  MAX_ATTACHMENTS_PER_EVENT,
+  MAX_EVENT_OCCURRENCE_OVERRIDES,
   MAX_EVENT_OCCURRENCES,
+  MAX_LINKS_PER_PROFILE,
+  MAX_ATTACHMENTS_PER_LINK,
+  MAX_LINK_TITLE_LENGTH,
+  MAX_LINK_DESCRIPTION_LENGTH,
+  SHARE_TOKEN_PREFIX,
+  SHARE_SIGNED_PREFIX,
+  MESSAGE_DIRECT_PREFIX,
+  MAX_MESSAGES_PER_PROFILE,
   MAX_EVENT_RANGE_DAYS,
   FEED_TOKEN_PREFIX
 } = require("../config/profile-storage");
+
+const { buildSignedShareToken, verifySignedShareToken } = require("./share-service");
 
 class ProfileStorageError extends Error {
   constructor(code, message) {
@@ -314,6 +326,14 @@ function normalizeProfile(rawProfile, clientId, options = {}) {
     ...(source.calendarFeed && typeof source.calendarFeed === "object"
       ? { calendarFeed: normalizeStoredCalendarFeed(source.calendarFeed) }
       : {}),
+    ...(Array.isArray(source.links) ? { links: normalizeStoredLinks(source.links) } : {}),
+    ...(Array.isArray(source.messages) ? { messages: normalizeStoredMessages(source.messages) } : {}),
+    ...(source.inboxRead && typeof source.inboxRead === "object" && !Array.isArray(source.inboxRead)
+      ? { inboxRead: normalizeInboxRead(source.inboxRead) }
+      : {}),
+    ...(source.quietHours && typeof source.quietHours === "object" && !Array.isArray(source.quietHours)
+      ? { quietHours: normalizeStoredQuietHours(source.quietHours) }
+      : {}),
     quiz: {
       attempts: Array.isArray(source.quiz?.attempts) ? source.quiz.attempts.filter((attempt) => attempt && typeof attempt === "object") : []
     }
@@ -423,6 +443,43 @@ function readProfile(clientId, options = {}) {
   }
 }
 
+// Bumped on every successful write so derived caches (e.g. the calendar feed)
+// can key off the current revision instead of waiting out a TTL.
+const profileWriteRevisions = new Map();
+
+// Generic helper: every profile that exists on disk. Plugins use this to fan
+// out daily reports without knowing the storage layout. Encrypted/unreadable
+// profiles are skipped.
+function listProfileClientIds(options = {}) {
+  const root = options.profilesRoot || profilesRoot;
+  let files = [];
+  try {
+    files = fs.readdirSync(root);
+  } catch (_error) {
+    return [];
+  }
+  const ids = [];
+  for (const file of files) {
+    if (!file.startsWith("profile-") || !file.endsWith(".json")) {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
+      const clientId = String(parsed?.clientId || "").trim();
+      if (clientId) {
+        ids.push(clientId);
+      }
+    } catch (_error) {
+      // skip unreadable profiles
+    }
+  }
+  return ids.sort();
+}
+
+function getProfileRevision(clientId) {
+  return profileWriteRevisions.get(normalizeClientId(clientId)) || 0;
+}
+
 function writeProfile(clientId, profile, options = {}) {
   const filePath = getProfileFilePath(clientId, options);
   const quotaBytes = resolveQuotaBytes(options);
@@ -454,6 +511,8 @@ function writeProfile(clientId, profile, options = {}) {
 
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, toStore + "\n", "utf8");
+  const revisionKey = normalizeClientId(clientId);
+  profileWriteRevisions.set(revisionKey, (profileWriteRevisions.get(revisionKey) || 0) + 1);
   // Return usage (attachments are embedded in the JSON)
   return getProfileUsage(clientId, options);
 }
@@ -498,10 +557,13 @@ function getProfileSummary(clientId, options = {}) {
     displayName: profile.displayName || "",
     location: profile.location || null,
     preferredDeck: profile.preferredDeck || "",
+    quietHours: normalizeStoredQuietHours(profile.quietHours),
     storage: usage,
     counts: {
       notes: profile.notes.length,
       events: Array.isArray(profile.events) ? profile.events.length : 0,
+      links: Array.isArray(profile.links) ? profile.links.length : 0,
+      messages: Array.isArray(profile.messages) ? profile.messages.length : 0,
       quizAttempts: profile.quiz.attempts.length,
       attachments: attachmentCount
     }
@@ -1124,6 +1186,122 @@ function normalizeStoredEventSegments(value, allDay, startTime, endTime) {
   return [];
 }
 
+// Event attachments reuse the note/scene shape: base64 data URLs embedded in
+// the profile JSON ({ id, name, type, size, data }).
+function normalizeEventAttachments(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((att) => att && typeof att === "object" && typeof att.data === "string" && att.data)
+    // Hard sanity cap only; the per-tier limit is enforced afterwards so an
+    // over-limit request errors instead of silently dropping attachments.
+    .slice(0, 64)
+    .map((att) => ({
+      id: String(att.id || `att_${crypto.randomBytes(6).toString("hex")}`),
+      name: String(att.name || "attachment").trim().slice(0, 255) || "attachment",
+      type: String(att.type || "application/octet-stream").trim().slice(0, 120) || "application/octet-stream",
+      size: Math.max(0, Number(att.size) || 0),
+      data: att.data
+    }));
+}
+
+function normalizeStoredEventAttachments(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((att) => att && typeof att === "object")
+    .map((att) => normalizeStoredAttachment(att))
+    .filter(Boolean)
+    .slice(0, MAX_ATTACHMENTS_PER_EVENT);
+}
+
+function summarizeEventAttachments(attachments) {
+  return Array.isArray(attachments)
+    ? attachments.map((att) => ({ id: att.id, name: att.name, type: att.type, size: att.size }))
+    : [];
+}
+
+function assertEventAttachmentLimits(attachments, options = {}, occurrenceOverrides = []) {
+  const maxPerEvent = Math.max(1, Number(options.maxAttachmentsPerEvent) || MAX_ATTACHMENTS_PER_EVENT);
+  const maxBytes = resolveAttachmentBytesLimit(options);
+  const lists = [Array.isArray(attachments) ? attachments : []];
+  for (const override of Array.isArray(occurrenceOverrides) ? occurrenceOverrides : []) {
+    lists.push(Array.isArray(override?.attachments) ? override.attachments : []);
+  }
+  for (const list of lists) {
+    if (list.length > maxPerEvent) {
+      throw new ProfileStorageError(
+        "attachments_limit_reached",
+        `An event can hold at most ${maxPerEvent} attachments for your access level.`
+      );
+    }
+    for (const attachment of list) {
+      const dataLength = typeof attachment?.data === "string" ? Buffer.byteLength(attachment.data, "utf8") : 0;
+      const effectiveSize = Math.max(0, Number(attachment?.size) || Math.ceil(dataLength * 0.75));
+      if (effectiveSize > maxBytes) {
+        throw new ProfileStorageError(
+          "attachment_too_large",
+          `Attachments are limited to ${Math.round(maxBytes / (1024 * 1024))}MB for your access level.`
+        );
+      }
+    }
+  }
+}
+
+// Occurrence overrides let a single date of a recurring event carry its own
+// attachments (e.g. that day's card draw) while the series keeps a default.
+function normalizeOccurrenceOverrides(value, attachmentNormalizer) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set();
+  const result = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const date = String(entry.date || "").trim();
+    if (!isValidOccurredOn(date) || seen.has(date)) {
+      continue;
+    }
+    const attachments = attachmentNormalizer(entry.attachments);
+    if (!attachments.length) {
+      continue; // an override with no attachments is just the series default
+    }
+    seen.add(date);
+    result.push({ date, attachments });
+  }
+  result.sort((left, right) => left.date.localeCompare(right.date));
+  return result.slice(0, MAX_EVENT_OCCURRENCE_OVERRIDES);
+}
+
+function normalizeStoredEventOccurrenceOverrides(value) {
+  return normalizeOccurrenceOverrides(value, normalizeStoredEventAttachments);
+}
+
+function normalizeEventOccurrenceOverrides(value) {
+  return normalizeOccurrenceOverrides(value, normalizeEventAttachments);
+}
+
+function findEventOccurrenceOverride(event, date) {
+  const target = String(date || "").trim();
+  if (!target || !Array.isArray(event?.occurrenceOverrides)) {
+    return null;
+  }
+  return event.occurrenceOverrides.find((entry) => entry.date === target) || null;
+}
+
+// Effective attachments for one occurrence: the override if present, else the series default.
+function resolveEventOccurrenceAttachments(event, date) {
+  const override = findEventOccurrenceOverride(event, date);
+  if (override && Array.isArray(override.attachments) && override.attachments.length) {
+    return { attachments: override.attachments, hasOverride: true };
+  }
+  return { attachments: Array.isArray(event?.attachments) ? event.attachments : [], hasOverride: false };
+}
+
 function normalizeStoredEvent(event) {
   if (!event || typeof event !== "object") {
     return null;
@@ -1160,6 +1338,8 @@ function normalizeStoredEvent(event) {
     startTime,
     endTime,
     segments,
+    attachments: normalizeStoredEventAttachments(event.attachments),
+    occurrenceOverrides: normalizeStoredEventOccurrenceOverrides(event.occurrenceOverrides),
     location: String(event.location || "").trim().slice(0, MAX_EVENT_LOCATION_LENGTH),
     category: EVENT_CATEGORIES.has(category) ? category : "personal",
     color: EVENT_COLOR_PATTERN.test(color) ? color : "",
@@ -1227,6 +1407,8 @@ function normalizeEventInput(input, { id, createdAt } = {}) {
     startTime,
     endTime,
     segments,
+    attachments: normalizeEventAttachments(raw.attachments),
+    occurrenceOverrides: normalizeEventOccurrenceOverrides(raw.occurrenceOverrides),
     location,
     category: normalizeEventCategory(raw.category),
     color: normalizeEventColor(raw.color),
@@ -1253,6 +1435,29 @@ function cloneEvent(event) {
     ...event,
     segments: Array.isArray(event.segments)
       ? event.segments.map((segment) => ({ startTime: segment.startTime, endTime: segment.endTime }))
+      : [],
+    attachments: Array.isArray(event.attachments)
+      ? event.attachments.map((att) => ({
+          id: att.id,
+          name: att.name,
+          type: att.type,
+          size: att.size,
+          data: att.data
+        }))
+      : [],
+    occurrenceOverrides: Array.isArray(event.occurrenceOverrides)
+      ? event.occurrenceOverrides.map((override) => ({
+          date: override.date,
+          attachments: Array.isArray(override.attachments)
+            ? override.attachments.map((att) => ({
+                id: att.id,
+                name: att.name,
+                type: att.type,
+                size: att.size,
+                data: att.data
+              }))
+            : []
+        }))
       : [],
     recurrence: {
       ...(event.recurrence || {}),
@@ -1282,6 +1487,8 @@ function summarizeEvent(event) {
   const summary = cloneEvent(event);
   summary.noteLength = String(summary.notes || "").length;
   delete summary.notes;
+  summary.attachmentCount = Array.isArray(summary.attachments) ? summary.attachments.length : 0;
+  summary.attachments = summarizeEventAttachments(summary.attachments);
   return summary;
 }
 
@@ -1299,6 +1506,67 @@ function getProfileEvent(clientId, eventId, options = {}) {
   return cloneEvent(event);
 }
 
+function findEventAttachment(profile, eventId, attachmentId) {
+  const event = (profile?.events || []).find((entry) => entry.id === String(eventId || "").trim()) || null;
+  if (!event) {
+    return null;
+  }
+  const targetId = String(attachmentId || "").trim();
+  const base = (event.attachments || []).find((entry) => entry.id === targetId);
+  if (base) {
+    return base;
+  }
+  for (const override of event.occurrenceOverrides || []) {
+    const found = (override.attachments || []).find((entry) => entry.id === targetId);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
+}
+
+function findNoteAttachment(profile, noteId, sceneId, attachmentId) {
+  const note = (profile?.notes || []).find((entry) => entry.id === String(noteId || "").trim()) || null;
+  if (!note) {
+    return null;
+  }
+  const scene = (note.scenes || []).find((entry) => entry.id === String(sceneId || "").trim()) || null;
+  if (!scene) {
+    return null;
+  }
+  return (scene.attachments || []).find((entry) => entry.id === String(attachmentId || "").trim()) || null;
+}
+
+function getProfileEventAttachment(clientId, eventId, attachmentId, options = {}) {
+  const profile = readProfile(clientId, options);
+  const event = (profile.events || []).find((entry) => entry.id === String(eventId || "").trim()) || null;
+  if (!event) {
+    throw new ProfileStorageError("event_not_found", `Event '${eventId}' was not found.`);
+  }
+  const attachment = findEventAttachment(profile, eventId, attachmentId);
+  if (!attachment) {
+    throw new ProfileStorageError("attachment_not_found", `Attachment '${attachmentId}' was not found.`);
+  }
+  return attachment;
+}
+
+// Attachments are stored as data URLs; decode to bytes for HTTP responses and
+// for the ICS feed's download links.
+function decodeAttachmentPayload(attachment) {
+  const data = String(attachment?.data || "");
+  const match = /^data:([^;,]*)?(;base64)?,([\s\S]*)$/.exec(data);
+  if (match) {
+    return {
+      type: match[1] || attachment?.type || "application/octet-stream",
+      buffer: Buffer.from(match[3] || "", match[2] ? "base64" : "utf8")
+    };
+  }
+  return {
+    type: attachment?.type || "application/octet-stream",
+    buffer: Buffer.from(data, "base64")
+  };
+}
+
 function createProfileEvent(clientId, input, options = {}) {
   const profile = readProfile(clientId, options);
   const limit = resolveEventsLimit(options);
@@ -1307,6 +1575,7 @@ function createProfileEvent(clientId, input, options = {}) {
   }
   const nowIso = new Date().toISOString();
   const event = normalizeEventInput(input, { createdAt: nowIso });
+  assertEventAttachmentLimits(event.attachments, options, event.occurrenceOverrides);
   profile.events = [...(profile.events || []), event];
   profile.updatedAt = nowIso;
   const usage = writeProfile(clientId, profile, options);
@@ -1329,6 +1598,7 @@ function updateProfileEvent(clientId, eventId, input, options = {}) {
     merged.recurrence = { ...(existing.recurrence || {}), ...overrides.recurrence };
   }
   const event = normalizeEventInput(merged, { id: existing.id, createdAt: existing.createdAt });
+  assertEventAttachmentLimits(event.attachments, options, event.occurrenceOverrides);
   events[index] = event;
   profile.events = events;
   profile.updatedAt = event.updatedAt;
@@ -1491,14 +1761,19 @@ function normalizeEventRangeBound(value, fallback) {
 
 function summarizeOccurrence(event, date) {
   const summary = cloneEvent(event);
+  const resolved = resolveEventOccurrenceAttachments(summary, date);
+  summary.attachments = resolved.attachments;
   summary.noteLength = String(summary.notes || "").length;
   delete summary.notes;
+  summary.attachmentCount = Array.isArray(summary.attachments) ? summary.attachments.length : 0;
+  summary.attachments = summarizeEventAttachments(summary.attachments);
   return {
     ...summary,
     eventId: event.id,
     id: `${event.id}#${date}`,
     date,
     segmentCount: Array.isArray(summary.segments) ? summary.segments.length : 0,
+    hasOccurrenceOverride: resolved.hasOverride,
     isRecurring: (event.recurrence?.freq || "none") !== "none",
     source: "user"
   };
@@ -1628,6 +1903,573 @@ function resolveCalendarFeedToken(token, options = {}) {
     return null;
   }
   return { clientId, profile };
+}
+
+// --- Share links -------------------------------------------------------------
+
+const LINK_KINDS = new Set(["message", "calendar", "note", "widget", "other"]);
+
+function normalizeLinkKind(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  return LINK_KINDS.has(raw) ? raw : "message";
+}
+
+// "internal" content is only reachable while authenticated (in the owner's
+// inbox); "public" content can be opened by anyone holding the link token.
+function normalizeVisibility(value, fallback = "internal") {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "public" || raw === "internal") {
+    return raw;
+  }
+  return fallback;
+}
+
+function normalizeLinkDescription(value) {
+  const raw = String(value || "");
+  if (raw.length > MAX_LINK_DESCRIPTION_LENGTH) {
+    throw new ProfileStorageError("invalid_link", `A link description cannot exceed ${MAX_LINK_DESCRIPTION_LENGTH} characters.`);
+  }
+  return raw;
+}
+
+function normalizeLinkExpiresAt(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new ProfileStorageError("invalid_link", "Link expiry must be an ISO date-time.");
+  }
+  return parsed.toISOString();
+}
+
+function normalizeLinkInput(input, { id, token, createdAt } = {}) {
+  const raw = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const nowIso = new Date().toISOString();
+  const title = String(raw.title || "").trim();
+  if (!title) {
+    throw new ProfileStorageError("invalid_link", "A link title is required.");
+  }
+  if (title.length > MAX_LINK_TITLE_LENGTH) {
+    throw new ProfileStorageError("invalid_link", `A link title cannot exceed ${MAX_LINK_TITLE_LENGTH} characters.`);
+  }
+  return {
+    id: String(id || raw.id || `lnk_${crypto.randomBytes(8).toString("hex")}`),
+    kind: normalizeLinkKind(raw.kind),
+    title,
+    description: normalizeLinkDescription(raw.description),
+    visibility: normalizeVisibility(raw.visibility, "internal"),
+    attachments: normalizeEventAttachments(raw.attachments),
+    token: String(token || raw.token || ""),
+    expiresAt: normalizeLinkExpiresAt(raw.expiresAt),
+    createdAt: String(createdAt || raw.createdAt || nowIso),
+    updatedAt: nowIso
+  };
+}
+
+function normalizeStoredLink(link) {
+  if (!link || typeof link !== "object") {
+    return null;
+  }
+  const createdAt = String(link.createdAt || new Date().toISOString());
+  const kind = String(link.kind || "message").trim().toLowerCase();
+  return {
+    id: String(link.id || `lnk_${crypto.randomBytes(8).toString("hex")}`),
+    kind: LINK_KINDS.has(kind) ? kind : "message",
+    visibility: normalizeVisibility(link.visibility, "internal"),
+    title: String(link.title || "").trim().slice(0, MAX_LINK_TITLE_LENGTH) || "Shared item",
+    description: String(link.description || "").slice(0, MAX_LINK_DESCRIPTION_LENGTH),
+    attachments: normalizeStoredEventAttachments(link.attachments).slice(0, MAX_ATTACHMENTS_PER_LINK),
+    token: String(link.token || "").trim(),
+    expiresAt: String(link.expiresAt || "").trim(),
+    createdAt,
+    updatedAt: String(link.updatedAt || createdAt)
+  };
+}
+
+function normalizeStoredLinks(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((entry) => normalizeStoredLink(entry)).filter(Boolean).slice(-MAX_LINKS_PER_PROFILE);
+}
+
+function assertLinkAttachmentLimits(attachments, options = {}) {
+  const list = Array.isArray(attachments) ? attachments : [];
+  if (list.length > MAX_ATTACHMENTS_PER_LINK) {
+    throw new ProfileStorageError(
+      "attachments_limit_reached",
+      `A link can hold at most ${MAX_ATTACHMENTS_PER_LINK} attachments.`
+    );
+  }
+  const maxBytes = resolveAttachmentBytesLimit(options);
+  for (const attachment of list) {
+    const dataLength = typeof attachment?.data === "string" ? Buffer.byteLength(attachment.data, "utf8") : 0;
+    const effectiveSize = Math.max(0, Number(attachment?.size) || Math.ceil(dataLength * 0.75));
+    if (effectiveSize > maxBytes) {
+      throw new ProfileStorageError(
+        "attachment_too_large",
+        `Attachments are limited to ${Math.round(maxBytes / (1024 * 1024))}MB for your access level.`
+      );
+    }
+  }
+}
+
+function cloneLink(link) {
+  return {
+    ...link,
+    attachments: Array.isArray(link.attachments) ? link.attachments.map((att) => ({ ...att })) : []
+  };
+}
+
+function summarizeLink(link) {
+  const summary = cloneLink(link);
+  summary.attachmentCount = summary.attachments.length;
+  summary.attachments = summarizeEventAttachments(summary.attachments);
+  summary.path = buildSharePath(summary.token);
+  return summary;
+}
+
+function generateShareToken(clientId) {
+  const idPart = Buffer.from(String(clientId), "utf8").toString("base64url");
+  const secret = crypto.randomBytes(18).toString("base64url");
+  return `${SHARE_TOKEN_PREFIX}.${idPart}.${secret}`;
+}
+
+function buildSharePath(token) {
+  return `/api/v1/share/${encodeURIComponent(String(token || ""))}`;
+}
+
+function listProfileLinks(clientId, options = {}) {
+  const profile = readProfile(clientId, options);
+  return (profile.links || []).map(summarizeLink);
+}
+
+function getProfileLink(clientId, linkId, options = {}) {
+  const profile = readProfile(clientId, options);
+  const link = (profile.links || []).find((entry) => entry.id === String(linkId || "").trim()) || null;
+  if (!link) {
+    throw new ProfileStorageError("link_not_found", `Link '${linkId}' was not found.`);
+  }
+  return cloneLink(link);
+}
+
+function createProfileLink(clientId, input, options = {}) {
+  const profile = readProfile(clientId, options);
+  if ((profile.links || []).length >= MAX_LINKS_PER_PROFILE) {
+    throw new ProfileStorageError("links_limit_reached", `A profile can hold at most ${MAX_LINKS_PER_PROFILE} links.`);
+  }
+  const link = normalizeLinkInput(input, { token: generateShareToken(clientId) });
+  assertLinkAttachmentLimits(link.attachments, options);
+  profile.links = [...(profile.links || []), link];
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(clientId, profile, options);
+  return { link: cloneLink(link), usage };
+}
+
+function updateProfileLink(clientId, linkId, input, options = {}) {
+  const profile = readProfile(clientId, options);
+  const links = profile.links || [];
+  const index = links.findIndex((entry) => entry.id === String(linkId || "").trim());
+  if (index === -1) {
+    throw new ProfileStorageError("link_not_found", `Link '${linkId}' was not found.`);
+  }
+  const existing = links[index];
+  const overrides = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const link = normalizeLinkInput({ ...existing, ...overrides }, {
+    id: existing.id,
+    token: existing.token,
+    createdAt: existing.createdAt
+  });
+  assertLinkAttachmentLimits(link.attachments, options);
+  links[index] = link;
+  profile.links = links;
+  profile.updatedAt = link.updatedAt;
+  const usage = writeProfile(clientId, profile, options);
+  return { link: cloneLink(link), usage };
+}
+
+function deleteProfileLink(clientId, linkId, options = {}) {
+  const profile = readProfile(clientId, options);
+  const links = profile.links || [];
+  const index = links.findIndex((entry) => entry.id === String(linkId || "").trim());
+  if (index === -1) {
+    throw new ProfileStorageError("link_not_found", `Link '${linkId}' was not found.`);
+  }
+  links.splice(index, 1);
+  profile.links = links;
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(clientId, profile, options);
+  return { removed: true, usage };
+}
+
+function resolveProfileLinkToken(token, options = {}) {
+  const raw = String(token || "").trim();
+  const parts = raw.split(".");
+  if (parts.length !== 3 || parts[0] !== SHARE_TOKEN_PREFIX) {
+    return null;
+  }
+  let clientId = "";
+  try {
+    clientId = Buffer.from(parts[1], "base64url").toString("utf8").trim();
+  } catch {
+    return null;
+  }
+  if (!clientId) {
+    return null;
+  }
+  let profile;
+  try {
+    profile = readProfile(clientId, options);
+  } catch {
+    return null;
+  }
+  const link = (profile.links || []).find((entry) => entry.token === raw) || null;
+  if (!link) {
+    return null;
+  }
+  if (link.expiresAt && Date.parse(link.expiresAt) <= Date.now()) {
+    return null;
+  }
+  return { clientId, profile, link };
+}
+
+// Share links are signed with the profile's feed token so rotating the feed URL
+// also revokes every previously shared attachment link.
+function resolveShareSecret(profile) {
+  const feed = normalizeStoredCalendarFeed(profile?.calendarFeed);
+  return feed.enabled && feed.token ? feed.token : "";
+}
+
+function buildAttachmentShareUrl(profile, ref) {
+  const secret = resolveShareSecret(profile);
+  if (!secret) {
+    return "";
+  }
+  return buildSharePath(buildSignedShareToken(ref, secret));
+}
+
+function resolveSignedShareAttachment(token, options = {}) {
+  const raw = String(token || "").trim();
+  const parts = raw.split(".");
+  if (parts.length !== 3 || parts[0] !== SHARE_SIGNED_PREFIX) {
+    return null;
+  }
+  let payload;
+  try {
+    payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+  const clientId = String(payload?.c || "").trim();
+  if (!clientId) {
+    return null;
+  }
+  let profile;
+  try {
+    profile = readProfile(clientId, options);
+  } catch {
+    return null;
+  }
+  const secret = resolveShareSecret(profile);
+  if (!secret) {
+    return null;
+  }
+  const verified = verifySignedShareToken(raw, secret);
+  if (!verified) {
+    return null;
+  }
+
+  if (verified.t === "e") {
+    const event = (profile.events || []).find((entry) => entry.id === verified.e) || null;
+    if (!event) {
+      return null;
+    }
+    const attachment = findEventAttachment(profile, verified.e, verified.a);
+    if (!attachment) {
+      return null;
+    }
+    const time = event.allDay
+      ? "All day"
+      : [event.startTime, event.endTime].filter(Boolean).join("–");
+    return {
+      clientId,
+      attachment,
+      kind: event.category || "calendar",
+      title: event.title,
+      metaLines: [event.date, time]
+    };
+  }
+
+  if (verified.t === "n") {
+    const note = (profile.notes || []).find((entry) => entry.id === verified.n) || null;
+    if (!note) {
+      return null;
+    }
+    const scene = (note.scenes || []).find((entry) => entry.id === verified.s) || null;
+    const attachment = findNoteAttachment(profile, verified.n, verified.s, verified.a);
+    if (!attachment) {
+      return null;
+    }
+    return {
+      clientId,
+      attachment,
+      kind: note.kind === "dream" ? "dream" : "journal",
+      title: note.title,
+      metaLines: [
+        note.occurredOn,
+        scene?.place || "",
+        scene?.time ? `${scene.time}${scene.endTime ? `–${scene.endTime}` : ""}` : ""
+      ]
+    };
+  }
+
+  return null;
+}
+
+// --- Inbox messages ----------------------------------------------------------
+
+const MESSAGE_KINDS = new Set(["message", "report", "alert", "calendar", "note", "widget", "other"]);
+
+function normalizeMessageFieldKind(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  return MESSAGE_KINDS.has(raw) ? raw : "message";
+}
+
+// Shared with the broadcast store so message shape stays consistent.
+function normalizeMessageInputFields(raw) {
+  const source = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  const title = String(source.title || "").trim();
+  if (!title) {
+    throw new ProfileStorageError("invalid_message", "A message title is required.");
+  }
+  if (title.length > MAX_LINK_TITLE_LENGTH) {
+    throw new ProfileStorageError("invalid_message", `A message title cannot exceed ${MAX_LINK_TITLE_LENGTH} characters.`);
+  }
+  return {
+    kind: normalizeMessageFieldKind(source.kind),
+    title,
+    description: normalizeLinkDescription(source.description),
+    visibility: normalizeVisibility(source.visibility, "internal"),
+    attachments: normalizeEventAttachments(source.attachments),
+    publishAt: normalizeLinkExpiresAt(source.publishAt),
+    expiresAt: normalizeLinkExpiresAt(source.expiresAt),
+    requiresAck: source.requiresAck === true
+  };
+}
+
+function normalizeStoredMessageFields(raw) {
+  const source = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  const kind = String(source.kind || "message").trim().toLowerCase();
+  return {
+    kind: MESSAGE_KINDS.has(kind) ? kind : "message",
+    title: String(source.title || "").trim().slice(0, MAX_LINK_TITLE_LENGTH) || "Message",
+    description: String(source.description || "").slice(0, MAX_LINK_DESCRIPTION_LENGTH),
+    visibility: normalizeVisibility(source.visibility, "internal"),
+    attachments: normalizeStoredEventAttachments(source.attachments).slice(0, MAX_ATTACHMENTS_PER_LINK),
+    publishAt: String(source.publishAt || "").trim(),
+    expiresAt: String(source.expiresAt || "").trim(),
+    requiresAck: source.requiresAck === true
+  };
+}
+
+// --- Quiet hours --------------------------------------------------------------
+// Unread alerts are held out of the inbox during a user's quiet window.
+
+const DEFAULT_QUIET_HOURS = Object.freeze({ enabled: false, start: "22:00", end: "07:00" });
+
+function normalizeQuietHoursTime(value, label, fallback) {
+  const raw = String(value == null ? "" : value).trim();
+  if (!raw) {
+    return fallback;
+  }
+  const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) {
+    throw new ProfileStorageError("invalid_quiet_hours", `${label} must be HH:MM.`);
+  }
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) {
+    throw new ProfileStorageError("invalid_quiet_hours", `${label} must be a valid time.`);
+  }
+  return `${String(hours).padStart(2, "0")}:${match[2]}`;
+}
+
+function normalizeQuietHoursInput(value) {
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    enabled: raw.enabled === true,
+    start: normalizeQuietHoursTime(raw.start, "Quiet hours start", DEFAULT_QUIET_HOURS.start),
+    end: normalizeQuietHoursTime(raw.end, "Quiet hours end", DEFAULT_QUIET_HOURS.end)
+  };
+}
+
+function normalizeStoredQuietHours(value) {
+  try {
+    return normalizeQuietHoursInput(value);
+  } catch {
+    return { ...DEFAULT_QUIET_HOURS };
+  }
+}
+
+function updateProfileQuietHours(clientId, input, options = {}) {
+  const profile = readProfile(clientId, options);
+  profile.quietHours = normalizeQuietHoursInput(input);
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(clientId, profile, options);
+  return { quietHours: profile.quietHours, usage };
+}
+
+function generateDirectMessageToken(clientId) {
+  const idPart = Buffer.from(String(clientId), "utf8").toString("base64url");
+  const secret = crypto.randomBytes(18).toString("base64url");
+  return `${MESSAGE_DIRECT_PREFIX}.${idPart}.${secret}`;
+}
+
+function normalizeStoredMessage(message) {
+  if (!message || typeof message !== "object") {
+    return null;
+  }
+  const createdAt = String(message.createdAt || new Date().toISOString());
+  return {
+    id: String(message.id || `msg_${crypto.randomBytes(8).toString("hex")}`),
+    ...normalizeStoredMessageFields(message),
+    token: String(message.token || "").trim(),
+    sender: String(message.sender || "").trim().slice(0, 120),
+    createdAt,
+    updatedAt: String(message.updatedAt || createdAt)
+  };
+}
+
+function normalizeStoredMessages(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((entry) => normalizeStoredMessage(entry)).filter(Boolean).slice(-MAX_MESSAGES_PER_PROFILE);
+}
+
+function normalizeInboxRead(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const result = {};
+  for (const [key, iso] of Object.entries(source)) {
+    const normalizedKey = String(key || "").trim();
+    if (!normalizedKey) {
+      continue;
+    }
+    result[normalizedKey] = String(iso || "").trim() || new Date().toISOString();
+  }
+  return result;
+}
+
+function cloneMessage(message) {
+  return {
+    ...message,
+    attachments: Array.isArray(message.attachments) ? message.attachments.map((att) => ({ ...att })) : []
+  };
+}
+
+function summarizeMessage(message) {
+  const summary = cloneMessage(message);
+  summary.attachmentCount = summary.attachments.length;
+  summary.attachments = summarizeEventAttachments(summary.attachments);
+  return summary;
+}
+
+function listProfileMessages(clientId, options = {}) {
+  const profile = readProfile(clientId, options);
+  return (profile.messages || []).map(summarizeMessage);
+}
+
+function addProfileMessage(clientId, input, { sender = "" } = {}, options = {}) {
+  const profile = readProfile(clientId, options);
+  if ((profile.messages || []).length >= MAX_MESSAGES_PER_PROFILE) {
+    throw new ProfileStorageError("messages_limit_reached", `An inbox can hold at most ${MAX_MESSAGES_PER_PROFILE} messages.`);
+  }
+  const nowIso = new Date().toISOString();
+  const fields = normalizeMessageInputFields(input);
+  assertEventAttachmentLimits(fields.attachments, options);
+  const message = {
+    id: `msg_${crypto.randomBytes(8).toString("hex")}`,
+    ...fields,
+    token: generateDirectMessageToken(clientId),
+    sender: String(sender || "").trim().slice(0, 120),
+    createdAt: nowIso,
+    updatedAt: nowIso
+  };
+  profile.messages = [...(profile.messages || []), message];
+  profile.updatedAt = nowIso;
+  const usage = writeProfile(clientId, profile, options);
+  return { message: cloneMessage(message), usage };
+}
+
+function deleteProfileMessage(clientId, messageId, options = {}) {
+  const profile = readProfile(clientId, options);
+  const messages = profile.messages || [];
+  const index = messages.findIndex((entry) => entry.id === String(messageId || "").trim());
+  if (index === -1) {
+    throw new ProfileStorageError("message_not_found", `Message '${messageId}' was not found.`);
+  }
+  messages.splice(index, 1);
+  profile.messages = messages;
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(clientId, profile, options);
+  return { removed: true, usage };
+}
+
+function getProfileInboxReadMap(clientId, options = {}) {
+  const profile = readProfile(clientId, options);
+  return normalizeInboxRead(profile.inboxRead);
+}
+
+function markProfileInboxRead(clientId, keys, options = {}) {
+  const profile = readProfile(clientId, options);
+  const read = normalizeInboxRead(profile.inboxRead);
+  const nowIso = new Date().toISOString();
+  const list = Array.isArray(keys) ? keys : [keys];
+  let changed = 0;
+  for (const key of list) {
+    const normalized = String(key || "").trim();
+    if (!normalized || read[normalized]) {
+      continue;
+    }
+    read[normalized] = nowIso;
+    changed += 1;
+  }
+  if (changed) {
+    profile.inboxRead = read;
+    profile.updatedAt = nowIso;
+    writeProfile(clientId, profile, options);
+  }
+  return { read: { ...read }, changed };
+}
+
+function resolveDirectMessageToken(token, options = {}) {
+  const raw = String(token || "").trim();
+  const parts = raw.split(".");
+  if (parts.length !== 3 || parts[0] !== MESSAGE_DIRECT_PREFIX) {
+    return null;
+  }
+  let clientId = "";
+  try {
+    clientId = Buffer.from(parts[1], "base64url").toString("utf8").trim();
+  } catch {
+    return null;
+  }
+  if (!clientId) {
+    return null;
+  }
+  let profile;
+  try {
+    profile = readProfile(clientId, options);
+  } catch {
+    return null;
+  }
+  const message = (profile.messages || []).find((entry) => entry.token === raw) || null;
+  if (!message) {
+    return null;
+  }
+  return { clientId, profile, message };
 }
 
 function computeQuizStats(attempts) {
@@ -1955,10 +2797,37 @@ module.exports = {
   deleteProfileEvent,
   deleteProfileNote,
   deleteProfileQuickNote,
+  addProfileMessage,
+  buildAttachmentShareUrl,
+  buildSharePath,
+  createProfileLink,
+  decodeAttachmentPayload,
+  deleteProfileLink,
+  deleteProfileMessage,
+  getProfileInboxReadMap,
+  listProfileMessages,
+  markProfileInboxRead,
+  normalizeMessageInputFields,
+  normalizeStoredMessageFields,
+  normalizeStoredQuietHours,
+  resolveDirectMessageToken,
+  updateProfileQuietHours,
+  expandEventOccurrences,
+  findEventAttachment,
+  findNoteAttachment,
+  getProfileLink,
+  listProfileLinks,
+  resolveProfileLinkToken,
+  resolveShareSecret,
+  resolveSignedShareAttachment,
+  updateProfileLink,
   getProfileBio,
   getProfileCalendarFeed,
   getProfileEvent,
+  getProfileEventAttachment,
   getProfileLibrary,
+  getProfileRevision,
+  listProfileClientIds,
   getProfileNote,
   getProfilePluginState,
   getProfileQuizProgress,
@@ -1970,6 +2839,7 @@ module.exports = {
   listProfileQuickNotes,
   readProfile,
   resolveCalendarFeedToken,
+  resolveEventOccurrenceAttachments,
   updateProfileQuickNote,
   recordQuizAttempt,
   resetProfile,
