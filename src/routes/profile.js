@@ -5,21 +5,26 @@ const { sanitizeRequestUrl } = require("../lib/request-url");
 const {
   ProfileStorageError,
   addProfileQuickNote,
+  createProfileEvent,
   createProfileNote,
+  deleteProfileEvent,
   deleteProfileNote,
   deleteProfileQuickNote,
   getProfileBio,
+  getProfileEvent,
   getProfileLibrary,
   getProfileNote,
   getProfilePluginState,
   getProfileQuizProgress,
   getProfileSummary,
+  listProfileEvents,
   listProfileNotes,
   listProfileQuickNotes,
   recordQuizAttempt,
   updateProfileQuickNote,
   updateProfileBio,
   updateProfileDisplayName,
+  updateProfileEvent,
   updateProfileLocation,
   updateProfileLibrary,
   updateProfileNote,
@@ -52,6 +57,7 @@ function getProfileOptions(request, response) {
   const options = {
     quotaBytes: limits.storageBytes,
     maxNotes: limits.notes,
+    maxEvents: limits.events,
     maxAttachmentsPerScene: limits.attachmentsPerScene,
     maxAttachmentBytes: limits.attachmentBytes
   };
@@ -85,11 +91,17 @@ function mapProfileStorageError(error) {
   if (error.code === "quick_note_not_found") {
     return createNotFoundError("quick_note_not_found", error.message);
   }
+  if (error.code === "event_not_found") {
+    return createNotFoundError("event_not_found", error.message);
+  }
   if (error.code === "quota_exceeded") {
     return createHttpError(413, "profile_quota_exceeded", error.message);
   }
   if (error.code === "notes_limit_reached") {
     return createHttpError(409, "notes_limit_reached", error.message);
+  }
+  if (error.code === "events_limit_reached") {
+    return createHttpError(409, "events_limit_reached", error.message);
   }
 
   return createHttpError(400, error.code || "invalid_profile_request", error.message);
@@ -292,6 +304,83 @@ router.delete("/profile/notes/:noteId", wrapProfileHandler((request, response) =
   emitProfileMutationAuditEvent(request, response, {
     action: "delete_profile_note",
     targetNoteId: request.params.noteId
+  });
+
+  response.apiSuccess({
+    removed: result.removed
+  }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+// --- Calendar events ---------------------------------------------------------
+
+router.get("/profile/events", wrapProfileHandler((request, response) => {
+  const events = listProfileEvents(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess({
+    count: events.length,
+    events
+  });
+}));
+
+router.get("/profile/events/:eventId", wrapProfileHandler((request, response) => {
+  const event = getProfileEvent(
+    getProfileClientId(request, response),
+    request.params.eventId,
+    getProfileOptions(request, response)
+  );
+  response.apiSuccess(event);
+}));
+
+router.post("/profile/events", wrapProfileHandler((request, response) => {
+  const result = createProfileEvent(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "create_profile_event",
+    targetEventId: result.event.id
+  });
+
+  response.status(201).apiSuccess(result.event, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.patch("/profile/events/:eventId", wrapProfileHandler((request, response) => {
+  const result = updateProfileEvent(
+    getProfileClientId(request, response),
+    request.params.eventId,
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_event",
+    targetEventId: result.event.id
+  });
+
+  response.apiSuccess(result.event, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.delete("/profile/events/:eventId", wrapProfileHandler((request, response) => {
+  const result = deleteProfileEvent(
+    getProfileClientId(request, response),
+    request.params.eventId,
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "delete_profile_event",
+    targetEventId: String(request.params.eventId || ""),
+    removed: result.removed
   });
 
   response.apiSuccess({

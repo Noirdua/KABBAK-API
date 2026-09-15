@@ -19,7 +19,8 @@ const {
   PROFILE_STORAGE_QUOTA_BYTES,
   MAX_NOTES_PER_PROFILE,
   MAX_ATTACHMENTS_PER_SCENE,
-  MAX_ATTACHMENT_SIZE_BYTES
+  MAX_ATTACHMENT_SIZE_BYTES,
+  MAX_EVENTS_PER_PROFILE
 } = require("../config/profile-storage");
 
 const MB = 1024 * 1024;
@@ -33,6 +34,7 @@ const BUILTIN_ACCESS_LEVELS = Object.freeze({
     scopes: Object.freeze([...ACCESS_LEVEL_DEFAULT_CAPABILITIES.basic.scopes]),
     limits: Object.freeze({
       notes: 50,
+      events: 100,
       attachmentsPerScene: 3,
       attachmentBytes: 2 * MB,
       storageBytes: 25 * MB
@@ -47,6 +49,7 @@ const BUILTIN_ACCESS_LEVELS = Object.freeze({
     scopes: Object.freeze([...ACCESS_LEVEL_DEFAULT_CAPABILITIES.premium.scopes]),
     limits: Object.freeze({
       notes: 500,
+      events: 1000,
       attachmentsPerScene: 5,
       attachmentBytes: 5 * MB,
       storageBytes: PROFILE_STORAGE_QUOTA_BYTES
@@ -61,6 +64,7 @@ const BUILTIN_ACCESS_LEVELS = Object.freeze({
     scopes: Object.freeze([...ACCESS_LEVEL_DEFAULT_CAPABILITIES["pro+"].scopes]),
     limits: Object.freeze({
       notes: MAX_NOTES_PER_PROFILE,
+      events: MAX_EVENTS_PER_PROFILE,
       attachmentsPerScene: MAX_ATTACHMENTS_PER_SCENE,
       attachmentBytes: MAX_ATTACHMENT_SIZE_BYTES,
       storageBytes: 250 * MB
@@ -208,6 +212,7 @@ function getAccessLevelLimits(levelId, options = {}) {
   const definition = getAccessLevelDefinition(levelId, options);
   return definition ? { ...definition.limits } : {
     notes: MAX_NOTES_PER_PROFILE,
+    events: MAX_EVENTS_PER_PROFILE,
     attachmentsPerScene: MAX_ATTACHMENTS_PER_SCENE,
     attachmentBytes: MAX_ATTACHMENT_SIZE_BYTES,
     storageBytes: PROFILE_STORAGE_QUOTA_BYTES

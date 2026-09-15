@@ -18,7 +18,14 @@ const {
   MAX_ATTACHMENT_SIZE_BYTES,
   MAX_QUICK_NOTES_PER_PROFILE,
   MAX_QUICK_NOTE_TEXT_LENGTH,
-  MAX_QUICK_NOTE_SKY_LENGTH
+  MAX_QUICK_NOTE_SKY_LENGTH,
+  MAX_EVENTS_PER_PROFILE,
+  MAX_EVENT_TITLE_LENGTH,
+  MAX_EVENT_NOTES_LENGTH,
+  MAX_EVENT_LOCATION_LENGTH,
+  MAX_EVENT_COLOR_LENGTH,
+  MAX_EVENT_ID_LENGTH,
+  MAX_EVENT_REMINDER_MINUTES
 } = require("../config/profile-storage");
 
 class ProfileStorageError extends Error {
@@ -72,6 +79,7 @@ function createEmptyProfile(clientId) {
     preferredDeck: "",
     notes: [],
     quickNotes: [],
+    events: [],
     pluginState: {},
     library: { bookmarks: [], notes: [] },
     quiz: {
@@ -290,6 +298,13 @@ function normalizeProfile(rawProfile, clientId, options = {}) {
           .filter(Boolean)
           .slice(-MAX_QUICK_NOTES_PER_PROFILE)
       : [],
+    events: Array.isArray(source.events)
+      ? source.events
+          .filter((event) => event && typeof event === "object")
+          .map((event) => normalizeStoredEvent(event))
+          .filter(Boolean)
+          .slice(-MAX_EVENTS_PER_PROFILE)
+      : [],
     quiz: {
       attempts: Array.isArray(source.quiz?.attempts) ? source.quiz.attempts.filter((attempt) => attempt && typeof attempt === "object") : []
     }
@@ -477,6 +492,7 @@ function getProfileSummary(clientId, options = {}) {
     storage: usage,
     counts: {
       notes: profile.notes.length,
+      events: Array.isArray(profile.events) ? profile.events.length : 0,
       quizAttempts: profile.quiz.attempts.length,
       attachments: attachmentCount
     }
@@ -947,6 +963,316 @@ function deleteProfileQuickNote(clientId, quickNoteId, options = {}) {
   return { removed: true, usage };
 }
 
+// --- Calendar events ----------------------------------------------------------
+
+const EVENT_CATEGORIES = new Set(["personal", "ritual", "study", "work", "health", "travel", "other"]);
+const RECURRENCE_FREQUENCIES = new Set(["none", "daily", "weekly", "monthly", "yearly"]);
+const EVENT_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+function eventError(message) {
+  return new ProfileStorageError("invalid_event", message);
+}
+
+function normalizeEventCategory(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) {
+    return "personal";
+  }
+  if (!EVENT_CATEGORIES.has(raw)) {
+    throw eventError(`Event category must be one of: ${[...EVENT_CATEGORIES].join(", ")}.`);
+  }
+  return raw;
+}
+
+function normalizeEventColor(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) {
+    return "";
+  }
+  if (raw.length > MAX_EVENT_COLOR_LENGTH || !EVENT_COLOR_PATTERN.test(raw)) {
+    throw eventError("Event colour must be a hex value such as #3b82f6.");
+  }
+  return raw;
+}
+
+function normalizeEventTime(value, label = "Start time") {
+  const raw = String(value == null ? "" : value).trim();
+  if (!raw) {
+    return "";
+  }
+  const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) {
+    throw eventError(`${label} must be HH:MM.`);
+  }
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) {
+    throw eventError(`${label} must be a valid 24-hour time.`);
+  }
+  return `${String(hours).padStart(2, "0")}:${match[2]}`;
+}
+
+function normalizeEventReminder(value) {
+  if (value == null || value === "") {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isInteger(numeric) || numeric < 0 || numeric > MAX_EVENT_REMINDER_MINUTES) {
+    throw eventError(`Reminder must be whole minutes between 0 and ${MAX_EVENT_REMINDER_MINUTES}.`);
+  }
+  return numeric;
+}
+
+function normalizeEventRecurrence(value) {
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const freq = String(raw.freq || "none").trim().toLowerCase() || "none";
+  if (!RECURRENCE_FREQUENCIES.has(freq)) {
+    throw eventError(`Recurrence must be one of: ${[...RECURRENCE_FREQUENCIES].join(", ")}.`);
+  }
+  if (freq === "none") {
+    return { freq: "none", interval: 1, until: "", byWeekday: [] };
+  }
+  const intervalValue = Number(raw.interval);
+  const interval = Number.isFinite(intervalValue) && intervalValue >= 1
+    ? Math.min(365, Math.floor(intervalValue))
+    : 1;
+  const untilRaw = String(raw.until || "").trim();
+  if (untilRaw && !isValidOccurredOn(untilRaw)) {
+    throw eventError("Recurrence end date must be a valid calendar date (YYYY-MM-DD).");
+  }
+  const byWeekday = Array.isArray(raw.byWeekday)
+    ? Array.from(new Set(raw.byWeekday
+        .map((entry) => Number(entry))
+        .filter((entry) => Number.isInteger(entry) && entry >= 0 && entry <= 6)))
+        .sort((left, right) => left - right)
+    : [];
+  return { freq, interval, until: untilRaw, byWeekday };
+}
+
+function safeStoredEventTime(value) {
+  try {
+    return normalizeEventTime(value, "Event time");
+  } catch {
+    return "";
+  }
+}
+
+function normalizeStoredEvent(event) {
+  if (!event || typeof event !== "object") {
+    return null;
+  }
+  const nowIso = new Date().toISOString();
+  const createdAt = String(event.createdAt || nowIso).trim() || nowIso;
+  let date = String(event.date || "").trim();
+  if (!isValidOccurredOn(date)) {
+    date = dateFromIso(createdAt);
+  }
+  let allDay = event.allDay === true;
+  let startTime = allDay ? "" : safeStoredEventTime(event.startTime);
+  const endTime = allDay ? "" : safeStoredEventTime(event.endTime);
+  // Keep the stored event self-consistent with the strict writer validator:
+  // a timed event without a usable start time degrades to all-day instead of
+  // becoming un-editable on the next PATCH.
+  if (!allDay && !startTime) {
+    allDay = true;
+    startTime = "";
+  }
+  const category = String(event.category || "personal").trim().toLowerCase();
+  const color = String(event.color || "").trim().toLowerCase();
+  return {
+    id: String(event.id || `event_${crypto.randomBytes(8).toString("hex")}`),
+    title: String(event.title || "").trim().slice(0, MAX_EVENT_TITLE_LENGTH) || "Untitled",
+    notes: String(event.notes || "").slice(0, MAX_EVENT_NOTES_LENGTH),
+    date,
+    allDay,
+    startTime,
+    endTime,
+    location: String(event.location || "").trim().slice(0, MAX_EVENT_LOCATION_LENGTH),
+    category: EVENT_CATEGORIES.has(category) ? category : "personal",
+    color: EVENT_COLOR_PATTERN.test(color) ? color : "",
+    linkedNoteId: String(event.linkedNoteId || "").trim().slice(0, MAX_EVENT_ID_LENGTH),
+    recurrence: normalizeStoredEventRecurrence(event.recurrence),
+    reminderMinutes: normalizeStoredEventReminder(event.reminderMinutes),
+    createdAt,
+    updatedAt: String(event.updatedAt || createdAt).trim() || createdAt
+  };
+}
+
+function normalizeStoredEventRecurrence(value) {
+  try {
+    return normalizeEventRecurrence(value);
+  } catch {
+    return { freq: "none", interval: 1, until: "", byWeekday: [] };
+  }
+}
+
+function normalizeStoredEventReminder(value) {
+  try {
+    return normalizeEventReminder(value);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeEventInput(input, { id, createdAt } = {}) {
+  const raw = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const nowIso = new Date().toISOString();
+  const title = String(raw.title || "").trim();
+  if (!title) {
+    throw eventError("An event title is required.");
+  }
+  if (title.length > MAX_EVENT_TITLE_LENGTH) {
+    throw eventError(`An event title cannot exceed ${MAX_EVENT_TITLE_LENGTH} characters.`);
+  }
+  const date = String(raw.date || "").trim();
+  if (!isValidOccurredOn(date)) {
+    throw eventError("An event date must be a valid calendar date (YYYY-MM-DD).");
+  }
+  const notes = String(raw.notes || "");
+  if (notes.length > MAX_EVENT_NOTES_LENGTH) {
+    throw eventError(`Event notes cannot exceed ${MAX_EVENT_NOTES_LENGTH} characters.`);
+  }
+  const location = String(raw.location || "").trim();
+  if (location.length > MAX_EVENT_LOCATION_LENGTH) {
+    throw eventError(`An event location cannot exceed ${MAX_EVENT_LOCATION_LENGTH} characters.`);
+  }
+  const linkedNoteId = String(raw.linkedNoteId || "").trim();
+  if (linkedNoteId.length > MAX_EVENT_ID_LENGTH) {
+    throw eventError(`A linked note id cannot exceed ${MAX_EVENT_ID_LENGTH} characters.`);
+  }
+  const allDay = raw.allDay === true;
+  const startTime = allDay ? "" : normalizeEventTime(raw.startTime, "Start time");
+  const endTime = allDay ? "" : normalizeEventTime(raw.endTime, "End time");
+  if (!allDay && !startTime) {
+    throw eventError("A timed event needs a start time.");
+  }
+  const createdAtIso = String(createdAt || raw.createdAt || nowIso).trim() || nowIso;
+  return {
+    id: String(id || raw.id || `event_${crypto.randomBytes(8).toString("hex")}`),
+    title,
+    notes,
+    date,
+    allDay,
+    startTime,
+    endTime,
+    location,
+    category: normalizeEventCategory(raw.category),
+    color: normalizeEventColor(raw.color),
+    linkedNoteId,
+    recurrence: normalizeEventRecurrence(raw.recurrence),
+    reminderMinutes: normalizeEventReminder(raw.reminderMinutes),
+    createdAt: createdAtIso,
+    updatedAt: nowIso
+  };
+}
+
+function resolveEventsLimit(options = {}) {
+  const numericValue = Number(options.maxEvents);
+  const resolved = Number.isFinite(numericValue) && numericValue > 0
+    ? Math.floor(numericValue)
+    : MAX_EVENTS_PER_PROFILE;
+  // The read normalizer holds at most MAX_EVENTS_PER_PROFILE, so a higher
+  // configured limit would accept events that the write then discards.
+  return Math.min(resolved, MAX_EVENTS_PER_PROFILE);
+}
+
+function cloneEvent(event) {
+  return {
+    ...event,
+    recurrence: {
+      ...(event.recurrence || {}),
+      byWeekday: Array.isArray(event.recurrence?.byWeekday) ? [...event.recurrence.byWeekday] : []
+    }
+  };
+}
+
+function sortEvents(events) {
+  return [...events].sort((left, right) => {
+    const dateCmp = String(left.date || "").localeCompare(String(right.date || ""));
+    if (dateCmp) {
+      return dateCmp;
+    }
+    const leftTime = left.allDay ? "" : String(left.startTime || "");
+    const rightTime = right.allDay ? "" : String(right.startTime || "");
+    if (leftTime !== rightTime) {
+      return leftTime.localeCompare(rightTime);
+    }
+    return String(left.title || "").localeCompare(String(right.title || ""));
+  });
+}
+
+// Event notes can be up to 20KB each, so the list stays lightweight like
+// listProfileNotes; use getProfileEvent for the full record.
+function summarizeEvent(event) {
+  const summary = cloneEvent(event);
+  summary.noteLength = String(summary.notes || "").length;
+  delete summary.notes;
+  return summary;
+}
+
+function listProfileEvents(clientId, options = {}) {
+  const profile = readProfile(clientId, options);
+  return sortEvents(profile.events || []).map(summarizeEvent);
+}
+
+function getProfileEvent(clientId, eventId, options = {}) {
+  const profile = readProfile(clientId, options);
+  const event = (profile.events || []).find((entry) => entry.id === String(eventId || "").trim()) || null;
+  if (!event) {
+    throw new ProfileStorageError("event_not_found", `Event '${eventId}' was not found.`);
+  }
+  return cloneEvent(event);
+}
+
+function createProfileEvent(clientId, input, options = {}) {
+  const profile = readProfile(clientId, options);
+  const limit = resolveEventsLimit(options);
+  if ((profile.events || []).length >= limit) {
+    throw new ProfileStorageError("events_limit_reached", `A profile can hold at most ${limit} events for your access level.`);
+  }
+  const nowIso = new Date().toISOString();
+  const event = normalizeEventInput(input, { createdAt: nowIso });
+  profile.events = [...(profile.events || []), event];
+  profile.updatedAt = nowIso;
+  const usage = writeProfile(clientId, profile, options);
+  return { event: cloneEvent(event), usage };
+}
+
+function updateProfileEvent(clientId, eventId, input, options = {}) {
+  const profile = readProfile(clientId, options);
+  const events = profile.events || [];
+  const index = events.findIndex((entry) => entry.id === String(eventId || "").trim());
+  if (index === -1) {
+    throw new ProfileStorageError("event_not_found", `Event '${eventId}' was not found.`);
+  }
+  const existing = events[index];
+  const overrides = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const merged = { ...existing, ...overrides };
+  // Nested recurrence is merged field-wise so a partial PATCH (e.g. only
+  // `freq`) keeps the stored interval/until/byWeekday.
+  if (overrides.recurrence && typeof overrides.recurrence === "object" && !Array.isArray(overrides.recurrence)) {
+    merged.recurrence = { ...(existing.recurrence || {}), ...overrides.recurrence };
+  }
+  const event = normalizeEventInput(merged, { id: existing.id, createdAt: existing.createdAt });
+  events[index] = event;
+  profile.events = events;
+  profile.updatedAt = event.updatedAt;
+  const usage = writeProfile(clientId, profile, options);
+  return { event: cloneEvent(event), usage };
+}
+
+function deleteProfileEvent(clientId, eventId, options = {}) {
+  const profile = readProfile(clientId, options);
+  const index = (profile.events || []).findIndex((entry) => entry.id === String(eventId || "").trim());
+  if (index === -1) {
+    throw new ProfileStorageError("event_not_found", `Event '${eventId}' was not found.`);
+  }
+  profile.events.splice(index, 1);
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(clientId, profile, options);
+  return { removed: true, usage };
+}
+
 function computeQuizStats(attempts) {
   const byCategory = new Map();
 
@@ -1267,16 +1593,20 @@ function updateProfileDisplayName(clientId, input, options = {}) {
 module.exports = {
   ProfileStorageError,
   addProfileQuickNote,
+  createProfileEvent,
   createProfileNote,
+  deleteProfileEvent,
   deleteProfileNote,
   deleteProfileQuickNote,
   getProfileBio,
+  getProfileEvent,
   getProfileLibrary,
   getProfileNote,
   getProfilePluginState,
   getProfileQuizProgress,
   getProfileSummary,
   getProfileUsage,
+  listProfileEvents,
   listProfileNotes,
   listProfileQuickNotes,
   readProfile,
@@ -1285,6 +1615,7 @@ module.exports = {
   resetProfile,
   updateProfileBio,
   updateProfileDisplayName,
+  updateProfileEvent,
   updateProfileLibrary,
   updateProfileLocation,
   updateProfileNote,

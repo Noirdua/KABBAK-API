@@ -13,8 +13,6 @@ const {
 } = require("../services/api-client-registry");
 const { touchPresence } = require("../services/user-registry");
 
-const MANAGED_CLIENT_STAT_INTERVAL_MS = 2000;
-
 function invalidateManagedClientCache() {
   managedClientCache.checkedAtMs = 0;
   managedClientCache.mtimeMs = -1;
@@ -73,33 +71,18 @@ function freezeConfiguredClients(clients) {
 
 function loadManagedApiClients() {
   const nowMs = Date.now();
-  if (
-    managedClientCache.checkedAtMs > 0
-    && (nowMs - managedClientCache.checkedAtMs) < MANAGED_CLIENT_STAT_INTERVAL_MS
-  ) {
-    return managedClientCache.clients;
-  }
 
-  managedClientCache.checkedAtMs = nowMs;
-
+  // Stat on every call so edits and deletions made outside the app (a different
+  // process, an operator, or a test) are seen immediately. Only the file parse
+  // is cached, keyed on mtime; the stat itself is cheap next to key hashing.
+  let stats;
   try {
-    const stats = fs.statSync(managedApiClientsPath);
-    if (managedClientCache.exists && managedClientCache.mtimeMs === stats.mtimeMs) {
-      return managedClientCache.clients;
-    }
-
-    const nextClients = freezeConfiguredClients(readManagedApiClients({
-      filePath: managedApiClientsPath
-    }));
-    managedClientCache.exists = true;
-    managedClientCache.mtimeMs = stats.mtimeMs;
-    managedClientCache.clients = nextClients;
-    managedClientCache.clientsByKeyHash = buildClientKeyHashMap(nextClients);
-    return managedClientCache.clients;
+    stats = fs.statSync(managedApiClientsPath);
   } catch (error) {
     if (error && error.code === "ENOENT") {
       managedClientCache.exists = false;
       managedClientCache.mtimeMs = -1;
+      managedClientCache.checkedAtMs = nowMs;
       managedClientCache.clients = Object.freeze([]);
       managedClientCache.clientsByKeyHash = new Map();
       return managedClientCache.clients;
@@ -107,6 +90,21 @@ function loadManagedApiClients() {
 
     throw error;
   }
+
+  if (managedClientCache.exists && managedClientCache.mtimeMs === stats.mtimeMs) {
+    managedClientCache.checkedAtMs = nowMs;
+    return managedClientCache.clients;
+  }
+
+  const nextClients = freezeConfiguredClients(readManagedApiClients({
+    filePath: managedApiClientsPath
+  }));
+  managedClientCache.exists = true;
+  managedClientCache.mtimeMs = stats.mtimeMs;
+  managedClientCache.checkedAtMs = nowMs;
+  managedClientCache.clients = nextClients;
+  managedClientCache.clientsByKeyHash = buildClientKeyHashMap(nextClients);
+  return managedClientCache.clients;
 }
 
 function createLegacyConfiguredClients() {

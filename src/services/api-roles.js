@@ -10,16 +10,18 @@ const {
   PROFILE_STORAGE_QUOTA_BYTES,
   MAX_NOTES_PER_PROFILE,
   MAX_ATTACHMENTS_PER_SCENE,
-  MAX_ATTACHMENT_SIZE_BYTES
+  MAX_ATTACHMENT_SIZE_BYTES,
+  MAX_EVENTS_PER_PROFILE
 } = require("../config/profile-storage");
 const { ACCESS_LEVELS, normalizeAccessLevel } = require("../config/api-access");
 const { getAccessLevelLimits } = require("./api-access-levels");
 
 const KNOWN_CAPABILITIES = Object.freeze(["tarot", "adminApiManagement"]);
-const KNOWN_LIMIT_KEYS = Object.freeze(["notes", "attachmentsPerScene", "attachmentBytes", "storageBytes"]);
+const KNOWN_LIMIT_KEYS = Object.freeze(["notes", "events", "attachmentsPerScene", "attachmentBytes", "storageBytes"]);
 
 const DEFAULT_LIMITS = Object.freeze({
   notes: MAX_NOTES_PER_PROFILE,
+  events: MAX_EVENTS_PER_PROFILE,
   attachmentsPerScene: MAX_ATTACHMENTS_PER_SCENE,
   attachmentBytes: MAX_ATTACHMENT_SIZE_BYTES,
   storageBytes: PROFILE_STORAGE_QUOTA_BYTES

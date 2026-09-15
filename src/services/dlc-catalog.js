@@ -112,12 +112,23 @@ function fallbackId(name) {
 // after the manifest id for curated imports (e.g. "kjv.json"). References land in
 // the same folder, named after their id. Resolve whichever candidate exists so
 // install status is accurate for both cases.
+// Ids and names can come from remote manifests, so a candidate file token must
+// never be able to escape the source text data root.
+function isSafeSourceFileToken(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "." || text === "..") return false;
+  if (text.includes("/") || text.includes("\\")) return false;
+  return !path.isAbsolute(text);
+}
+
 function resolveInstalledSourceFileName(id, name) {
   const candidates = [];
   const normalizedId = String(id || "").trim().toLowerCase();
   const normalizedName = String(name || "").trim().toLowerCase();
-  if (normalizedId) candidates.push(`${normalizedId}.json`);
-  if (normalizedName && normalizedName !== normalizedId) candidates.push(`${normalizedName}.json`);
+  if (isSafeSourceFileToken(normalizedId)) candidates.push(`${normalizedId}.json`);
+  if (normalizedName && normalizedName !== normalizedId && isSafeSourceFileToken(normalizedName)) {
+    candidates.push(`${normalizedName}.json`);
+  }
 
   for (const fileName of candidates) {
     if (fs.existsSync(path.join(sourceTextDataRoot, fileName))) return fileName;
@@ -421,6 +432,66 @@ function gitShowJson(root, relativePath) {
   }
 }
 
+// One `git cat-file --batch` for every item manifest in the HEAD tree. A large
+// repo (hundreds/thousands of items) made the per-item `git show` calls take
+// tens of seconds and time out the admin catalog.
+const GIT_MANIFEST_NAMES = new Set([
+  "metadata.json", "text.json", "deck.json", "reference.json", "manifest.json", "pack.json", "changelog.json"
+]);
+
+function preloadGitManifests(root) {
+  const listing = tryGit(["ls-tree", "-r", "--name-only", "HEAD"], { cwd: root });
+  if (!listing.ok) return new Map();
+  const paths = listing.output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((filePath) => filePath && GIT_MANIFEST_NAMES.has(filePath.split("/").pop()));
+
+  const map = new Map();
+  if (!paths.length) return map;
+
+  let buffer;
+  try {
+    buffer = execFileSync("git", ["cat-file", "--batch"], {
+      cwd: root,
+      input: `${paths.map((filePath) => `HEAD:${filePath}`).join("\n")}\n`,
+      maxBuffer: 512 * 1024 * 1024
+    });
+  } catch (_error) {
+    return map;
+  }
+
+  let offset = 0;
+  let index = 0;
+  while (offset < buffer.length && index < paths.length) {
+    const newline = buffer.indexOf(0x0a, offset);
+    if (newline < 0) break;
+    const header = buffer.slice(offset, newline).toString("utf8");
+    offset = newline + 1;
+    if (/\smissing$/.test(header)) {
+      index += 1;
+      continue;
+    }
+    const parts = header.split(" ");
+    const size = Number(parts[2]);
+    if (!Number.isFinite(size)) break;
+    const content = buffer.slice(offset, offset + size).toString("utf8");
+    offset += size + 1;
+    try {
+      map.set(paths[index], JSON.parse(content));
+    } catch (_error) {
+      // Not JSON; skip.
+    }
+    index += 1;
+  }
+  return map;
+}
+
+function gitManifest(gitJson, root, relativePath) {
+  if (gitJson && gitJson.has(relativePath)) return gitJson.get(relativePath);
+  return gitShowJson(root, relativePath);
+}
+
 function listGitTreeDirs(root, categoryDir) {
   if (!fs.existsSync(path.join(root, ".git"))) return [];
   const result = tryGit(["ls-tree", "-d", "--name-only", `HEAD:${categoryDir}`], { cwd: root });
@@ -645,13 +716,13 @@ function markDuplicates(items) {
   }
 }
 
-function describeGitItem(root, category, name) {
+function describeGitItem(root, category, name, gitJson = null) {
   const prefix = `${category.dir}/${name}`;
   const local = describeLocalItem(category, name, root);
   const base = { name, size: local?.size || 0, files: local?.files || 0 };
 
   if (category.kind === "deck") {
-    const deck = gitShowJson(root, `${prefix}/deck.json`);
+    const deck = gitManifest(gitJson, root, `${prefix}/deck.json`);
     if (!deck && local) return local;
     return {
       ...base,
@@ -662,7 +733,7 @@ function describeGitItem(root, category, name) {
     };
   }
   if (category.kind === "pack") {
-    const pack = gitShowJson(root, `${prefix}/pack.json`);
+    const pack = gitManifest(gitJson, root, `${prefix}/pack.json`);
     if (!pack && local) return local;
     const packItems = normalizePackItems(pack?.items);
     return {
@@ -674,7 +745,7 @@ function describeGitItem(root, category, name) {
     };
   }
   if (category.kind === "reference") {
-    const reference = gitShowJson(root, `${prefix}/reference.json`);
+    const reference = gitManifest(gitJson, root, `${prefix}/reference.json`);
     if (!reference && local) return local;
     return {
       ...base,
@@ -686,8 +757,8 @@ function describeGitItem(root, category, name) {
     };
   }
   if (category.kind === "plugin" || category.kind === "api") {
-    const manifest = gitShowJson(root, `${prefix}/manifest.json`);
-    const changelog = gitShowJson(root, `${prefix}/changelog.json`);
+    const manifest = gitManifest(gitJson, root, `${prefix}/manifest.json`);
+    const changelog = gitManifest(gitJson, root, `${prefix}/changelog.json`);
     if (!manifest && local) return local;
     const section = manifest?.section && typeof manifest.section === "object" ? manifest.section : (local?.section || null);
     return {
@@ -707,7 +778,7 @@ function describeGitItem(root, category, name) {
         : (local?.changelog || [])
     };
   }
-  const text = gitShowJson(root, `${prefix}/metadata.json`) || gitShowJson(root, `${prefix}/text.json`);
+  const text = gitManifest(gitJson, root, `${prefix}/metadata.json`) || gitManifest(gitJson, root, `${prefix}/text.json`);
   if (!text && local) return local;
   return {
     ...base,
@@ -734,10 +805,11 @@ function scanGitTree(root = dlcRoot) {
   if (!fs.existsSync(path.join(root, ".git"))) return null;
   const raw = {};
   let found = false;
+  const gitJson = preloadGitManifests(root);
   for (const category of CATEGORIES) {
     const names = listGitTreeDirs(root, category.dir);
     if (names.length) found = true;
-    raw[category.key] = names.map((name) => describeGitItem(root, category, name));
+    raw[category.key] = names.map((name) => describeGitItem(root, category, name, gitJson));
   }
   return found ? raw : null;
 }
@@ -1057,7 +1129,7 @@ function updateItem(item, { log = () => {} } = {}) {
   };
 }
 
-function uninstallItem(item, { purge = false, log = () => {} } = {}) {
+function uninstallItem(item, { purge = false, log = () => {}, removeCanonical = true } = {}) {
   const name = assertSafeName(item.name);
   const category = categoryByKind(item.kind);
   if (!category) throw new Error(`Unknown DLC kind '${item.kind}'.`);
@@ -1075,6 +1147,7 @@ function uninstallItem(item, { purge = false, log = () => {} } = {}) {
   // (decks -> source/assets, texts/references -> source/data/text). Uninstall
   // has to remove both the staged import and the installed canonical artifact.
   const removeInstalledCanonical = () => {
+    if (!removeCanonical) return;
     const installedFile = resolveInstalledSourceFileName(item.id, name);
     if (installedFile) {
       removePath(path.join(sourceTextDataRoot, installedFile));
@@ -2089,6 +2162,202 @@ function createTextDlc(input = {}, { log = () => {} } = {}) {
   };
 }
 
+// Longest shared word prefix, dropping trailing label words ("Part", "Vol"…),
+// so 45 "Calvin's Commentaries, Part N" titles default to one clean title.
+function commonTitlePrefix(titles) {
+  const lists = (Array.isArray(titles) ? titles : []).map((title) => String(title || "").trim().split(/\s+/));
+  if (!lists.length) return "";
+  const prefix = [];
+  for (let index = 0; ; index += 1) {
+    const word = lists[0][index];
+    if (word === undefined) break;
+    const lower = word.toLowerCase();
+    if (!lists.every((list) => String(list[index] || "").toLowerCase() === lower)) break;
+    prefix.push(word);
+  }
+  while (prefix.length) {
+    const last = prefix[prefix.length - 1].replace(/[.,:;\-–—]+$/, "");
+    if (!last || /^(part|pt|vol|volume|book|bk|chapter|ch|no|number)$/i.test(last)) prefix.pop();
+    else break;
+  }
+  return prefix.join(" ").replace(/[.,:;\-–—\s]+$/, "");
+}
+
+// Build the merged document for a set of text items (works become "Book 1",
+// "Book 2", … or a regex-derived name). Shared by the direct merge and the
+// editor draft so both produce identical output.
+function planTextMerge(input = {}) {
+  const { slugify: slugifyText } = require("./text-importer");
+  const names = (Array.isArray(input.items) ? input.items : [])
+    .map((entry) => String(entry?.name || entry || "").trim())
+    .filter(Boolean);
+  const sourceNames = [...new Set(names)];
+  if (sourceNames.length < 2) {
+    throw new Error("Select at least two texts to merge.");
+  }
+
+  const parts = sourceNames.map((name) => {
+    const safeName = assertSafeName(name);
+    const dir = path.join(dlcRoot, "texts", safeName);
+    const manifest = readTextManifest(dir);
+    if (!manifest) {
+      throw new Error(`Text '${safeName}' is missing a metadata.json manifest.`);
+    }
+    const inputPath = String(manifest?.input?.path || "").trim();
+    if (!inputPath) {
+      throw new Error(`Text '${safeName}' has no input.path.`);
+    }
+    const document = readJsonIfPresent(path.join(dir, path.basename(inputPath)));
+    if (!document || !Array.isArray(document.works) || !document.works.length) {
+      throw new Error(`Text '${safeName}' has no readable document.`);
+    }
+    return { name: safeName, manifest, document };
+  });
+
+  // Optional regex to name the merged works from each source title, e.g.
+  // "Calvin's Commentaries, Part 9" + /part\s*\d+/ → "Part 9".
+  const pattern = String(input.sourceNamePattern || "").trim();
+  let regex = null;
+  if (pattern) {
+    const flags = String(input.sourceNameFlags || "i").replace(/[^imsuy]/g, "") || "i";
+    try {
+      regex = new RegExp(pattern, flags);
+    } catch (error) {
+      throw new Error(`Invalid work name pattern: ${error.message}`);
+    }
+  }
+  const replaceTemplate = String(input.sourceNameReplace || "").trim();
+
+  const works = [];
+  const workSources = [];
+  let order = 1;
+  parts.forEach((part) => {
+    const sourceTitle = String(part.manifest.title || part.name).trim();
+    let derived = sourceTitle;
+    if (regex) {
+      const match = regex.exec(sourceTitle);
+      if (match) {
+        derived = replaceTemplate
+          ? sourceTitle.replace(regex, replaceTemplate)
+          : (match[1] !== undefined ? match[1] : match[0]);
+      }
+      derived = String(derived || sourceTitle).trim() || sourceTitle;
+    }
+    part.document.works.forEach((work) => {
+      workSources.push(sourceTitle);
+      const originalTitle = String(work?.title || work?.shortTitle || sourceTitle).trim();
+      // Without a regex the work keeps its original (file) title so the editor
+      // shows "Calvin's Commentaries, Part 1" etc. and can be renamed there.
+      const title = regex
+        ? (part.document.works.length > 1 ? `${derived} — ${originalTitle}` : derived).slice(0, 160)
+        : originalTitle.slice(0, 160);
+      const shortTitle = (regex ? derived : originalTitle).slice(0, 80);
+      works.push({
+        ...work,
+        id: `${slugifyText(`book ${order}`)}-${String(work?.id || order).slice(0, 40)}`,
+        title,
+        shortTitle,
+        order
+      });
+      order += 1;
+    });
+  });
+
+  const partTitles = parts.map((part) => String(part.manifest.title || part.name).trim());
+  const defaultTitle = commonTitlePrefix(partTitles) || partTitles[0] || "Merged text";
+  return {
+    parts,
+    sourceNames,
+    works,
+    workSources,
+    title: String(input.title || "").trim() || defaultTitle,
+    description: String(input.description || parts[0]?.manifest?.description || ""),
+    language: parts[0]?.manifest?.language || "English",
+    script: parts[0]?.manifest?.script || "Latin",
+    tradition: parts[0]?.manifest?.tradition || "",
+    workLabel: "Book",
+    sectionLabel: parts[0]?.manifest?.sectionLabel || "Section",
+    verseLabel: parts[0]?.manifest?.verseLabel || "Passage"
+  };
+}
+
+function documentStats(document) {
+  const works = Array.isArray(document?.works) ? document.works : [];
+  return {
+    works: works.length,
+    sections: works.reduce((sum, work) => sum + (Array.isArray(work.sections) ? work.sections.length : 0), 0),
+    verses: works.reduce((sum, work) => (
+      sum + (Array.isArray(work.sections)
+        ? work.sections.reduce((inner, section) => inner + (Array.isArray(section.verses) ? section.verses.length : 0), 0)
+        : 0)
+    ), 0)
+  };
+}
+
+// Preview payload shaped like /dlc/texts/preview so the GUI text editor can
+// load a merge without writing anything.
+function buildTextMergeDraft(input = {}) {
+  const plan = planTextMerge(input);
+  const document = { works: plan.works };
+  const { slugify: slugifyText } = require("./text-importer");
+  return {
+    format: "structured-json",
+    id: slugifyText(input.id || plan.title) || "merged-text",
+    title: plan.title,
+    description: plan.description,
+    workLabel: plan.workLabel,
+    sectionLabel: plan.sectionLabel,
+    verseLabel: plan.verseLabel,
+    stats: documentStats(document),
+    document,
+    workSources: plan.workSources,
+    formats: [...SUPPORTED_TEXT_FORMATS],
+    looseText: [],
+    shelf: []
+  };
+}
+
+// Merge text items into one DLC text. `input.document` (from the editor) wins
+// over the freshly built works so edits/deletions are preserved.
+function mergeTextDlcItems(input = {}, { log = () => {} } = {}) {
+  const plan = planTextMerge(input);
+  const works = input.document && Array.isArray(input.document.works) && input.document.works.length
+    ? input.document.works
+    : plan.works;
+
+  const result = createTextDlc({
+    title: input.title || plan.title,
+    id: input.id,
+    description: input.description || plan.description,
+    language: input.language || plan.language,
+    script: input.script || plan.script,
+    tradition: input.tradition || plan.tradition,
+    workLabel: input.workLabel || plan.workLabel,
+    sectionLabel: input.sectionLabel || plan.sectionLabel,
+    verseLabel: input.verseLabel || plan.verseLabel,
+    document: { works }
+  }, { log });
+
+  if (input.removeSources === true) {
+    plan.parts.forEach((part) => {
+      try {
+        // Merge only drops the staged/checkout copy; canonical source/ data must
+        // survive until the merged text is installed.
+        uninstallItem({ kind: "text", name: part.name, id: part.manifest.id }, { log, removeCanonical: false });
+      } catch (_error) {
+        // Best effort; the DLC copy is removed below regardless.
+      }
+      const dir = path.join(dlcRoot, "texts", part.name);
+      if (isDirectory(dir)) {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+    invalidateCatalogCache();
+  }
+
+  return { ...result, merged: plan.sourceNames, works: works.length };
+}
+
 function makeReferenceEntryId(key, title, keyScheme, slugifyText) {
   const scheme = String(keyScheme || "word").trim();
   const rawKey = String(key || title || "").trim();
@@ -2749,7 +3018,9 @@ module.exports = {
   clearPluginLogs,
   createPluginPlaylist,
   createPluginScaffold,
+  buildTextMergeDraft,
   createReferenceDlc,
+  mergeTextDlcItems,
   previewReferenceImport,
   readReferenceDisplayConfig,
   createTextDlc,

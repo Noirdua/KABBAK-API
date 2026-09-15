@@ -41,7 +41,9 @@ const {
   resolveRepoUrl,
   startInstallAll,
   updateRepo,
-  invalidateCatalogCache
+  invalidateCatalogCache,
+  mergeTextDlcItems,
+  buildTextMergeDraft
 } = require("../services/dlc-catalog");
 const dlcSources = require("../services/dlc-sources");
 const dlcPublish = require("../services/dlc-publish");
@@ -723,6 +725,7 @@ router.post("/admin/dlc/publish/status", (request, response) => {
     const result = dlcPublish.getPublishPending({ kind, name, sourceId: String(item?.sourceId || "") }, ctx);
     return { kind, name, pending: result.pending === true, reason: result.reason };
   });
+  dlcPublish.flushPublishSnapshots(ctx);
   response.apiSuccess({ statuses });
 });
 
@@ -887,6 +890,63 @@ router.put("/admin/dlc/item/file", (request, response) => {
     itemKind: kind,
     itemName: name,
     file: result.path
+  });
+  response.apiSuccess(result);
+});
+
+// Merge draft for the text editor (no write): preview payload shaped like
+// /dlc/texts/preview.
+router.post("/admin/dlc/texts/merge-draft", (request, response) => {
+  const body = getPatchBody(request);
+  const items = Array.isArray(body?.items) ? body.items.slice(0, 200) : [];
+  let draft;
+  try {
+    draft = buildTextMergeDraft({
+      items,
+      title: body?.title,
+      id: body?.id,
+      description: body?.description,
+      sourceNamePattern: body?.sourceNamePattern,
+      sourceNameReplace: body?.sourceNameReplace,
+      sourceNameFlags: body?.sourceNameFlags
+    });
+  } catch (error) {
+    throw createHttpError(400, "dlc_text_merge_failed", error.message);
+  }
+  response.apiSuccess(draft);
+});
+
+// Merge several DLC text items into one text (works become Book 1, Book 2, …).
+router.post("/admin/dlc/texts/merge", (request, response) => {
+  const body = getPatchBody(request);
+  const items = Array.isArray(body?.items) ? body.items.slice(0, 200) : [];
+  let result;
+  try {
+    result = mergeTextDlcItems({
+      items,
+      title: body?.title,
+      id: body?.id,
+      description: body?.description,
+      language: body?.language,
+      script: body?.script,
+      tradition: body?.tradition,
+      workLabel: body?.workLabel,
+      sectionLabel: body?.sectionLabel,
+      verseLabel: body?.verseLabel,
+      document: body?.document,
+      removeSources: body?.removeSources === true,
+      sourceNamePattern: body?.sourceNamePattern,
+      sourceNameReplace: body?.sourceNameReplace,
+      sourceNameFlags: body?.sourceNameFlags
+    });
+  } catch (error) {
+    throw createHttpError(400, "dlc_text_merge_failed", error.message);
+  }
+  invalidateCatalogCache();
+  emitAdminMutationAuditEvent(request, response, {
+    action: "merge_dlc_texts",
+    itemName: result.name,
+    merged: result.merged
   });
   response.apiSuccess(result);
 });

@@ -949,19 +949,6 @@
       }
     },
     "/integrations/urantia/{path}": {
-      "get": {
-        "tags": ["integrations"],
-        "summary": "Proxy a GET request to the Urantia Papers API",
-        "operationId": "proxyUrantiaGet",
-        "parameters": [
-          { "name": "path", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": {
-          "200": { "$ref": "#/components/responses/JsonPayload" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "502": { "$ref": "#/components/responses/BadRequest" }
-        }
-      },
       "post": {
         "tags": ["integrations"],
         "summary": "Proxy a POST request to the Urantia Papers API",
@@ -992,19 +979,6 @@
       }
     },
     "/integrations/hydrus-network/{path}": {
-      "get": {
-        "tags": ["integrations"],
-        "summary": "Proxy a GET request to the Hydrus Network client API",
-        "operationId": "proxyHydrusNetworkGet",
-        "parameters": [
-          { "name": "path", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": {
-          "200": { "$ref": "#/components/responses/JsonPayload" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "502": { "$ref": "#/components/responses/BadRequest" }
-        }
-      },
       "post": {
         "tags": ["integrations"],
         "summary": "Proxy a POST request to the Hydrus Network client API",
@@ -1016,6 +990,459 @@
           "200": { "$ref": "#/components/responses/JsonPayload" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "502": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/admin/access-levels": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "List access tier definitions",
+        "operationId": "listAdminAccessLevels",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/tiers": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "List access tier definitions and overrides",
+        "operationId": "listAdminTiers",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "List managed API users and registry presence",
+        "operationId": "listAdminUsers",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/roles": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "List role definitions with capabilities and limits",
+        "operationId": "listAdminRoles",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/settings": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Get runtime server settings",
+        "operationId": "getAdminSettings",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/jobs": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Get background job status",
+        "operationId": "listAdminJobs",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/logs": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Get recent structured log events and facets",
+        "operationId": "listAdminLogs",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/overview": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Get the admin overview dashboard payload",
+        "operationId": "getAdminOverview",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/dlc/reload-status": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Get DLC hot-reload status",
+        "operationId": "getAdminDlcReloadStatus",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/dlc/install-status": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Get DLC install progress",
+        "operationId": "getAdminDlcInstallStatus",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/dlc/sources": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "List configured DLC sources",
+        "operationId": "listAdminDlcSources",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/dlc/publish": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Get DLC publish pending status",
+        "operationId": "getAdminDlcPublish",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/dlc/validate": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Validate a DLC item draft",
+        "operationId": "getAdminDlcValidate",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/dlc/deck/preview": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Preview a DLC deck image",
+        "operationId": "getAdminDlcDeckPreview",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/admin/dlc/deck/image": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Serve a DLC deck image",
+        "operationId": "getAdminDlcDeckImage",
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/admin/dlc/item/draft": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Build a DLC item draft payload",
+        "operationId": "getAdminDlcItemDraft",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/dlc/item/files": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "List files in a DLC item draft",
+        "operationId": "listAdminDlcItemFiles",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/dlc/item/raw": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Get raw DLC item file contents",
+        "operationId": "getAdminDlcItemRaw",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/admin/dlc/item/file": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Get a single DLC item file",
+        "operationId": "getAdminDlcItemFile",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/branding": {
+      "get": {
+        "tags": ["branding"],
+        "summary": "Get the public branding title and overlay background URL",
+        "operationId": "getBranding",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" }
+        }
+      }
+    },
+    "/branding/overlay": {
+      "get": {
+        "tags": ["branding"],
+        "summary": "Get the public overlay background image",
+        "operationId": "getBrandingOverlay",
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/dlc/catalog": {
+      "get": {
+        "tags": ["dlc"],
+        "summary": "Get the DLC catalog and installed item status",
+        "operationId": "getDlcCatalog",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/dlc/export": {
+      "get": {
+        "tags": ["dlc"],
+        "summary": "Export DLC items as a downloadable archive",
+        "operationId": "exportDlc",
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/plugins": {
+      "get": {
+        "tags": ["plugins"],
+        "summary": "List installed DLC plugins (public subset without a key)",
+        "operationId": "listPlugins",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" }
+        }
+      }
+    },
+    "/plugins/{name}/{fileName}": {
+      "get": {
+        "tags": ["plugins"],
+        "summary": "Get a plugin entry asset such as JS or CSS",
+        "operationId": "getPluginAsset",
+        "parameters": [
+          { "name": "name", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "fileName", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/plugins/{name}/contents": {
+      "get": {
+        "tags": ["plugins"],
+        "summary": "List a plugin's contents",
+        "operationId": "getPluginContents",
+        "parameters": [
+          { "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/plugins/{name}/config": {
+      "get": {
+        "tags": ["plugins"],
+        "summary": "Get a plugin's configuration with secrets redacted",
+        "operationId": "getPluginConfig",
+        "parameters": [
+          { "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/plugins/{name}/logs": {
+      "get": {
+        "tags": ["plugins"],
+        "summary": "Get a plugin's logs",
+        "operationId": "getPluginLogs",
+        "parameters": [
+          { "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/plugins/{name}/files/{dirName}": {
+      "get": {
+        "tags": ["plugins"],
+        "summary": "List files in a plugin data directory",
+        "operationId": "listPluginFiles",
+        "parameters": [
+          { "name": "name", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "dirName", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/plugins/{name}/files/{dirName}/{fileName}": {
+      "get": {
+        "tags": ["plugins"],
+        "summary": "Get a plugin data file",
+        "operationId": "getPluginFile",
+        "parameters": [
+          { "name": "name", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "dirName", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "fileName", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/bio": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get the authenticated profile bio",
+        "operationId": "getProfileBio",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/profile/quick-notes": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "List the authenticated profile's quick notes",
+        "operationId": "listProfileQuickNotes",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/registry/users": {
+      "get": {
+        "tags": ["registry"],
+        "summary": "List user registry entries",
+        "operationId": "listRegistryUsers",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/registry/users/{clientId}": {
+      "get": {
+        "tags": ["registry"],
+        "summary": "Get one user registry entry",
+        "operationId": "getRegistryUser",
+        "parameters": [
+          { "name": "clientId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/tattvas": {
+      "get": {
+        "tags": ["tattvas"],
+        "summary": "List tattva reference entries",
+        "operationId": "listTattvas",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/tattvas/{tattvaId}": {
+      "get": {
+        "tags": ["tattvas"],
+        "summary": "Get one tattva reference entry",
+        "operationId": "getTattva",
+        "parameters": [
+          { "name": "tattvaId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
     },
@@ -1542,6 +1969,118 @@
         ],
         "summary": "Delete a dream or waking notebook entry",
         "operationId": "deleteProfileNote",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/profile/events": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "List calendar events for the authenticated profile",
+        "operationId": "listProfileEvents",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Create a calendar event for the authenticated profile",
+        "operationId": "createProfileEvent",
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "413": {
+            "$ref": "#/components/responses/JsonPayload"
+          }
+        }
+      }
+    },
+    "/profile/events/{eventId}": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Get a single calendar event for the authenticated profile",
+        "operationId": "getProfileEvent",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Update a calendar event for the authenticated profile",
+        "operationId": "updateProfileEvent",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/JsonPayload"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Delete a calendar event for the authenticated profile",
+        "operationId": "deleteProfileEvent",
         "responses": {
           "200": {
             "$ref": "#/components/responses/JsonPayload"

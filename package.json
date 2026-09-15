@@ -16,9 +16,10 @@
     "migrate:data": "node --max-old-space-size=4096 scripts/migrate-data-to-sqlite.js",
     "scrape:sacred-texts": "node scripts/scrape-sacred-texts.js",
     "smoke": "node scripts/smoke-test-api.js",
-    "test": "npm run test:integration && npm run test:clients",
+    "test": "npm run test:integration && npm run test:profile && npm run test:clients",
     "test:clients": "node --test tests/manage-api-clients.script.test.js",
     "test:integration": "node --test tests/app.integration.test.js",
+    "test:profile": "node --test tests/profile-service.test.js",
     "start": "node src/server.js",
     "dev": "node --watch src/server.js"
   },

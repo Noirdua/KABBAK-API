@@ -354,13 +354,15 @@ function getPublishPending({ kind, name, sourceId } = {}, ctx = {}) {
     }
 
     const key = `${source.id}:${kind}:${targetName}`;
-    const snapshots = readSnapshots();
+    if (!ctx.snapshots) ctx.snapshots = readSnapshots();
+    const snapshots = ctx.snapshots;
     const stamp = itemStamp(sourceItemDir);
     if (!snapshots[key]) {
       // First time we see a tracked, already-published item: baseline it so
-      // later edits show Publish without flagging everything as changed.
+      // later edits show Publish without flagging everything as changed. The
+      // store is written once per batch (flushPublishSnapshots), not per item.
       snapshots[key] = stamp;
-      writeSnapshots(snapshots);
+      ctx.snapshotsDirty = true;
     } else if (snapshots[key] !== stamp) {
       return { pending: true, reason: "changes" };
     }
@@ -371,6 +373,13 @@ function getPublishPending({ kind, name, sourceId } = {}, ctx = {}) {
     return { pending: false, reason: "uptodate" };
   } catch (error) {
     return { pending: true, reason: error?.message || "error" };
+  }
+}
+
+function flushPublishSnapshots(ctx) {
+  if (ctx?.snapshotsDirty && ctx.snapshots) {
+    writeSnapshots(ctx.snapshots);
+    ctx.snapshotsDirty = false;
   }
 }
 
@@ -642,6 +651,7 @@ function deleteItemFromRepo({ kind, name, sourceId, message } = {}, { log = () =
 module.exports = {
   clearPublishCredential,
   deleteItemFromRepo,
+  flushPublishSnapshots,
   getPublishPending,
   getPublishStatus,
   publishItem,
