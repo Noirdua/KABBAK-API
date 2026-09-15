@@ -16,6 +16,10 @@ const { listJobs } = require("../services/job-progress");
 const { listRegistry } = require("../services/user-registry");
 const { createBroadcast, deleteBroadcast, listBroadcasts } = require("../services/message-store");
 const { addProfileMessage, buildSharePath } = require("../services/profile-service");
+const { resolveAudienceClientIds } = require("../services/audience-service");
+const { appendLogEntry, clearLog, deleteLogEntry, listLogEntries } = require("../services/message-log");
+const { clearReplies, deleteReply, listReplies } = require("../services/reply-store");
+const { clearReports, deleteReport, listReports, resolveReport } = require("../services/report-store");
 const { resolvePluginUploadLimit } = require("../services/dlc-catalog");
 const {
   getHotReloadState,
@@ -248,6 +252,159 @@ router.delete("/admin/messages/:messageId", (request, response) => {
     removed: result.removed
   });
   response.apiSuccess(result);
+});
+
+// Send a message to an audience: everyone (global broadcast), specific users, or
+// everyone holding selected roles/tiers (delivered per user).
+router.post("/admin/messages/send", (request, response) => {
+  const body = getPatchBody(request);
+  const { type, clientIds } = resolveAudienceClientIds(body.audience);
+  const message = {
+    kind: body.kind,
+    title: body.title,
+    description: body.description,
+    attachments: body.attachments,
+    visibility: body.visibility,
+    publishAt: body.publishAt,
+    expiresAt: body.expiresAt,
+    requiresAck: body.requiresAck
+  };
+
+  if (type === "all") {
+    const broadcast = createBroadcast(message, { sender: "Admin" });
+    appendLogEntry({
+      audience: "all",
+      title: message.title,
+      kind: message.kind,
+      visibility: message.visibility === "public" ? "public" : "internal",
+      broadcast: true,
+      token: broadcast.token,
+      delivered: 0,
+      sender: "Admin"
+    });
+    emitAdminMutationAuditEvent(request, response, {
+      action: "send_broadcast",
+      targetMessageId: broadcast.id
+    });
+    response.status(201).apiSuccess({
+      broadcast: true,
+      delivered: 0,
+      recipients: [],
+      message: withMessagePath(broadcast)
+    });
+    return;
+  }
+
+  if (!clientIds.length) {
+    throw createHttpError(400, "empty_audience", "No recipients matched that audience.");
+  }
+
+  let delivered = 0;
+  const failures = [];
+  for (const clientId of clientIds) {
+    try {
+      addProfileMessage(
+        clientId,
+        { ...message, visibility: message.visibility || "internal" },
+        { sender: "Admin" }
+      );
+      delivered += 1;
+    } catch (error) {
+      failures.push({ clientId, error: error?.code || error?.message });
+    }
+  }
+
+  appendLogEntry({
+    audience: type,
+    audienceDetail: {
+      roles: Array.isArray(body.audience?.roles) ? body.audience.roles : [],
+      userCount: clientIds.length
+    },
+    title: message.title,
+    kind: message.kind,
+    visibility: "internal",
+    broadcast: false,
+    delivered,
+    failures: failures.length,
+    sender: "Admin"
+  });
+
+  emitAdminMutationAuditEvent(request, response, {
+    action: "send_direct_messages",
+    audience: type,
+    delivered
+  });
+  response.status(201).apiSuccess({ broadcast: false, delivered, recipients: clientIds, failures });
+});
+
+// --- Send history ------------------------------------------------------------
+
+router.get("/admin/messages/log", (_request, response) => {
+  const entries = listLogEntries();
+  response.apiSuccess({ count: entries.length, entries });
+});
+
+// "log/all" avoids colliding with DELETE /admin/messages/:messageId.
+router.delete("/admin/messages/log/all", (_request, response) => {
+  response.apiSuccess(clearLog());
+});
+
+router.delete("/admin/messages/log/:entryId", (request, response) => {
+  response.apiSuccess(deleteLogEntry(request.params.entryId));
+});
+
+// --- Replies -----------------------------------------------------------------
+
+router.get("/admin/messages/replies", (_request, response) => {
+  const replies = listReplies();
+  response.apiSuccess({ count: replies.length, replies });
+});
+
+router.delete("/admin/messages/replies/all", (_request, response) => {
+  response.apiSuccess(clearReplies());
+});
+
+router.delete("/admin/messages/replies/:replyId", (request, response) => {
+  response.apiSuccess(deleteReply(request.params.replyId));
+});
+
+// --- Community reports -------------------------------------------------------
+
+router.get("/admin/reports", (_request, response) => {
+  const reports = listReports();
+  response.apiSuccess({ count: reports.length, reports });
+});
+
+// "all" is registered before the :reportId route so it is not shadowed.
+router.delete("/admin/reports/all", (_request, response) => {
+  response.apiSuccess(clearReports());
+});
+
+router.post("/admin/reports/:reportId/resolve", (request, response) => {
+  let report;
+  try {
+    report = resolveReport(request.params.reportId);
+  } catch (error) {
+    throw createNotFoundError("report_not_found", error.message);
+  }
+  // Let the reporter know their report was actioned.
+  if (report.reporterClientId) {
+    try {
+      addProfileMessage(report.reporterClientId, {
+        kind: "report",
+        title: `Report reviewed: ${report.topicTitle || report.topicId}`,
+        description: "Thanks — an admin has reviewed your report.",
+        visibility: "internal"
+      }, { sender: "Community" });
+    } catch (_error) {
+      // Notification is best-effort.
+    }
+  }
+  response.apiSuccess(report);
+});
+
+router.delete("/admin/reports/:reportId", (request, response) => {
+  response.apiSuccess(deleteReport(request.params.reportId));
 });
 
 // Send a message into one user's inbox (direct send / plugin report).

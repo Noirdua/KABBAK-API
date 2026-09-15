@@ -1641,6 +1641,22 @@
         }
       }
     },
+    "/profile/inbox/{scope}/{messageId}": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get one inbox message (includes the HTML body)",
+        "operationId": "getInboxMessage",
+        "parameters": [
+          { "name": "scope", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "messageId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
     "/profile/inbox/{scope}/{messageId}/attachments/{attachmentId}": {
       "get": {
         "tags": ["profile"],
@@ -1708,6 +1724,50 @@
           "200": { "$ref": "#/components/responses/JsonPayload" },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/admin/reports": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List community reports",
+        "operationId": "listAdminReports",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/admin/messages/replies": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "List replies users wrote back to inbox messages",
+        "operationId": "listAdminMessageReplies",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/messages/log": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Get the send history (broadcasts and targeted sends)",
+        "operationId": "listAdminMessageLog",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       }
     },
@@ -1873,6 +1933,207 @@
           },
           {
             "$ref": "#/components/parameters/IncludeAnswer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/quiz/session": {
+      "get": {
+        "tags": [
+          "quiz"
+        ],
+        "summary": "Generate a round of distinct quiz questions (no answers)",
+        "operationId": "getQuizSession",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CategoryId"
+          },
+          {
+            "$ref": "#/components/parameters/TemplateKey"
+          },
+          {
+            "$ref": "#/components/parameters/Difficulty"
+          },
+          {
+            "$ref": "#/components/parameters/Seed"
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/board/topics": {
+      "get": {
+        "tags": [
+          "board"
+        ],
+        "summary": "List internal message board topics",
+        "operationId": "listBoardTopics",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "board"
+        ],
+        "summary": "Create a message board topic",
+        "operationId": "createBoardTopic",
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/board/contributors": {
+      "get": {
+        "tags": [
+          "board"
+        ],
+        "summary": "Top board posters (topics + replies)",
+        "operationId": "listBoardContributors",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/board/topics/{topicId}": {
+      "get": {
+        "tags": [
+          "board"
+        ],
+        "summary": "Get one message board topic with its replies",
+        "operationId": "getBoardTopic",
+        "parameters": [
+          {
+            "name": "topicId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "board"
+        ],
+        "summary": "Delete a topic (author or admin)",
+        "operationId": "deleteBoardTopic",
+        "parameters": [
+          {
+            "name": "topicId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/quiz/leaderboard": {
+      "get": {
+        "tags": [
+          "quiz"
+        ],
+        "summary": "Internal quiz leaderboard (public-directory players only)",
+        "operationId": "getQuizLeaderboard",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
           }
         ],
         "responses": {

@@ -37,7 +37,7 @@ function setHtmlHeaders(response) {
   response.setHeader("X-Robots-Tag", "noindex, nofollow");
   response.setHeader(
     "Content-Security-Policy",
-    "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"
+    "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; frame-src 'self'; base-uri 'none'; form-action 'none'"
   );
 }
 
@@ -59,7 +59,8 @@ function renderStoredLink(token, resolved) {
     kind: link.kind,
     metaLines: [items.length ? `${items.length} file${items.length === 1 ? "" : "s"}` : ""],
     items,
-    ogImageUrl: (items.find((item) => item.isImage) || {}).url || ""
+    ogImageUrl: (items.find((item) => item.isImage) || {}).url || "",
+    bodyHtml: link.bodyHtml || ""
   });
 }
 
@@ -89,7 +90,8 @@ function renderMessage(token, message, label) {
     kind: label || message.kind,
     metaLines: [message.sender ? `From ${message.sender}` : ""],
     items,
-    ogImageUrl: (items.find((item) => item.isImage) || {}).url || ""
+    ogImageUrl: (items.find((item) => item.isImage) || {}).url || "",
+    bodyHtml: message.bodyHtml || ""
   });
 }
 

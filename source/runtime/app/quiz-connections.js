@@ -252,7 +252,16 @@
               category,
               getKey: (entry) => entry.id,
               getPrompt: (entry) => `In the ${entry.cipherName} cipher, ${entry.letter} has a value of`,
-              getAnswer: (entry) => entry.value
+              getAnswer: (entry) => entry.value,
+              // Reverse question (value -> letter): also becomes the hard tier.
+              // Values that repeat in a cipher are skipped by the uniqueness check.
+              inverse: {
+                keyPrefix: `${categoryId}-reverse`,
+                getUniquenessKey: (entry) => entry.value,
+                getKey: (entry) => `value-${entry.value}`,
+                getPrompt: (entry) => `In the ${entry.cipherName} cipher, which letter has the value ${entry.value}`,
+                getAnswer: (entry) => entry.letter
+              }
             }
           ]
         };
@@ -817,20 +826,20 @@
       }
     ];
 
+    // Always go through the variants builder: single-variant groups with an
+    // inverse now produce their reverse category too, and the inverse becomes
+    // the "hard" tier of the forward question.
     const templates = specGroups.flatMap((specGroup) => {
-      if (Array.isArray(specGroup.variants) && specGroup.variants.length > 1) {
-        return buildTemplatesFromVariants(specGroup);
+      const variants = Array.isArray(specGroup.variants) ? specGroup.variants : [];
+      if (!variants.length) {
+        return [];
       }
-
-      const [variant] = specGroup.variants || [];
-      return buildTemplatesFromSpec({
+      return buildTemplatesFromVariants({
         entries: specGroup.entries,
-        categoryId: variant?.categoryId,
-        category: variant?.category,
-        keyPrefix: variant?.keyPrefix,
-        getKey: variant?.getKey,
-        getPrompt: variant?.getPrompt,
-        getAnswer: variant?.getAnswer
+        categoryId: specGroup.categoryId,
+        category: specGroup.category,
+        keyPrefix: specGroup.keyPrefix,
+        variants
       });
     });
     const templatesByCategory = new Map();

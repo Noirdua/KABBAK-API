@@ -209,13 +209,87 @@ async function listQuizTemplates(query = {}) {
   };
 }
 
+function normalizeDifficulty(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  return ["easy", "hard"].includes(raw) ? raw : "normal";
+}
+
+function scopedTemplates(templates, templateKey, categoryId) {
+  if (templateKey) {
+    return templates.filter((template) => template.key === templateKey);
+  }
+  if (categoryId) {
+    return templates.filter((template) => template.categoryId === categoryId);
+  }
+  return templates;
+}
+
+// A whole round of questions in one call: distinct templates, shuffled, no
+// answers attached (the client checks locally and records the attempt once).
+async function getQuizSession(query = {}) {
+  const templates = await getQuizTemplates();
+  const categoryId = String(query.categoryId || "").trim();
+  const templateKey = String(query.templateKey || "").trim();
+  const difficulty = normalizeDifficulty(query.difficulty);
+  const requested = Number(query.count);
+  const count = Number.isFinite(requested) ? Math.max(1, Math.min(25, Math.trunc(requested))) : 5;
+  const seed = String(query.seed || "").trim();
+  const includeAnswer = String(query.includeAnswer || "").trim().toLowerCase() === "true";
+  const random = seed ? createSeededRandom(seed) : Math.random;
+
+  const scoped = scopedTemplates(templates, templateKey, categoryId);
+  if (!scoped.length) {
+    throw createHttpError(
+      404,
+      "quiz_template_not_found",
+      templateKey
+        ? `Unknown quiz template '${templateKey}'.`
+        : (categoryId ? `Unknown or empty quiz category '${categoryId}'.` : "No quiz templates available.")
+    );
+  }
+
+  const questions = [];
+  for (const template of shuffle(scoped, random)) {
+    if (questions.length >= count) {
+      break;
+    }
+    const question = instantiateQuestion(template, difficulty, random);
+    if (!question) {
+      continue;
+    }
+    const entry = {
+      key: question.key,
+      categoryId: question.categoryId,
+      category: question.category,
+      difficulty: question.difficulty,
+      prompt: question.prompt,
+      options: question.options
+    };
+    if (includeAnswer) {
+      entry.answer = question.answer;
+      entry.correctIndex = question.correctIndex;
+    }
+    questions.push(entry);
+  }
+
+  if (!questions.length) {
+    throw createHttpError(500, "quiz_generation_failed", "Unable to generate questions from the available templates.");
+  }
+
+  return {
+    count: questions.length,
+    difficulty,
+    categoryId: categoryId || null,
+    templateKey: templateKey || null,
+    questions
+  };
+}
+
 async function pullQuizQuestion(query = {}) {
   const templates = await getQuizTemplates();
   const categoryId = String(query.categoryId || "").trim();
   const templateKey = String(query.templateKey || "").trim();
-  const difficulty = ["easy", "hard"].includes(String(query.difficulty || "").trim().toLowerCase())
-    ? String(query.difficulty).trim().toLowerCase()
-    : "normal";
+  const difficulty = normalizeDifficulty(query.difficulty);
   const seed = String(query.seed || "").trim();
   const includeAnswer = String(query.includeAnswer || "").trim().toLowerCase() === "true";
   const random = seed ? createSeededRandom(seed) : Math.random;
@@ -260,6 +334,7 @@ function resetQuizTemplatesCache() {
 }
 
 module.exports = {
+  getQuizSession,
   listQuizCategories,
   listQuizTemplates,
   pullQuizQuestion,

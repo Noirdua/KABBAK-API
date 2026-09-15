@@ -44,7 +44,14 @@ const {
   updateProfilePluginState,
   updateProfilePreferredDeck
 } = require("../services/profile-service");
-const { getInbox, getInboxMessageAttachment, markAllInboxRead, markInboxRead } = require("../services/inbox-service");
+const {
+  getInbox,
+  getInboxMessage,
+  getInboxMessageAttachment,
+  markAllInboxRead,
+  markInboxRead
+} = require("../services/inbox-service");
+const { appendReply } = require("../services/reply-store");
 const { readManagedApiClients } = require("../services/api-client-registry");
 const { resolveClientLimits } = require("../services/api-roles");
 
@@ -564,6 +571,19 @@ router.post("/profile/inbox/:scope/:messageId/read", wrapProfileHandler((request
   response.apiSuccess({ read: true, changed: result.changed });
 }));
 
+router.get("/profile/inbox/:scope/:messageId", wrapProfileHandler((request, response) => {
+  const message = getInboxMessage(
+    getProfileClientId(request, response),
+    request.params.scope,
+    request.params.messageId,
+    getProfileOptions(request, response)
+  );
+  if (!message) {
+    throw createNotFoundError("message_not_found", "Message not found in your inbox.");
+  }
+  response.apiSuccess(message);
+}));
+
 router.get("/profile/inbox/:scope/:messageId/attachments/:attachmentId", wrapProfileHandler((request, response) => {
   const attachment = getInboxMessageAttachment(
     getProfileClientId(request, response),
@@ -583,6 +603,35 @@ router.get("/profile/inbox/:scope/:messageId/attachments/:attachmentId", wrapPro
   );
   response.setHeader("Cache-Control", "private, max-age=300");
   response.send(buffer);
+}));
+
+router.post("/profile/inbox/:scope/:messageId/reply", wrapProfileHandler((request, response) => {
+  const clientId = getProfileClientId(request, response);
+  const options = getProfileOptions(request, response);
+  const scope = String(request.params.scope || "").trim().toLowerCase();
+  if (scope !== "broadcast" && scope !== "direct") {
+    throw createHttpError(400, "invalid_scope", "Inbox scope must be 'broadcast' or 'direct'.");
+  }
+  const messageId = String(request.params.messageId || "").trim();
+  const inbox = getInbox(clientId, options);
+  const item = inbox.items.find((entry) => entry.scope === scope && entry.id === messageId);
+  if (!item) {
+    throw createNotFoundError("message_not_found", "Message not found in your inbox.");
+  }
+  const body = String(getRequestBody(request)?.body || "").trim();
+  if (!body) {
+    throw createHttpError(400, "empty_reply", "A reply body is required.");
+  }
+  const summary = getProfileSummary(clientId, options);
+  const reply = appendReply({
+    scope,
+    messageId,
+    messageTitle: item.title,
+    fromClientId: clientId,
+    fromName: String(summary.displayName || clientId).trim(),
+    body
+  });
+  response.status(201).apiSuccess(reply);
 }));
 
 router.post("/profile/inbox/read-all", wrapProfileHandler((request, response) => {

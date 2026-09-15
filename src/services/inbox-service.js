@@ -21,6 +21,7 @@ function summarizeInboxItem(item) {
     description: item.description,
     sender: item.sender || "",
     visibility: item.visibility === "public" ? "public" : "internal",
+    hasHtml: Boolean(item.bodyHtml),
     attachmentCount: Array.isArray(item.attachments) ? item.attachments.length : 0,
     attachments: Array.isArray(item.attachments)
       ? item.attachments.map((att) => ({ id: att.id, name: att.name, type: att.type, size: att.size }))
@@ -148,25 +149,57 @@ function markAllInboxRead(clientId, options = {}) {
   return result;
 }
 
+function findInboxMessage(clientId, scope, messageId, options = {}) {
+  const normalizedScope = String(scope || "").trim().toLowerCase();
+  const normalizedId = String(messageId || "").trim();
+  if (!normalizedId) {
+    return null;
+  }
+  if (normalizedScope === "broadcast") {
+    return listBroadcasts({ filePath: options.broadcastsFilePath })
+      .find((entry) => entry.id === normalizedId) || null;
+  }
+  if (normalizedScope === "direct") {
+    const profile = readProfile(clientId, options);
+    return (profile.messages || []).find((entry) => entry.id === normalizedId) || null;
+  }
+  return null;
+}
+
+// Full message for the authenticated viewer, including the HTML body (which is
+// intentionally kept out of the list payload).
+function getInboxMessage(clientId, scope, messageId, options = {}) {
+  const normalizedScope = String(scope || "").trim().toLowerCase();
+  if (normalizedScope !== "broadcast" && normalizedScope !== "direct") {
+    const error = new Error("Inbox scope must be 'broadcast' or 'direct'.");
+    error.code = "invalid_scope";
+    throw error;
+  }
+  const message = findInboxMessage(clientId, normalizedScope, messageId, options);
+  if (!message) {
+    return null;
+  }
+  const readMap = getProfileInboxReadMap(clientId, options);
+  const item = summarizeInboxItem({
+    ...message,
+    scope: normalizedScope,
+    read: Boolean(readMap[inboxKey(normalizedScope, message.id)])
+  });
+  return {
+    ...item,
+    description: String(message.description || ""),
+    bodyHtml: String(message.bodyHtml || "")
+  };
+}
+
 // Authenticated access to one inbox message's attachment (works for internal
 // messages, which the public share route refuses to serve).
 function getInboxMessageAttachment(clientId, scope, messageId, attachmentId, options = {}) {
-  const normalizedScope = String(scope || "").trim().toLowerCase();
-  const normalizedId = String(messageId || "").trim();
   const normalizedAttachmentId = String(attachmentId || "").trim();
-  if (!normalizedId || !normalizedAttachmentId) {
+  if (!normalizedAttachmentId) {
     return null;
   }
-
-  let message = null;
-  if (normalizedScope === "broadcast") {
-    message = listBroadcasts({ filePath: options.broadcastsFilePath })
-      .find((entry) => entry.id === normalizedId) || null;
-  } else if (normalizedScope === "direct") {
-    const profile = readProfile(clientId, options);
-    message = (profile.messages || []).find((entry) => entry.id === normalizedId) || null;
-  }
-
+  const message = findInboxMessage(clientId, scope, messageId, options);
   if (!message) {
     return null;
   }
@@ -175,6 +208,7 @@ function getInboxMessageAttachment(clientId, scope, messageId, attachmentId, opt
 
 module.exports = {
   getInbox,
+  getInboxMessage,
   getInboxMessageAttachment,
   markAllInboxRead,
   markInboxRead

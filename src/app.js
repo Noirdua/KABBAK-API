@@ -38,6 +38,7 @@ const pluginsPublicRoutes = require("./routes/plugins-public");
 const calendarFeedRoutes = require("./routes/calendar-feed");
 const shareRoutes = require("./routes/share");
 const directoryRoutes = require("./routes/directory");
+const boardRoutes = require("./routes/board");
 
 const assetStaticOptions = {
   etag: true,
@@ -82,6 +83,7 @@ const protectedRoutes = [
   domainRoutes,
   calendarLiveRoutes,
   quizRoutes,
+  boardRoutes,
   textRoutes,
   profileRoutes,
   registryRoutes,

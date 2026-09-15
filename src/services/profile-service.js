@@ -43,6 +43,7 @@ const {
 } = require("../config/profile-storage");
 
 const { buildSignedShareToken, verifySignedShareToken } = require("./share-service");
+const { sanitizeMessageHtml } = require("../lib/html-sanitize");
 
 class ProfileStorageError extends Error {
   constructor(code, message) {
@@ -337,6 +338,7 @@ function normalizeProfile(rawProfile, clientId, options = {}) {
     ...(typeof source.directoryVisibility === "string"
       ? { directoryVisibility: normalizeDirectoryVisibility(source.directoryVisibility, "private") }
       : {}),
+    ...(Array.isArray(source.boardWatch) ? { boardWatch: normalizeBoardWatch(source.boardWatch) } : {}),
     quiz: {
       attempts: Array.isArray(source.quiz?.attempts) ? source.quiz.attempts.filter((attempt) => attempt && typeof attempt === "object") : []
     }
@@ -529,6 +531,148 @@ function listPublicDirectoryEntries(options = {}) {
   }
   entries.sort((left, right) => left.displayName.localeCompare(right.displayName));
   return entries;
+}
+
+// Internal quiz leaderboard. Only profiles that opted into the public directory
+// (and have actually played) are ranked, so private players stay invisible.
+function getQuizLeaderboard(options = {}) {
+  const root = options.profilesRoot || profilesRoot;
+  const limitRaw = Number(options.limit);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.trunc(limitRaw))) : 50;
+
+  let files = [];
+  try {
+    files = fs.readdirSync(root);
+  } catch (_error) {
+    return [];
+  }
+
+  const entries = [];
+  for (const file of files) {
+    if (!file.startsWith("profile-") || !file.endsWith(".json")) {
+      continue;
+    }
+    let profile;
+    try {
+      profile = JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
+    } catch (_error) {
+      continue;
+    }
+    const clientId = String(profile?.clientId || "").trim();
+    if (!clientId) {
+      continue;
+    }
+    if (normalizeDirectoryVisibility(profile.directoryVisibility, "private") !== "public") {
+      continue;
+    }
+    const attempts = Array.isArray(profile.quiz?.attempts) ? profile.quiz.attempts : [];
+    if (!attempts.length) {
+      continue;
+    }
+
+    const stats = computeQuizStats(attempts);
+    const bestByDifficulty = {};
+    let bestAccuracy = 0;
+    stats.byDifficulty.forEach((entry) => {
+      if (entry.best) {
+        bestByDifficulty[entry.difficulty] = entry.best.accuracy;
+        bestAccuracy = Math.max(bestAccuracy, entry.best.accuracy);
+      }
+    });
+
+    entries.push({
+      clientId,
+      displayName: String(profile.displayName || "").trim().slice(0, 80),
+      attempts: stats.overall.attempts,
+      totalQuestions: stats.overall.totalQuestions,
+      totalCorrect: stats.overall.totalCorrect,
+      accuracy: stats.overall.accuracy,
+      bestAccuracy,
+      bestByDifficulty
+    });
+  }
+
+  return entries
+    .sort((left, right) => (
+      (right.accuracy - left.accuracy)
+      || (right.totalCorrect - left.totalCorrect)
+      || String(left.displayName || left.clientId).localeCompare(String(right.displayName || right.clientId))
+    ))
+    .slice(0, limit);
+}
+
+function normalizeBoardWatch(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set();
+  const ids = [];
+  for (const entry of value) {
+    const id = String(entry || "").trim();
+    if (!id || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids.slice(-200);
+}
+
+// Board "watching": topic ids a profile follows. Notifications are delivered as
+// inbox messages when someone replies.
+function getProfileBoardWatch(clientId, options = {}) {
+  const profile = readProfile(clientId, options);
+  return normalizeBoardWatch(profile.boardWatch);
+}
+
+function updateProfileBoardWatch(clientId, topicId, watching, options = {}) {
+  const topic = String(topicId || "").trim();
+  if (!topic) {
+    throw new ProfileStorageError("invalid_watch", "A topic id is required.");
+  }
+  const profile = readProfile(clientId, options);
+  const current = normalizeBoardWatch(profile.boardWatch);
+  const next = watching === true
+    ? normalizeBoardWatch([...current, topic])
+    : current.filter((entry) => entry !== topic);
+  profile.boardWatch = next;
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(clientId, profile, options);
+  return { watching: next.includes(topic), watch: next, usage };
+}
+
+function listTopicWatchers(topicId, options = {}) {
+  const wanted = String(topicId || "").trim();
+  if (!wanted) {
+    return [];
+  }
+  const root = options.profilesRoot || profilesRoot;
+  let files = [];
+  try {
+    files = fs.readdirSync(root);
+  } catch (_error) {
+    return [];
+  }
+  const watchers = [];
+  for (const file of files) {
+    if (!file.startsWith("profile-") || !file.endsWith(".json")) {
+      continue;
+    }
+    let profile;
+    try {
+      profile = JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
+    } catch (_error) {
+      continue;
+    }
+    const clientId = String(profile?.clientId || "").trim();
+    if (!clientId) {
+      continue;
+    }
+    if (normalizeBoardWatch(profile.boardWatch).includes(wanted)) {
+      watchers.push(clientId);
+    }
+  }
+  return watchers;
 }
 
 function getProfileRevision(clientId) {
@@ -2307,6 +2451,7 @@ function normalizeMessageInputFields(raw) {
     kind: normalizeMessageFieldKind(source.kind),
     title,
     description: normalizeLinkDescription(source.description),
+    bodyHtml: sanitizeMessageHtml(source.bodyHtml),
     visibility: normalizeVisibility(source.visibility, "internal"),
     attachments: normalizeEventAttachments(source.attachments),
     publishAt: normalizeLinkExpiresAt(source.publishAt),
@@ -2322,6 +2467,7 @@ function normalizeStoredMessageFields(raw) {
     kind: MESSAGE_KINDS.has(kind) ? kind : "message",
     title: String(source.title || "").trim().slice(0, MAX_LINK_TITLE_LENGTH) || "Message",
     description: String(source.description || "").slice(0, MAX_LINK_DESCRIPTION_LENGTH),
+    bodyHtml: sanitizeMessageHtml(source.bodyHtml),
     visibility: normalizeVisibility(source.visibility, "internal"),
     attachments: normalizeStoredEventAttachments(source.attachments).slice(0, MAX_ATTACHMENTS_PER_LINK),
     publishAt: String(source.publishAt || "").trim(),
@@ -2560,6 +2706,37 @@ function computeQuizStats(attempts) {
   const totalQuestions = attempts.reduce((sum, attempt) => sum + attempt.total, 0);
   const totalCorrect = attempts.reduce((sum, attempt) => sum + attempt.score, 0);
 
+  // High scores per difficulty: best accuracy first, then the larger run.
+  const byDifficulty = ["easy", "normal", "hard"].map((difficulty) => {
+    const list = attempts.filter((attempt) => String(attempt.difficulty || "normal").toLowerCase() === difficulty);
+    const difficultyTotal = list.reduce((sum, attempt) => sum + attempt.total, 0);
+    const difficultyCorrect = list.reduce((sum, attempt) => sum + attempt.score, 0);
+    let best = null;
+    list.forEach((attempt) => {
+      const candidate = {
+        score: attempt.score,
+        total: attempt.total,
+        accuracy: attempt.total > 0 ? Math.round((attempt.score / attempt.total) * 1000) / 1000 : 0,
+        completedAt: attempt.completedAt
+      };
+      if (
+        !best
+        || candidate.accuracy > best.accuracy
+        || (candidate.accuracy === best.accuracy && candidate.total > best.total)
+      ) {
+        best = candidate;
+      }
+    });
+    return {
+      difficulty,
+      attempts: list.length,
+      totalQuestions: difficultyTotal,
+      totalCorrect: difficultyCorrect,
+      accuracy: difficultyTotal > 0 ? Math.round((difficultyCorrect / difficultyTotal) * 1000) / 1000 : 0,
+      best
+    };
+  });
+
   return {
     overall: {
       attempts: attempts.length,
@@ -2567,6 +2744,7 @@ function computeQuizStats(attempts) {
       totalCorrect,
       accuracy: totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 1000) / 1000 : 0
     },
+    byDifficulty,
     categories
   };
 }
@@ -2881,8 +3059,11 @@ module.exports = {
   getProfileBio,
   getProfileCalendarFeed,
   getProfileEvent,
+  getProfileBoardWatch,
   getProfileEventAttachment,
   getProfileLibrary,
+  getQuizLeaderboard,
+  listTopicWatchers,
   getProfileRevision,
   listProfileClientIds,
   listPublicDirectoryEntries,
@@ -2902,6 +3083,7 @@ module.exports = {
   recordQuizAttempt,
   resetProfile,
   updateProfileBio,
+  updateProfileBoardWatch,
   updateProfileCalendarFeed,
   updateProfileDisplayName,
   updateProfileEvent,
