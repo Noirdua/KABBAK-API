@@ -15,6 +15,7 @@
     "import:texts": "node scripts/import-text-sources.js",
     "migrate:data": "node --max-old-space-size=4096 scripts/migrate-data-to-sqlite.js",
     "scrape:sacred-texts": "node scripts/scrape-sacred-texts.js",
+    "scrape:zio-scans": "node scripts/scrape-zio-scans.js",
     "smoke": "node scripts/smoke-test-api.js",
     "test": "npm run test:integration && npm run test:profile && npm run test:clients",
     "test:clients": "node --test tests/manage-api-clients.script.test.js",
