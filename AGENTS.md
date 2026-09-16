@@ -159,8 +159,8 @@ Endpoints the bot calls (keep these shapes/names):
 - Envelope: `{ data, meta }`; the bot unwraps `res.data.data || res.data`.
 - Key check + status: `GET /health`, `GET /profile`; bot keys may be per chat-user (`x-api-key`).
 - Astro: `GET /now`, `GET /calendar/week-events`.
-- Tarot: `GET /tarot/cards`, `GET /tarot/cards/:cardId`, `GET /tarot/cards/:cardId/image`, `GET /tarot/spreads`, `GET /tarot/spreads/:id`.
-- Decks: `GET /decks/options` (items are `{ id, name, label, system }`), `GET /decks`. `system` is `tarot` | `iching` | … — tarot-only features (spreads, card lookups) must filter out non-`tarot` decks.
+- Tarot: `GET /tarot/cards`, `GET /tarot/cards/:cardId`, `GET /tarot/cards/:cardId/image`, `GET /tarot/spreads` (`{ spreads: [...] }`), `GET /tarot/spreads/:spreadId/pull`.
+- Decks: `GET /decks/options` (items are `{ id, name, label, system }`), `GET /decks`. `system` is `tarot` | `iching` | `playing-cards` | … — tarot-only features (spreads, card lookups) must filter out non-`tarot` decks.
 - I Ching: `GET /iching`, `GET /iching/hexagrams/:number`.
 - Texts: `GET /texts`, `GET /texts/search`, `GET /texts/:sourceId/works/:workId/sections/:sectionId`.
 - Library: `GET /tattvas`, `GET /tattvas/:id`, `GET /gematria/words`, `GET /locations/*`, `GET /quiz/*`.

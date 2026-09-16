@@ -262,6 +262,44 @@ function validateIChingDeck(dir, manifest, errors, warnings) {
   if (!images) errors.push("Deck folder contains no card images.");
 }
 
+function validatePlayingCardsDeck(dir, manifest, errors, warnings) {
+  const cards = manifest.cards;
+  if (!isPlainObject(cards)) {
+    errors.push("deck.json cards must be an object mapping rank-of-suit keys to image files.");
+    return;
+  }
+  const entries = Object.entries(cards);
+  if (!entries.length) {
+    errors.push("deck.json maps no playing cards.");
+    return;
+  }
+  let missing = 0;
+  const seen = new Set();
+  entries.forEach(([, file]) => {
+    const files = Array.isArray(file) ? file : [file];
+    files.forEach((entry) => {
+      const name = String(entry || "").trim();
+      if (!name || seen.has(name)) return;
+      seen.add(name);
+      const resolved = resolveInsideFile(dir, name);
+      if (!resolved.ok) {
+        missing += 1;
+        if (missing <= 3) errors.push(`deck.json card references '${name}': ${resolved.reason}.`);
+      }
+    });
+  });
+  if (missing > 3) errors.push(`…and ${missing - 3} more playing-card references are missing.`);
+  if (manifest.cardBack) {
+    const back = resolveInsideFile(dir, String(manifest.cardBack).trim());
+    if (!back.ok) errors.push(`deck.json cardBack: ${back.reason}.`);
+  }
+  if (entries.length < 52) {
+    warnings.push(`Deck maps ${entries.length}/52 playing cards (incomplete decks install but stay partial).`);
+  }
+  const imageCount = countDeckImages(dir);
+  if (!imageCount) errors.push("Deck folder contains no card images.");
+}
+
 function validateDeck(dir, errors, warnings) {
   const manifest = readJsonIfPresent(path.join(dir, "deck.json"));
   if (!manifest) {
@@ -272,8 +310,13 @@ function validateDeck(dir, errors, warnings) {
   const deckTitle = String(manifest.name || manifest.title || manifest.label || "").trim();
   if (!deckTitle) errors.push("deck.json is missing a `name`/`label`.");
 
-  if (String(manifest.system || "").trim().toLowerCase() === "iching") {
+  const system = String(manifest.system || "").trim().toLowerCase();
+  if (system === "iching") {
     validateIChingDeck(dir, manifest, errors, warnings);
+    return;
+  }
+  if (system === "playing-cards") {
+    validatePlayingCardsDeck(dir, manifest, errors, warnings);
     return;
   }
 

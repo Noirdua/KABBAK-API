@@ -134,9 +134,10 @@ router.get("/health/ready", async (request, response) => {
   });
 });
 
-// Public branding (browser tab title). Admin-editable via the Admin panel's
-// server settings and persisted in runtime settings; empty means "frontend
-// default". Public so the app shell can apply it before authentication.
+// Public branding (browser tab title, favicon). Admin-editable via the Admin
+// panel's server settings and persisted in runtime settings; empty means
+// "frontend default". Public so the app shell can apply it before
+// authentication.
 router.get("/branding", (_request, response) => {
   let title = "";
   try {
@@ -149,12 +150,27 @@ router.get("/branding", (_request, response) => {
   try {
     overlayBackgroundUrl = String(require("../services/runtime-settings").getRuntimeSettings().overlayBackgroundUrl || "").trim();
   } catch (_error) {}
-  response.json({ title, overlayBackgroundUrl });
+  let faviconUrl = "";
+  try {
+    faviconUrl = String(require("../services/runtime-settings").getRuntimeSettings().faviconUrl || "").trim();
+  } catch (_error) {}
+  response.json({ title, overlayBackgroundUrl, faviconUrl });
 });
 
 router.get("/branding/overlay", (_request, response) => {
   const { findOverlayFile } = require("../services/overlay-background");
   const filePath = findOverlayFile();
+  if (!filePath) {
+    response.status(404).end();
+    return;
+  }
+  setNoStore(response);
+  response.sendFile(filePath);
+});
+
+router.get("/branding/favicon", (_request, response) => {
+  const { findFaviconFile } = require("../services/favicon");
+  const filePath = findFaviconFile();
   if (!filePath) {
     response.status(404).end();
     return;

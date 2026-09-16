@@ -25,6 +25,7 @@ const EDITABLE_KEYS = new Set([
   "profileEncryptionSecret",
   "browserTitle",
   "overlayBackgroundUrl",
+  "faviconUrl",
   "digestEnabled",
   "digestHour"
 ]);
@@ -135,6 +136,8 @@ function envDefault(key) {
       return String(appEnv.browserTitle || "");
     case "overlayBackgroundUrl":
       return "";
+    case "faviconUrl":
+      return "";
     case "digestEnabled":
       return ["1", "true", "yes", "on"].includes(String(process.env.KABBAK_DIGEST_ENABLED || "").toLowerCase());
     case "digestHour":
@@ -163,6 +166,8 @@ function normalizePersistedValue(key, value) {
     case "browserTitle":
       return String(value || "").trim().slice(0, 100);
     case "overlayBackgroundUrl":
+      return String(value || "").trim().slice(0, 500);
+    case "faviconUrl":
       return String(value || "").trim().slice(0, 500);
     case "digestEnabled":
       return Boolean(value);
@@ -203,6 +208,7 @@ function getRuntimeSettings() {
     // Browser tab title (empty means "use the frontend default").
     browserTitle: state.browserTitle,
     overlayBackgroundUrl: String(state.overlayBackgroundUrl || ""),
+    faviconUrl: String(state.faviconUrl || ""),
     digestEnabled: state.digestEnabled === true,
     digestHour: normalizeDigestHour(state.digestHour),
     // Restart-only values (shown for reference; changing them needs a restart).
@@ -274,6 +280,10 @@ function updateRuntimeSettings(input = {}) {
     changes.overlayBackgroundUrl = String(input.overlayBackgroundUrl || "").trim().slice(0, 500);
     settings.overlayBackgroundUrl = changes.overlayBackgroundUrl;
   }
+  if (Object.prototype.hasOwnProperty.call(input, "faviconUrl")) {
+    changes.faviconUrl = String(input.faviconUrl || "").trim().slice(0, 500);
+    settings.faviconUrl = changes.faviconUrl;
+  }
   if (Object.prototype.hasOwnProperty.call(input, "digestEnabled")) {
     changes.digestEnabled = Boolean(input.digestEnabled);
     settings.digestEnabled = changes.digestEnabled;
@@ -294,6 +304,7 @@ function updateRuntimeSettings(input = {}) {
       profileEncryptionSecret: settings.profileEncryptionSecret,
       browserTitle: settings.browserTitle,
       overlayBackgroundUrl: settings.overlayBackgroundUrl,
+      faviconUrl: settings.faviconUrl,
       digestEnabled: settings.digestEnabled,
       digestHour: settings.digestHour
     });

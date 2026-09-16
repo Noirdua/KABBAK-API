@@ -605,6 +605,30 @@ router.delete("/admin/overlay-background", (_request, response) => {
   response.apiSuccess({ overlayBackgroundUrl: "" });
 });
 
+router.post("/admin/favicon", (request, response) => {
+  const body = getPatchBody(request);
+  let saved;
+  try {
+    saved = require("../services/favicon").saveFaviconFromDataUrl(body?.data || body?.dataUrl, body?.fileName);
+    updateRuntimeSettings({ faviconUrl: saved.url });
+  } catch (error) {
+    throw createHttpError(400, "invalid_favicon", error.message);
+  }
+  emitAdminMutationAuditEvent(request, response, {
+    action: "upload_favicon"
+  });
+  response.apiSuccess({ faviconUrl: saved.url });
+});
+
+router.delete("/admin/favicon", (_request, response) => {
+  require("../services/favicon").clearFaviconFile();
+  updateRuntimeSettings({ faviconUrl: "" });
+  emitAdminMutationAuditEvent(_request, response, {
+    action: "clear_favicon"
+  });
+  response.apiSuccess({ faviconUrl: "" });
+});
+
 // --- Live log view -----------------------------------------------------------
 
 function buildJobsPayload() {

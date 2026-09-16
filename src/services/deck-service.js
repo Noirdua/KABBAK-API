@@ -434,12 +434,65 @@ function resolveIChingCardFiles(manifest, cardName) {
   return file ? normalizeCardFiles(file) : [];
 }
 
+const PLAYING_RANK_IDS = {
+  ace: "ace", a: "ace", 1: "ace",
+  two: "two", 2: "two",
+  three: "three", 3: "three",
+  four: "four", 4: "four",
+  five: "five", 5: "five",
+  six: "six", 6: "six",
+  seven: "seven", 7: "seven",
+  eight: "eight", 8: "eight",
+  nine: "nine", 9: "nine",
+  ten: "ten", 10: "ten",
+  jack: "jack", j: "jack", knave: "jack",
+  queen: "queen", q: "queen",
+  king: "king", k: "king"
+};
+
+const PLAYING_SUIT_IDS = {
+  hearts: "hearts", heart: "hearts",
+  diamonds: "diamonds", diamond: "diamonds",
+  clubs: "clubs", club: "clubs", clover: "clubs", clovers: "clubs",
+  spades: "spades", spade: "spades"
+};
+
+function parsePlayingCard(cardName) {
+  const match = String(cardName || "")
+    .trim()
+    .match(/^(ace|two|three|four|five|six|seven|eight|nine|ten|jack|queen|king|knave|[2-9]|10|a|j|q|k)\s+of\s+(hearts?|diamonds?|clubs?|clovers?|spades?)$/i);
+  if (!match) {
+    return null;
+  }
+  const rankId = PLAYING_RANK_IDS[String(match[1] || "").toLowerCase()] || "";
+  const suitId = PLAYING_SUIT_IDS[String(match[2] || "").toLowerCase()] || "";
+  if (!rankId || !suitId) {
+    return null;
+  }
+  return { rankId, suitId, key: `${rankId} of ${suitId}` };
+}
+
+function resolvePlayingCardFiles(manifest, cardName) {
+  const cards = manifest?.cards && typeof manifest.cards === "object" ? manifest.cards : {};
+  const parsed = parsePlayingCard(cardName);
+  if (!parsed) {
+    return [];
+  }
+  const file = cards[parsed.key]
+    || Object.entries(cards).find(([key]) => String(key || "").trim().toLowerCase() === parsed.key)?.[1];
+  return file ? normalizeCardFiles(file) : [];
+}
+
 function resolveCardRelativePaths(manifest, cardName) {
   if (!manifest) {
     return [];
   }
-  if (String(manifest.system || "").trim().toLowerCase() === "iching") {
+  const system = String(manifest.system || "").trim().toLowerCase();
+  if (system === "iching") {
     return resolveIChingCardFiles(manifest, cardName);
+  }
+  if (system === "playing-cards") {
+    return resolvePlayingCardFiles(manifest, cardName);
   }
   const canonical = canonicalMajorName(cardName);
   const majorFiles = resolveMajorFiles(manifest, canonical);
@@ -515,7 +568,8 @@ function resolveDisplayNameWithDeck(manifest, cardName, trumpNumber) {
     return fallbackName;
   }
 
-  if (String(manifest.system || "").trim().toLowerCase() === "iching") {
+  const system = String(manifest.system || "").trim().toLowerCase();
+  if (system === "iching") {
     const names = manifest.hexagramNames && typeof manifest.hexagramNames === "object" ? manifest.hexagramNames : {};
     const target = fallbackName.toLowerCase();
     const numberMatch = target.match(/^(?:hexagram|hex)?[\s#_-]*(\d{1,2})$/);
@@ -523,6 +577,22 @@ function resolveDisplayNameWithDeck(manifest, cardName, trumpNumber) {
       ? String(Number(numberMatch[1]))
       : Object.keys(names).find((candidate) => String(names[candidate] || "").trim().toLowerCase() === target);
     return key ? String(names[key] || `Hexagram ${key}`) : (fallbackName || "Hexagram");
+  }
+
+  if (system === "playing-cards") {
+    const parsed = parsePlayingCard(fallbackName);
+    if (!parsed) {
+      return fallbackName;
+    }
+    const rankOverrides = manifest?.rankNameOverrides && typeof manifest.rankNameOverrides === "object"
+      ? manifest.rankNameOverrides
+      : {};
+    const suitOverrides = manifest?.suitNameOverrides && typeof manifest.suitNameOverrides === "object"
+      ? manifest.suitNameOverrides
+      : {};
+    const rankLabel = String(rankOverrides[parsed.rankId] || "").trim() || toTitleCase(parsed.rankId);
+    const suitLabel = String(suitOverrides[parsed.suitId] || "").trim() || toTitleCase(parsed.suitId);
+    return `${rankLabel} of ${suitLabel}`;
   }
 
   let resolvedTrumpNumber = normalizeTrumpNumber(trumpNumber);

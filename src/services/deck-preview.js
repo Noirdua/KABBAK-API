@@ -119,12 +119,18 @@ function buildDeckLabelMap(manifest) {
     if (!file || !label) return;
     (Array.isArray(file) ? file : [file]).forEach((entry) => map.set(String(entry), label));
   };
-  if (String(manifest?.system || "").trim().toLowerCase() === "iching") {
+  const system = String(manifest?.system || "").trim().toLowerCase();
+  if (system === "iching") {
     const names = manifest?.hexagramNames || {};
     Object.entries(manifest?.hexagrams || {}).forEach(([number, file]) => {
       const label = String(names[number] || "").trim();
       add(file, label ? `Hexagram ${number} · ${label}` : `Hexagram ${number}`);
     });
+    if (manifest?.cardBack) add(manifest.cardBack, "Card back");
+    return map;
+  }
+  if (system === "playing-cards") {
+    Object.entries(manifest?.cards || {}).forEach(([key, file]) => add(file, titleCase(key)));
     if (manifest?.cardBack) add(manifest.cardBack, "Card back");
     return map;
   }

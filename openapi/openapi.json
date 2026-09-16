@@ -1228,7 +1228,7 @@
     "/branding": {
       "get": {
         "tags": ["branding"],
-        "summary": "Get the public branding title and overlay background URL",
+        "summary": "Get the public branding title, overlay background URL, and favicon URL",
         "operationId": "getBranding",
         "responses": {
           "200": { "$ref": "#/components/responses/JsonPayload" }
@@ -1240,6 +1240,17 @@
         "tags": ["branding"],
         "summary": "Get the public overlay background image",
         "operationId": "getBrandingOverlay",
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/branding/favicon": {
+      "get": {
+        "tags": ["branding"],
+        "summary": "Get the public favicon image",
+        "operationId": "getBrandingFavicon",
         "responses": {
           "200": { "$ref": "#/components/responses/BinaryAsset" },
           "404": { "$ref": "#/components/responses/NotFound" }
