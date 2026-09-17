@@ -55,13 +55,29 @@ const CALENDAR_FEED_LAYERS = Object.freeze([
   "notes",
   "holidays",
   "moon",
-  "astrology"
+  "astrology",
+  "planetary"
 ]);
 const DEFAULT_CALENDAR_FEED_LAYERS = Object.freeze(["user", "moon", "holidays"]);
 // Per-calendar subscription options. Moon phases are the four principal phases;
 // astrology detail picks the boundary size (10° decans, 1° steps, or sign starts).
 const CALENDAR_MOON_PHASES = Object.freeze(["new", "first-quarter", "full", "last-quarter"]);
 const CALENDAR_ASTROLOGY_DETAILS = Object.freeze(["decan", "degree", "sign"]);
+// Who may read a profile's journal: private (owner only), friends, or anyone.
+const JOURNAL_VISIBILITY = Object.freeze(["private", "friends", "public"]);
+const DEFAULT_JOURNAL_VISIBILITY = "private";
+// Short profile status line.
+const MAX_TAGLINE_LENGTH = 120;
+// Shared journal posts (feed items with comments).
+const MAX_POSTS_PER_PROFILE = 200;
+const MAX_POST_COMMENTS = 200;
+const MAX_POST_BODY_LENGTH = 20_000;
+const MAX_POST_COMMENT_LENGTH = 2_000;
+// Free posts (threads) and their appended items are short.
+const MAX_POST_TEXT_LENGTH = 999;
+const MAX_POST_ITEMS = 200;
+const MAX_POST_ENTRIES = 400;
+const MAX_POST_ATTACHMENTS = 10;
 
 module.exports = {
   profilesRoot,
@@ -109,5 +125,16 @@ module.exports = {
   CALENDAR_FEED_LAYERS,
   DEFAULT_CALENDAR_FEED_LAYERS,
   CALENDAR_MOON_PHASES,
-  CALENDAR_ASTROLOGY_DETAILS
+  CALENDAR_ASTROLOGY_DETAILS,
+  JOURNAL_VISIBILITY,
+  DEFAULT_JOURNAL_VISIBILITY,
+  MAX_TAGLINE_LENGTH,
+  MAX_POSTS_PER_PROFILE,
+  MAX_POST_COMMENTS,
+  MAX_POST_BODY_LENGTH,
+  MAX_POST_COMMENT_LENGTH,
+  MAX_POST_TEXT_LENGTH,
+  MAX_POST_ITEMS,
+  MAX_POST_ENTRIES,
+  MAX_POST_ATTACHMENTS
 };

@@ -12,6 +12,7 @@ const {
   resolveCalendarFeedToken,
   resolveEventOccurrenceAttachments
 } = require("./profile-service");
+const { calcPlanetaryHoursForDayAndLocation } = require("./calendar-service");
 const {
   CALENDAR_FEED_LAYERS,
   DEFAULT_CALENDAR_FEED_LAYERS
@@ -33,6 +34,10 @@ const MOON_PHASE_TARGETS = Object.freeze([
 ]);
 const DECAN_DEGREES = 10;
 const SEARCH_LIMIT_DAYS = 45;
+// Planetary hours are 24 timed events a day, so a subscription only covers a
+// rolling window to keep the feed a sane size.
+const PLANETARY_PAST_DAYS = 14;
+const PLANETARY_FUTURE_DAYS = 60;
 
 const feedCache = new Map();
 
@@ -134,7 +139,8 @@ function renderVeventLines(event) {
   } else {
     lines.push(`DTSTART:${compactDateTime(event.date, event.startTime)}`);
     if (event.endTime) {
-      lines.push(`DTEND:${compactDateTime(event.date, event.endTime)}`);
+      // Hours that cross midnight end on the next day.
+      lines.push(`DTEND:${compactDateTime(event.endDate || event.date, event.endTime)}`);
     }
   }
   if (event.rrule) {
@@ -576,6 +582,56 @@ function collectAstrologyEvents(referenceData, fromIso, toIso, target, { offsetM
   }
 }
 
+// 24 timed events per day, capped to a rolling window around now.
+function collectPlanetaryHours(profile, fromIso, toIso, target, { offsetMinutes = 0, referenceData = null } = {}) {
+  const latitude = Number(profile?.location?.latitude);
+  const longitude = Number(profile?.location?.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return;
+  }
+  const planets = referenceData?.planets || {};
+  const windowFrom = localIsoDate(new Date(Date.now() - PLANETARY_PAST_DAYS * DAY_IN_MS));
+  const windowTo = localIsoDate(new Date(Date.now() + PLANETARY_FUTURE_DAYS * DAY_IN_MS));
+  const startIso = fromIso > windowFrom ? fromIso : windowFrom;
+  const endIso = toIso < windowTo ? toIso : windowTo;
+  if (endIso < startIso) {
+    return;
+  }
+  const geo = { latitude, longitude };
+  let cursor = new Date(`${startIso}T12:00:00Z`);
+  const end = new Date(`${endIso}T12:00:00Z`);
+  for (; cursor <= end; cursor = new Date(cursor.getTime() + DAY_IN_MS)) {
+    const hours = calcPlanetaryHoursForDayAndLocation(cursor, geo);
+    hours.forEach((hour, index) => {
+      const start = hour?.start;
+      const finish = hour?.end;
+      if (!(start instanceof Date) || Number.isNaN(start.getTime())
+        || !(finish instanceof Date) || Number.isNaN(finish.getTime())) {
+        return;
+      }
+      const planet = planets[hour.planetId];
+      const planetName = planet?.name || hour.planetId;
+      const symbol = planet?.symbol || "";
+      const localStart = new Date(start.getTime() + offsetMinutes * 60 * 1000);
+      const localEnd = new Date(finish.getTime() + offsetMinutes * 60 * 1000);
+      const date = `${localStart.getUTCFullYear()}-${pad2(localStart.getUTCMonth() + 1)}-${pad2(localStart.getUTCDate())}`;
+      const endDate = `${localEnd.getUTCFullYear()}-${pad2(localEnd.getUTCMonth() + 1)}-${pad2(localEnd.getUTCDate())}`;
+      target.push({
+        uid: `planetary-${date}-${index}-${hour.planetId}@kabbak`,
+        dtstamp: compactTimestamp(new Date().toISOString()),
+        allDay: false,
+        date,
+        startTime: `${pad2(localStart.getUTCHours())}:${pad2(localStart.getUTCMinutes())}`,
+        endTime: `${pad2(localEnd.getUTCHours())}:${pad2(localEnd.getUTCMinutes())}`,
+        endDate: endDate !== date ? endDate : undefined,
+        summary: `${symbol ? `${symbol} ` : ""}${planetName} hour`,
+        description: `${hour.isDaylight ? "Day" : "Night"} hour of ${planetName}.`,
+        categories: "planetary"
+      });
+    });
+  }
+}
+
 function SunLongitude(date) {
   const position = Astronomy.SunPosition(date);
   const longitude = Number(position?.elon);
@@ -683,13 +739,16 @@ async function collectSubscriptionEvents({
   if (layerSet.has("user")) {
     collectUserEvents(profile?.events || [], fromIso, toIso, feedEvents, collectContext);
   }
-  if (layerSet.has("holidays") || layerSet.has("astrology")) {
+  if (layerSet.has("holidays") || layerSet.has("astrology") || layerSet.has("planetary")) {
     const referenceData = await loadReferenceData();
     if (layerSet.has("holidays")) {
       collectHolidays(referenceData, fromIso, toIso, feedEvents);
     }
     if (layerSet.has("astrology")) {
       collectAstrologyEvents(referenceData, fromIso, toIso, feedEvents, { offsetMinutes, detail: astrologyDetail });
+    }
+    if (layerSet.has("planetary")) {
+      collectPlanetaryHours(profile, fromIso, toIso, feedEvents, { offsetMinutes, referenceData });
     }
   }
   if (layerSet.has("moon")) {
@@ -710,9 +769,10 @@ async function buildProfileCalendarEvents(clientId, { fromIso, toIso, options = 
   const offsetMinutes = resolveFeedOffsetMinutes(profile);
   const noteMode = String(stored.notesFormat || "events").toLowerCase() === "journal" ? "journal" : "events";
   const feedOptions = normalizeCalendarFeedOptions(stored.options);
-  // The in-app calendar already renders the profile's own events from the events
-  // API (editable), so the read-only overlay excludes the `user` layer.
-  const overlayLayers = new Set([...layerSet].filter((layer) => layer !== "user"));
+  // The in-app calendar renders the profile's own events from the events API and
+  // planetary hours from /calendar/week-events, so the read-only overlay excludes
+  // both `user` and `planetary` to avoid duplicates.
+  const overlayLayers = new Set([...layerSet].filter((layer) => layer !== "user" && layer !== "planetary"));
   const events = await collectSubscriptionEvents({
     profile,
     layers: overlayLayers,
@@ -767,6 +827,7 @@ module.exports = {
   // Exposed for tests and for callers that precompute layers/events.
   collectAstrologyEvents,
   collectMoonPhases,
+  collectPlanetaryHours,
   collectSubscriptionEvents,
   normalizeLayers,
   resolveFeedOffsetMinutes

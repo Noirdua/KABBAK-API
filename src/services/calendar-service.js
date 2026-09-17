@@ -710,5 +710,6 @@ module.exports = {
   getNowSnapshot,
   getTarotCardsForDate,
   getMoonPhaseName,
+  calcPlanetaryHoursForDayAndLocation,
   parseGeo
 };

@@ -1,10 +1,14 @@
 const rateLimit = require("express-rate-limit");
 
 const { createApiRouter } = require("../lib/create-api-router");
+const { DEFAULT_JOURNAL_VISIBILITY } = require("../config/profile-storage");
 const {
   buildSharePath,
   decodeAttachmentPayload,
+  normalizeJournalVisibility,
+  renderPostShareHtml,
   resolveDirectMessageToken,
+  resolvePostShareToken,
   resolveProfileLinkToken,
   resolveSignedShareAttachment
 } = require("../services/profile-service");
@@ -14,7 +18,7 @@ const { renderShareErrorPage, renderSharePage } = require("../services/share-ser
 const router = createApiRouter();
 
 // Public, pre-auth share surface. Token kinds:
-//   lk1.…  stored profile link          s1.…  signed event/note attachment
+//   lk1.…  stored profile link          s1.…  signed event/note attachment or post
 //   bc1.…  server broadcast message     dm1.… profile inbox message
 const shareRateLimiter = rateLimit({
   windowMs: 60_000,
@@ -95,6 +99,14 @@ function renderMessage(token, message, label) {
   });
 }
 
+function isPublicPostProfile(profile) {
+  return normalizeJournalVisibility(profile?.journalVisibility, DEFAULT_JOURNAL_VISIBILITY) === "public";
+}
+
+function renderPost(token, resolved) {
+  return renderPostShareHtml(resolved.profile, resolved.post, { token });
+}
+
 function resolveAttachmentForToken(token, attachmentId) {
   // Internal content is auth-only; the public route must not serve it.
   const stored = resolveProfileLinkToken(token);
@@ -104,6 +116,16 @@ function resolveAttachmentForToken(token, attachmentId) {
   const signed = resolveSignedShareAttachment(token);
   if (signed && signed.attachment.id === attachmentId) {
     return signed.attachment;
+  }
+  const post = resolvePostShareToken(token);
+  if (post && isPublicPostProfile(post.profile)) {
+    const direct = (post.post.attachments || []).find((entry) => entry.id === attachmentId) || null;
+    if (direct) {
+      return direct;
+    }
+    // Evidence assets are addressed by the evidence item id.
+    const evidence = (post.post.evidence || []).find((entry) => entry.id === attachmentId) || null;
+    return evidence ? (evidence.attachments || [])[0] || null : null;
   }
   const broadcast = resolveBroadcastToken(token);
   if (broadcast && broadcast.message.visibility === "public") {
@@ -144,6 +166,13 @@ router.get("/share/:token", shareRateLimiter, (request, response) => {
   if (direct && direct.message.visibility === "public") {
     setHtmlHeaders(response);
     response.send(renderMessage(token, direct.message, "Message"));
+    return;
+  }
+
+  const post = resolvePostShareToken(token);
+  if (post && isPublicPostProfile(post.profile)) {
+    setHtmlHeaders(response);
+    response.send(renderPost(token, post));
     return;
   }
 

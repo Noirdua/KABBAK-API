@@ -91,6 +91,10 @@ function shareStyles() {
     ".meta{margin:2px 0;font-size:13px;color:#a1a1aa}",
     ".body{margin-top:18px;color:#e4e4e7}",
     ".body p{margin:0 0 12px}",
+    ".blocks{margin-top:18px;color:#e4e4e7}",
+    ".block{margin:0 0 14px}",
+    ".block:last-child{margin-bottom:0}",
+    ".block p{margin:0 0 12px}",
     ".items{margin-top:20px;display:flex;flex-direction:column;gap:14px}",
     "figure{margin:0}",
     "img{max-width:100%;height:auto;border-radius:12px;border:1px solid #3f3f46;background:#111118;display:block}",
@@ -105,18 +109,38 @@ function shareStyles() {
   ].join("");
 }
 
-function renderSharePage({ title, description, kind, metaLines = [], items = [], ogImageUrl = "", bodyHtml = "" }) {
+function renderShareBody({ title, description, bodyHtml, inlineBody }) {
+  if (bodyHtml) {
+    if (inlineBody) {
+      // Callers using inline bodies (profile posts) guarantee sanitized HTML.
+      return `<section class="body">${bodyHtml}</section>`;
+    }
+    // HTML bodies render inside a script-less sandbox so newsletter markup can
+    // never touch the surrounding page.
+    return `<section class="body"><iframe class="html-body" sandbox="" title="${title}" srcdoc="${escapeHtml(bodyHtml)}"></iframe></section>`;
+  }
+  return description ? `<section class="body">${renderParagraphs(description)}</section>` : "";
+}
+
+function renderShareCard({
+  title,
+  description,
+  kind,
+  metaLines = [],
+  items = [],
+  ogImageUrl = "",
+  bodyHtml = "",
+  blocksHtml = "",
+  inlineBody = false
+}) {
   const safeTitle = escapeHtml(title || "Shared item");
   const safeKind = kind ? `<div class="kind">${escapeHtml(kind)}</div>` : "";
   const meta = metaLines
     .filter(Boolean)
     .map((line) => `<p class="meta">${escapeHtml(line)}</p>`)
     .join("");
-  // HTML bodies render inside a script-less sandbox so newsletter markup can
-  // never touch the surrounding page.
-  const body = bodyHtml
-    ? `<section class="body"><iframe class="html-body" sandbox="" title="${safeTitle}" srcdoc="${escapeHtml(bodyHtml)}"></iframe></section>`
-    : (description ? `<section class="body">${renderParagraphs(description)}</section>` : "");
+  const body = renderShareBody({ title: safeTitle, description, bodyHtml, inlineBody });
+  const blocks = blocksHtml ? `<section class="blocks">${blocksHtml}</section>` : "";
   const itemsHtml = items
     .map((item) => {
       const name = escapeHtml(item.name || "file");
@@ -159,12 +183,32 @@ function renderSharePage({ title, description, kind, metaLines = [], items = [],
     `<h1>${safeTitle}</h1>`,
     meta,
     body,
+    blocks,
     itemsSection,
     "<footer>Shared from KABBAK</footer>",
     "</main>",
     "</body>",
     "</html>"
   ].join("");
+}
+
+function renderSharePage(params = {}) {
+  return renderShareCard(params);
+}
+
+// Profile posts/theories render their already-sanitized HTML inline (not in an
+// iframe) with an optional block list below the body.
+function renderPostPage({ title, kind, author, dateLine, bodyHtml, blocksHtml, items, ogImageUrl }) {
+  return renderShareCard({
+    title,
+    kind,
+    metaLines: [author ? `By ${author}` : "", dateLine || ""],
+    items,
+    ogImageUrl,
+    bodyHtml,
+    blocksHtml,
+    inlineBody: true
+  });
 }
 
 function renderShareErrorPage({ title = "Not available", message = "This link is unavailable or has expired." } = {}) {
@@ -193,6 +237,7 @@ function renderShareErrorPage({ title = "Not available", message = "This link is
 module.exports = {
   buildSignedShareToken,
   escapeHtml,
+  renderPostPage,
   renderShareErrorPage,
   renderSharePage,
   verifySignedShareToken

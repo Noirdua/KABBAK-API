@@ -17,6 +17,9 @@ const {
   getProfileBio,
   getProfilePage,
   getProfileImage,
+  getJournalForViewer,
+  listPostsForViewer,
+  getProfileFeed,
   getProfileCalendarFeed,
   getProfileEvent,
   getProfileEventAttachment,
@@ -42,9 +45,26 @@ const {
   sendFriendRequest,
   updateProfileQuickNote,
   updateProfileBio,
+  updateProfileTagline,
   updateProfilePage,
   updateProfileImage,
   deleteProfileImage,
+  updateProfileJournalVisibility,
+  createProfilePost,
+  listProfilePosts,
+  deleteProfilePost,
+  addPostItem,
+  deletePostItem,
+  addEvidenceToStore,
+  listEvidenceStore,
+  deleteEvidenceFromStore,
+  updateProfilePost,
+  addPostEntry,
+  updatePostEntry,
+  deletePostEntry,
+  addPostComment,
+  previewProfilePost,
+  getProfilePostShare,
   updateProfileCalendarFeed,
   updateProfileDisplayName,
   updateProfileDirectory,
@@ -173,6 +193,30 @@ function mapProfileStorageError(error) {
   }
   if (error.code === "image_not_found") {
     return createNotFoundError("image_not_found", error.message);
+  }
+  if (error.code === "journal_private") {
+    return createHttpError(403, "journal_private", error.message);
+  }
+  if (error.code === "note_not_found") {
+    return createNotFoundError("note_not_found", error.message);
+  }
+  if (error.code === "post_not_found") {
+    return createNotFoundError("post_not_found", error.message);
+  }
+  if (error.code === "post_comments_limit_reached") {
+    return createHttpError(409, "post_comments_limit_reached", error.message);
+  }
+  if (error.code === "post_item_not_found" || error.code === "post_evidence_not_found") {
+    return createNotFoundError(error.code, error.message);
+  }
+  if (error.code === "post_entry_not_found") {
+    return createNotFoundError("post_entry_not_found", error.message);
+  }
+  if (error.code === "post_entries_limit_reached") {
+    return createHttpError(409, "post_entries_limit_reached", error.message);
+  }
+  if (error.code === "post_items_limit_reached" || error.code === "evidence_store_limit_reached") {
+    return createHttpError(409, error.code, error.message);
   }
 
   return createHttpError(400, error.code || "invalid_profile_request", error.message);
@@ -828,6 +872,234 @@ router.delete("/profile/friends/:clientId", wrapProfileHandler((request, respons
   response.apiSuccess(result);
 }));
 
+router.patch("/profile/journal-visibility", wrapProfileHandler((request, response) => {
+  const result = updateProfileJournalVisibility(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_journal_visibility",
+    visibility: result.visibility
+  });
+
+  response.apiSuccess({ visibility: result.visibility }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+// Share a journal entry as a feed post on the owner's profile.
+router.post("/profile/posts", wrapProfileHandler((request, response) => {
+  const result = createProfilePost(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "create_profile_post", postId: result.post.id });
+  response.status(201).apiSuccess(result.post, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+// Render an unsaved post draft through the share page template (owner-only).
+router.post("/profile/posts/preview", wrapProfileHandler((request, response) => {
+  const result = previewProfilePost(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+  response.apiSuccess({ html: result.html });
+}));
+
+// Combined feed: own shares plus friends' and public shares.
+router.get("/profile/feed", wrapProfileHandler((request, response) => {
+  const result = getProfileFeed(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess(result);
+}));
+
+router.get("/profile/posts", wrapProfileHandler((request, response) => {
+  const posts = listProfilePosts(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess({ count: posts.length, posts });
+}));
+
+// Share page for one of the owner's posts (empty path when no feed secret).
+router.get("/profile/posts/:postId/share", wrapProfileHandler((request, response) => {
+  const result = getProfilePostShare(
+    getProfileClientId(request, response),
+    request.params.postId,
+    getProfileOptions(request, response)
+  );
+  response.apiSuccess(result);
+}));
+
+router.patch("/profile/posts/:postId", wrapProfileHandler((request, response) => {
+  const result = updateProfilePost(
+    getProfileClientId(request, response),
+    request.params.postId,
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "update_profile_post", postId: result.post.id });
+  response.apiSuccess(result.post, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+// Thread entries: prose blocks or evidence inserted anywhere in the post.
+router.post("/profile/posts/:postId/entries", wrapProfileHandler((request, response) => {
+  const result = addPostEntry(
+    getProfileClientId(request, response),
+    request.params.postId,
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "add_profile_post_entry", entryId: result.entry.id });
+  response.status(201).apiSuccess({ entry: result.entry, entries: result.entries }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.patch("/profile/posts/:postId/entries/:entryId", wrapProfileHandler((request, response) => {
+  const result = updatePostEntry(
+    getProfileClientId(request, response),
+    request.params.postId,
+    request.params.entryId,
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "update_profile_post_entry" });
+  response.apiSuccess({ entries: result.entries }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.delete("/profile/posts/:postId/entries/:entryId", wrapProfileHandler((request, response) => {
+  const result = deletePostEntry(
+    getProfileClientId(request, response),
+    request.params.postId,
+    request.params.entryId,
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "delete_profile_post_entry" });
+  response.apiSuccess({ removed: result.removed, entries: result.entries }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+// Evidence store: everything collected with "Add to post", ready to insert.
+router.get("/profile/evidence", wrapProfileHandler((request, response) => {
+  response.apiSuccess(listEvidenceStore(getProfileClientId(request, response), getProfileOptions(request, response)));
+}));
+
+router.post("/profile/evidence", wrapProfileHandler((request, response) => {
+  const result = addEvidenceToStore(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "add_evidence_store", evidenceId: result.item.id });
+  response.status(201).apiSuccess({ item: result.item, count: result.count }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.delete("/profile/evidence/:evidenceId", wrapProfileHandler((request, response) => {
+  const result = deleteEvidenceFromStore(
+    getProfileClientId(request, response),
+    request.params.evidenceId,
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "delete_evidence_store" });
+  response.apiSuccess({ removed: result.removed, count: result.count }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.post("/profile/posts/:postId/items", wrapProfileHandler((request, response) => {
+  const result = addPostItem(
+    getProfileClientId(request, response),
+    request.params.postId,
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "add_profile_post_item", postId: result.postId });
+  response.status(201).apiSuccess({ item: result.item, itemCount: result.itemCount }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.delete("/profile/posts/:postId/items/:itemId", wrapProfileHandler((request, response) => {
+  const result = deletePostItem(
+    getProfileClientId(request, response),
+    request.params.postId,
+    request.params.itemId,
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "delete_profile_post_item" });
+  response.apiSuccess({ removed: result.removed, itemCount: result.itemCount }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.delete("/profile/posts/:postId", wrapProfileHandler((request, response) => {
+  const result = deleteProfilePost(
+    getProfileClientId(request, response),
+    request.params.postId,
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "delete_profile_post" });
+  response.apiSuccess({ removed: result.removed }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+// Another user's shared entries, following the same visibility as the journal.
+router.get("/profile/directory/users/:clientId/posts", wrapProfileHandler((request, response) => {
+  const result = listPostsForViewer(
+    request.params.clientId,
+    getProfileClientId(request, response),
+    getProfileOptions(request, response)
+  );
+  response.apiSuccess(result);
+}));
+
+router.post("/profile/directory/users/:clientId/posts/:postId/comments", wrapProfileHandler((request, response) => {
+  const result = addPostComment(
+    request.params.clientId,
+    request.params.postId,
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "comment_profile_post" });
+  response.status(201).apiSuccess({ comment: result.comment }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+// Read another user's journal when their visibility setting allows it.
+router.get("/profile/directory/users/:clientId/journal", wrapProfileHandler((request, response) => {
+  const journal = getJournalForViewer(
+    request.params.clientId,
+    getProfileClientId(request, response),
+    getProfileOptions(request, response)
+  );
+  response.apiSuccess(journal);
+}));
+
 router.post("/profile/directory/users/:clientId/message", wrapProfileHandler((request, response) => {
   const body = getRequestBody(request);
   const result = sendDirectoryMessage(
@@ -952,6 +1224,19 @@ router.delete("/profile/banner", wrapProfileHandler((request, response) => {
   );
   emitProfileMutationAuditEvent(request, response, { action: "delete_profile_banner" });
   response.apiSuccess({ removed: true }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.patch("/profile/tagline", wrapProfileHandler((request, response) => {
+  const result = updateProfileTagline(
+    getProfileClientId(request, response),
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "update_profile_tagline" });
+  response.apiSuccess({ tagline: result.tagline }, {
     storageUsedBytes: result.usage.usedBytes,
     storageQuotaBytes: result.usage.quotaBytes
   });

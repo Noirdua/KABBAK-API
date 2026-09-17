@@ -1418,6 +1418,18 @@
         }
       }
     },
+    "/profile/tagline": {
+      "patch": {
+        "tags": ["profile"],
+        "summary": "Set the profile status/tagline",
+        "operationId": "updateProfileTagline",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
     "/profile/page": {
       "get": {
         "tags": ["profile"],
@@ -1773,6 +1785,150 @@
         "tags": ["profile"],
         "summary": "Set the profile's public directory visibility (public/private)",
         "operationId": "updateProfileDirectory",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/profile/directory/users/{clientId}/journal": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Read another user's journal when their visibility setting allows it",
+        "operationId": "getDirectoryUserJournal",
+        "parameters": [
+          { "name": "clientId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/feed": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Combined feed of your shared journal entries plus friends' and public shares",
+        "operationId": "getProfileFeed",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/profile/evidence": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "List the evidence store collected via Add to post",
+        "operationId": "listEvidenceStore",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["profile"],
+        "summary": "Add an item to the evidence store",
+        "operationId": "addEvidenceToStore",
+        "responses": {
+          "201": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/profile/posts": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "List the authenticated profile's shared journal entries",
+        "description": "Owner-facing posts include `sharePath` (the signed public share page path) when the profile's calendar feed secret is enabled, otherwise an empty string.",
+        "operationId": "listProfilePosts",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["profile"],
+        "summary": "Create a post (share a journal entry via noteId, or a free post/thread via body, max 999 chars)",
+        "description": "Owner-facing post payloads include `sharePath` (the public share page path) when the profile's calendar feed secret is enabled, otherwise an empty string.",
+        "operationId": "createProfilePost",
+        "responses": {
+          "201": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/posts/preview": {
+      "post": {
+        "tags": ["profile"],
+        "summary": "Render an unsaved post draft through the share page template (owner-only, not persisted)",
+        "operationId": "previewProfilePost",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/profile/posts/{postId}/share": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get the share page path, token, and HTML for one of the owner's posts",
+        "description": "Returns `{ path, token, html }`. When the profile has no feed secret the response is `{ path: \"\", token: \"\", html: \"\" }`.",
+        "operationId": "getProfilePostShare",
+        "parameters": [
+          { "name": "postId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/posts/{postId}/items": {
+      "post": {
+        "tags": ["profile"],
+        "summary": "Append an item to one of your own posts (add to post)",
+        "operationId": "addProfilePostItem",
+        "parameters": [
+          { "name": "postId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "201": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/JsonPayload" }
+        }
+      }
+    },
+    "/profile/directory/users/{clientId}/posts": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "List another user's shared journal entries (subject to their visibility)",
+        "operationId": "listDirectoryUserPosts",
+        "parameters": [
+          { "name": "clientId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/profile/journal-visibility": {
+      "patch": {
+        "tags": ["profile"],
+        "summary": "Set who may read the profile journal (private, friends, public)",
+        "operationId": "updateProfileJournalVisibility",
         "responses": {
           "200": { "$ref": "#/components/responses/JsonPayload" },
           "400": { "$ref": "#/components/responses/BadRequest" },

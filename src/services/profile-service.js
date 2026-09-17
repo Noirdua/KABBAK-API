@@ -46,10 +46,26 @@ const {
   CALENDAR_FEED_LAYERS,
   DEFAULT_CALENDAR_FEED_LAYERS,
   CALENDAR_MOON_PHASES,
-  CALENDAR_ASTROLOGY_DETAILS
+  CALENDAR_ASTROLOGY_DETAILS,
+  JOURNAL_VISIBILITY,
+  DEFAULT_JOURNAL_VISIBILITY,
+  MAX_TAGLINE_LENGTH,
+  MAX_POSTS_PER_PROFILE,
+  MAX_POST_COMMENTS,
+  MAX_POST_BODY_LENGTH,
+  MAX_POST_COMMENT_LENGTH,
+  MAX_POST_TEXT_LENGTH,
+  MAX_POST_ITEMS,
+  MAX_POST_ENTRIES,
+  MAX_POST_ATTACHMENTS
 } = require("../config/profile-storage");
 
-const { buildSignedShareToken, verifySignedShareToken } = require("./share-service");
+const {
+  buildSignedShareToken,
+  escapeHtml: escapeShareText,
+  renderPostPage,
+  verifySignedShareToken
+} = require("./share-service");
 const { sanitizeMessageHtml, MAX_HTML_LENGTH } = require("../lib/html-sanitize");
 
 class ProfileStorageError extends Error {
@@ -353,6 +369,16 @@ function normalizeProfile(rawProfile, clientId, options = {}) {
     ...(typeof source.pageHtml === "string" ? { pageHtml: sanitizeMessageHtml(source.pageHtml) } : {}),
     ...(normalizeProfileImage(source.avatar) ? { avatar: normalizeProfileImage(source.avatar) } : {}),
     ...(normalizeProfileImage(source.banner) ? { banner: normalizeProfileImage(source.banner) } : {}),
+    ...(source.journalVisibility !== undefined
+      ? { journalVisibility: normalizeJournalVisibility(source.journalVisibility, DEFAULT_JOURNAL_VISIBILITY) }
+      : {}),
+    ...(Array.isArray(source.posts) ? { posts: normalizeStoredPosts(source.posts) } : {}),
+    ...(Array.isArray(source.evidenceStore)
+      ? { evidenceStore: source.evidenceStore.map(normalizeStoredPostItem).filter(Boolean).slice(0, MAX_POST_ITEMS) }
+      : {}),
+    ...(source.tagline !== undefined
+      ? { tagline: String(source.tagline || "").trim().slice(0, MAX_TAGLINE_LENGTH) }
+      : {}),
     ...(Array.isArray(source.boardWatch) ? { boardWatch: normalizeBoardWatch(source.boardWatch) } : {}),
     ...(source.friends !== undefined ? { friends: normalizeFriends(source.friends) } : {}),
     ...(source.friendRequests && typeof source.friendRequests === "object" && !Array.isArray(source.friendRequests)
@@ -475,7 +501,7 @@ const profileWriteRevisions = new Map();
 // out daily reports without knowing the storage layout. Encrypted/unreadable
 // profiles are skipped.
 function listProfileClientIds(options = {}) {
-  const root = options.profilesRoot || profilesRoot;
+  const root = resolveRootPath(options);
   let files = [];
   try {
     files = fs.readdirSync(root);
@@ -519,7 +545,7 @@ function updateProfileDirectory(clientId, input, options = {}) {
 }
 
 function listPublicDirectoryEntries(options = {}) {
-  const root = options.profilesRoot || profilesRoot;
+  const root = resolveRootPath(options);
   let files = [];
   try {
     files = fs.readdirSync(root);
@@ -850,7 +876,7 @@ function sendDirectoryMessage(fromClientId, targetClientId, input = {}, options 
 // Internal quiz leaderboard. Only profiles that opted into the public directory
 // (and have actually played) are ranked, so private players stay invisible.
 function getQuizLeaderboard(options = {}) {
-  const root = options.profilesRoot || profilesRoot;
+  const root = resolveRootPath(options);
   const limitRaw = Number(options.limit);
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.trunc(limitRaw))) : 50;
 
@@ -960,7 +986,7 @@ function listTopicWatchers(topicId, options = {}) {
   if (!wanted) {
     return [];
   }
-  const root = options.profilesRoot || profilesRoot;
+  const root = resolveRootPath(options);
   let files = [];
   try {
     files = fs.readdirSync(root);
@@ -1067,9 +1093,11 @@ function getProfileSummary(clientId, options = {}) {
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
     bio: profile.bio || "",
+    tagline: profile.tagline || "",
     hasPage: Boolean(String(profile.pageHtml || "").trim()),
     hasAvatar: Boolean(profile.avatar?.data),
     hasBanner: Boolean(profile.banner?.data),
+    journalVisibility: normalizeJournalVisibility(profile.journalVisibility, DEFAULT_JOURNAL_VISIBILITY),
     displayName: profile.displayName || "",
     location: profile.location || null,
     preferredDeck: profile.preferredDeck || "",
@@ -1082,6 +1110,7 @@ function getProfileSummary(clientId, options = {}) {
       links: Array.isArray(profile.links) ? profile.links.length : 0,
       messages: Array.isArray(profile.messages) ? profile.messages.length : 0,
       friends: normalizeFriends(profile.friends).length,
+      posts: Array.isArray(profile.posts) ? profile.posts.length : 0,
       quizAttempts: profile.quiz.attempts.length,
       attachments: attachmentCount
     }
@@ -2366,7 +2395,8 @@ function normalizeCalendarFeedOptions(value) {
 const CALENDAR_FEED_LAYER_ALIASES = Object.freeze({
   decan: "astrology",
   "moon-full": "moon",
-  "moon-new": "moon"
+  "moon-new": "moon",
+  "planetary-hours": "planetary"
 });
 
 function normalizeCalendarFeedLayers(value) {
@@ -3291,6 +3321,900 @@ function deleteProfileImage(clientId, kind, options = {}) {
   return { usage };
 }
 
+// --- Journal sharing ---------------------------------------------------------
+
+function normalizeJournalVisibility(value, fallback = DEFAULT_JOURNAL_VISIBILITY) {
+  const raw = String(value || "").trim().toLowerCase();
+  return JOURNAL_VISIBILITY.includes(raw) ? raw : fallback;
+}
+
+function updateProfileJournalVisibility(clientId, input, options = {}) {
+  const profile = readProfile(clientId, options);
+  const visibility = normalizeJournalVisibility(
+    input?.visibility ?? input?.journalVisibility,
+    normalizeJournalVisibility(profile.journalVisibility, DEFAULT_JOURNAL_VISIBILITY)
+  );
+  profile.journalVisibility = visibility;
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(clientId, profile, options);
+  return { visibility, usage };
+}
+
+function summarizeSharedNote(note) {
+  return {
+    id: note.id,
+    title: note.title,
+    kind: note.kind,
+    occurredOn: note.occurredOn,
+    sleptAt: note.sleptAt,
+    awokeAt: note.awokeAt,
+    createdAt: note.createdAt,
+    updatedAt: note.updatedAt,
+    scenes: (note.scenes || []).map((scene) => ({
+      id: scene.id,
+      time: scene.time,
+      endTime: scene.endTime,
+      place: scene.place,
+      scenario: scene.scenario,
+      mood: scene.mood,
+      emotion: scene.emotion,
+      atmosphere: scene.atmosphere,
+      steps: scene.steps,
+      thoughts: scene.thoughts,
+      notes: scene.notes
+    }))
+  };
+}
+
+// Shared access check for a profile's journal + shared entries. Friends may see
+// a "friends" profile; "public" is readable by anyone authenticated.
+function assertProfileShareAllowed(targetClientId, viewerClientId, options = {}) {
+  const targetId = normalizeClientId(targetClientId);
+  const viewerId = normalizeClientId(viewerClientId);
+  const profile = readProfile(targetId, options);
+  const visibility = normalizeJournalVisibility(profile.journalVisibility, DEFAULT_JOURNAL_VISIBILITY);
+  const isSelf = targetId === viewerId;
+  let isFriend = false;
+  if (!isSelf && visibility === "friends") {
+    isFriend = normalizeFriends(profile.friends).some((entry) => entry.clientId === viewerId);
+    if (!isFriend) {
+      const viewerProfile = readProfile(viewerId, options);
+      isFriend = normalizeFriends(viewerProfile.friends).some((entry) => entry.clientId === targetId);
+    }
+  }
+  if (!isSelf && visibility !== "public" && !(visibility === "friends" && isFriend)) {
+    throw new ProfileStorageError("journal_private", "That journal is not shared with you.");
+  }
+  return { profile, targetId, viewerId, visibility, isSelf };
+}
+
+function getJournalForViewer(targetClientId, viewerClientId, options = {}) {
+  const { profile, visibility } = assertProfileShareAllowed(targetClientId, viewerClientId, options);
+  const notes = (profile.notes || []).map(summarizeSharedNote);
+  return {
+    clientId: profile.clientId,
+    displayName: profile.displayName || "",
+    visibility,
+    count: notes.length,
+    notes
+  };
+}
+
+// --- Shared journal entries (feed posts with comments) -----------------------
+
+function normalizeStoredPostComment(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const clientId = String(value.clientId || "").trim().slice(0, 120);
+  const text = String(value.text || "").trim().slice(0, MAX_POST_COMMENT_LENGTH);
+  if (!clientId || !text) {
+    return null;
+  }
+  return {
+    id: String(value.id || `pcmt_${crypto.randomBytes(6).toString("hex")}`),
+    clientId,
+    name: String(value.name || "").trim().slice(0, 80),
+    text,
+    createdAt: String(value.createdAt || "").trim()
+  };
+}
+
+// Post content is rich HTML (sanitized); attachments reuse the profile store.
+function normalizePostAttachments(value) {
+  return (Array.isArray(value) ? value : [])
+    .map((entry) => normalizeStoredAttachment(entry, {}))
+    .filter(Boolean)
+    .slice(0, MAX_POST_ATTACHMENTS);
+}
+
+function normalizeStoredPostItem(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const title = String(value.title || "").trim().slice(0, 300) || "Item";
+  const body = sanitizeMessageHtml(String(value.body || "")).slice(0, MAX_POST_TEXT_LENGTH);
+  return {
+    id: String(value.id || `pitem_${crypto.randomBytes(6).toString("hex")}`),
+    markType: String(value.markType || "").trim().slice(0, 40),
+    markKey: String(value.markKey || "").trim().slice(0, 300),
+    title,
+    body,
+    attachments: normalizePostAttachments(value.attachments),
+    createdAt: String(value.createdAt || "").trim()
+  };
+}
+
+// Thread entries: prose the author writes, or a reference to a piece of evidence
+// collected in the post's evidence bucket.
+function normalizeStoredPostEntry(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const kind = value.kind === "evidence" ? "evidence" : "text";
+  const entry = {
+    id: String(value.id || `pentry_${crypto.randomBytes(6).toString("hex")}`),
+    kind,
+    text: sanitizeMessageHtml(String(value.text || "")).slice(0, MAX_POST_TEXT_LENGTH),
+    evidenceId: String(value.evidenceId || "").trim(),
+    createdAt: String(value.createdAt || "").trim()
+  };
+  if (kind === "evidence" && !entry.evidenceId) {
+    return null;
+  }
+  if (kind === "text" && !entry.text) {
+    return null;
+  }
+  return entry;
+}
+
+function normalizeStoredPost(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const title = String(value.title || "").trim().slice(0, 300) || "Untitled";
+  const body = sanitizeMessageHtml(String(value.body || "")).slice(0, MAX_POST_BODY_LENGTH);
+  const attachments = normalizePostAttachments(value.attachments);
+  const comments = (Array.isArray(value.comments) ? value.comments : [])
+    .map(normalizeStoredPostComment)
+    .filter(Boolean)
+    .slice(0, MAX_POST_COMMENTS);
+  // Evidence bucket. Legacy posts stored these as `items`.
+  const sourceEvidence = Array.isArray(value.evidence)
+    ? value.evidence
+    : (Array.isArray(value.items) ? value.items : []);
+  const items = sourceEvidence
+    .map(normalizeStoredPostItem)
+    .filter(Boolean)
+    .slice(0, MAX_POST_ITEMS);
+  const evidenceIds = new Set(items.map((item) => item.id));
+  const entries = (Array.isArray(value.entries) ? value.entries : [])
+    .map(normalizeStoredPostEntry)
+    .filter((entry) => entry && (entry.kind === "text" || evidenceIds.has(entry.evidenceId)))
+    .slice(0, MAX_POST_ENTRIES);
+  const noteId = String(value.noteId || "").trim();
+  return {
+    id: String(value.id || `post_${crypto.randomBytes(8).toString("hex")}`),
+    type: noteId ? "journal" : "post",
+    noteId,
+    title,
+    kind: normalizeStoredKind(value.kind),
+    occurredOn: normalizeStoredOccurredOn(value.occurredOn, value.createdAt),
+    body,
+    attachments,
+    evidence: items,
+    entries,
+    comments,
+    createdAt: String(value.createdAt || "").trim(),
+    updatedAt: String(value.updatedAt || "").trim()
+  };
+}
+
+function normalizeStoredPosts(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set();
+  const posts = [];
+  value.forEach((entry) => {
+    const post = normalizeStoredPost(entry);
+    if (!post || seen.has(post.id)) {
+      return;
+    }
+    seen.add(post.id);
+    posts.push(post);
+  });
+  return posts.slice(-MAX_POSTS_PER_PROFILE);
+}
+
+function noteToPlainText(note) {
+  const parts = [];
+  (note?.scenes || []).forEach((scene) => {
+    const lines = [
+      [scene.time, scene.endTime].filter(Boolean).join("–"),
+      scene.place,
+      scene.scenario,
+      scene.steps,
+      scene.thoughts,
+      scene.notes
+    ].map((line) => String(line || "").trim()).filter(Boolean);
+    if (lines.length) {
+      parts.push(lines.join("\n"));
+    }
+  });
+  return parts.join("\n\n").trim();
+}
+
+function presentPost(post, authorClientId, authorName, sharePath) {
+  const presented = {
+    id: post.id,
+    type: post.type || (post.noteId ? "journal" : "post"),
+    noteId: post.noteId,
+    title: post.title,
+    kind: post.kind,
+    occurredOn: post.occurredOn,
+    body: post.body,
+    attachments: (post.attachments || []).map((item) => ({ ...item })),
+    evidence: (post.evidence || []).map((item) => ({ ...item })),
+    evidenceCount: (post.evidence || []).length,
+    entries: (post.entries || []).map((entry) => ({ ...entry })),
+    authorClientId,
+    authorName,
+    commentCount: post.comments.length,
+    comments: post.comments.map((comment) => ({ ...comment })),
+    createdAt: post.createdAt,
+    updatedAt: post.updatedAt
+  };
+  // Owner-facing payloads carry the share path; feed/directory listings omit it.
+  if (sharePath !== undefined) {
+    presented.sharePath = sharePath;
+  }
+  return presented;
+}
+
+// --- Post share pages --------------------------------------------------------
+
+function buildPostShareToken(profile, post) {
+  const secret = resolveShareSecret(profile);
+  if (!secret || !post) {
+    return "";
+  }
+  return buildSignedShareToken({ c: profile.clientId, t: "p", p: post.id }, secret);
+}
+
+function buildPostSharePath(profile, post) {
+  const token = buildPostShareToken(profile, post);
+  return token ? buildSharePath(token) : "";
+}
+
+function resolvePostShareToken(token, options = {}) {
+  const raw = String(token || "").trim();
+  const parts = raw.split(".");
+  if (parts.length !== 3 || parts[0] !== SHARE_SIGNED_PREFIX) {
+    return null;
+  }
+  let payload;
+  try {
+    payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+  if (String(payload?.t || "") !== "p") {
+    return null;
+  }
+  const clientId = String(payload?.c || "").trim();
+  if (!clientId) {
+    return null;
+  }
+  let profile;
+  try {
+    profile = readProfile(clientId, options);
+  } catch {
+    return null;
+  }
+  const secret = resolveShareSecret(profile);
+  if (!secret) {
+    return null;
+  }
+  const verified = verifySignedShareToken(raw, secret);
+  if (!verified || verified.t !== "p") {
+    return null;
+  }
+  const post = normalizeStoredPosts(profile.posts).find((entry) => entry.id === String(verified.p || "")) || null;
+  if (!post) {
+    return null;
+  }
+  return { clientId, profile, post };
+}
+
+function postAssetUrl(token, assetId) {
+  const raw = String(token || "").trim();
+  if (!raw || !assetId) {
+    return "";
+  }
+  return `${buildSharePath(raw)}/asset/${encodeURIComponent(assetId)}`;
+}
+
+function isImageAttachmentType(type) {
+  return String(type || "").startsWith("image/");
+}
+
+function renderPostEvidenceBlock(item, token) {
+  const title = escapeShareText(item.title || "Evidence");
+  const url = postAssetUrl(token, item.id);
+  if (!item.attachments || !item.attachments.length) {
+    return `<div class="block"><p>${title}</p>${item.body || ""}</div>`;
+  }
+  if (!url) {
+    return `<div class="block"><p>${title}</p>${item.body || ""}</div>`;
+  }
+  const image = item.attachments.find((attachment) => isImageAttachmentType(attachment.type));
+  if (image) {
+    return `<div class="block"><figure><img src="${escapeShareText(url)}" alt="${title}" loading="lazy">`
+      + `<figcaption><span>${title}</span>`
+      + `<a class="download" href="${escapeShareText(url)}" download>Download</a></figcaption></figure></div>`;
+  }
+  return `<div class="block"><a class="file" href="${escapeShareText(url)}" download>`
+    + `<span>${title}</span><span>Download</span></a></div>`;
+}
+
+function renderPostShareBlocks(post, token) {
+  const evidence = post.evidence || [];
+  const usedIds = new Set();
+  const entryHtml = (post.entries || [])
+    .map((entry) => {
+      if (entry.kind === "evidence") {
+        usedIds.add(entry.evidenceId);
+        const item = evidence.find((candidate) => candidate.id === entry.evidenceId);
+        return item ? renderPostEvidenceBlock(item, token) : "";
+      }
+      return entry.text ? `<div class="block">${entry.text}</div>` : "";
+    })
+    .join("");
+  // The composer saves collected evidence without entry links, so anything not
+  // already placed by an entry still belongs on the page.
+  const restHtml = evidence
+    .filter((item) => !usedIds.has(item.id))
+    .map((item) => renderPostEvidenceBlock(item, token))
+    .join("");
+  return entryHtml + restHtml;
+}
+
+function renderPostShareHtml(profile, post, { token = "" } = {}) {
+  const author = String(profile.displayName || "").trim() || profile.clientId;
+  const items = (post.attachments || []).map((attachment) => ({
+    name: attachment.name,
+    size: attachment.size,
+    isImage: isImageAttachmentType(attachment.type),
+    url: postAssetUrl(token, attachment.id)
+  })).filter((item) => item.url);
+  return renderPostPage({
+    title: post.title,
+    kind: String(post.kind || "").trim() || "Theory",
+    author,
+    dateLine: post.occurredOn || post.createdAt || "",
+    bodyHtml: post.body || "",
+    blocksHtml: renderPostShareBlocks(post, token),
+    items,
+    ogImageUrl: (items.find((item) => item.isImage) || {}).url || ""
+  });
+}
+
+function previewProfilePost(clientId, input, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const draft = normalizeStoredPost({
+    ...(input && typeof input === "object" && !Array.isArray(input) ? input : {}),
+    id: "post_preview"
+  });
+  if (!draft) {
+    throw new ProfileStorageError("invalid_post", "Write something first.");
+  }
+  const token = buildPostShareToken(profile, draft);
+  return { html: renderPostShareHtml(profile, draft, { token }) };
+}
+
+function getProfilePostShare(clientId, postId, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const wanted = String(postId || "").trim();
+  const post = normalizeStoredPosts(profile.posts).find((entry) => entry.id === wanted) || null;
+  if (!post) {
+    throw new ProfileStorageError("post_not_found", "Post not found.");
+  }
+  const token = buildPostShareToken(profile, post);
+  return {
+    path: token ? buildSharePath(token) : "",
+    token,
+    html: renderPostShareHtml(profile, post, { token })
+  };
+}
+
+// Create a post: either a share of a journal entry (`noteId`) or a free post /
+// thread (`body`, max 999 chars). Re-sharing a note refreshes its snapshot.
+function createProfilePost(clientId, input, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const noteId = String(input?.noteId || "").trim();
+  const nowIso = new Date().toISOString();
+  const posts = normalizeStoredPosts(profile.posts);
+  let post;
+
+  if (noteId) {
+    const note = (profile.notes || []).find((entry) => entry.id === noteId);
+    if (!note) {
+      throw new ProfileStorageError("note_not_found", "Journal entry not found.");
+    }
+    const body = noteToPlainText(note).slice(0, MAX_POST_BODY_LENGTH);
+    post = posts.find((entry) => entry.noteId === noteId);
+    if (post) {
+      post.title = note.title;
+      post.kind = note.kind;
+      post.occurredOn = note.occurredOn;
+      post.body = body;
+      post.updatedAt = nowIso;
+    } else {
+      post = {
+        id: `post_${crypto.randomBytes(8).toString("hex")}`,
+        type: "journal",
+        noteId,
+        title: note.title,
+        kind: note.kind,
+        occurredOn: note.occurredOn,
+        body,
+        evidence: [],
+        entries: [],
+        comments: [],
+        createdAt: nowIso,
+        updatedAt: nowIso
+      };
+      posts.push(post);
+    }
+  } else {
+    const body = String(input?.body ?? "").trim().slice(0, MAX_POST_TEXT_LENGTH);
+    if (!body) {
+      throw new ProfileStorageError("invalid_post", "Write something first (999 characters max).");
+    }
+    const title = String(input?.title || "").trim().slice(0, 300)
+      || body.split("\n")[0].slice(0, 80)
+      || "Post";
+    post = {
+      id: `post_${crypto.randomBytes(8).toString("hex")}`,
+      type: "post",
+      noteId: "",
+      title,
+      kind: "waking",
+      occurredOn: nowIso.slice(0, 10),
+      body,
+      attachments: normalizePostAttachments(input?.attachments),
+      evidence: [],
+      entries: [],
+      comments: [],
+      createdAt: nowIso,
+      updatedAt: nowIso
+    };
+    posts.push(post);
+  }
+
+  // Insert any evidence chosen while composing (store items join this post).
+  const evidenceIds = (Array.isArray(input?.evidenceIds) ? input.evidenceIds : [])
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  evidenceIds.forEach((evidenceId) => {
+    ensurePostEvidence(profile, post, evidenceId);
+    const entry = normalizeStoredPostEntry({
+      kind: "evidence",
+      evidenceId,
+      createdAt: new Date().toISOString()
+    });
+    if (entry && (post.entries || []).length < MAX_POST_ENTRIES) {
+      post.entries = [...(post.entries || []), entry];
+    }
+  });
+
+  profile.posts = posts.slice(-MAX_POSTS_PER_PROFILE);
+  profile.updatedAt = nowIso;
+  const usage = writeProfile(id, profile, options);
+  return {
+    post: presentPost(post, id, String(profile.displayName || "").trim(), buildPostSharePath(profile, post)),
+    usage
+  };
+}
+
+// Append an item to one of your own posts (e.g. an "add to post" from a
+// bookmark/note control).
+// --- Evidence store ----------------------------------------------------------
+// "Add to post" collects proof into a per-profile store; posts then insert those
+// items into their own evidence bucket and thread.
+
+function addEvidenceToStore(clientId, input, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const store = (Array.isArray(profile.evidenceStore) ? profile.evidenceStore : [])
+    .map(normalizeStoredPostItem)
+    .filter(Boolean);
+  if (store.length >= MAX_POST_ITEMS) {
+    throw new ProfileStorageError("evidence_store_limit_reached", "Your evidence store is full.");
+  }
+  const item = normalizeStoredPostItem({
+    markType: input?.markType,
+    markKey: input?.markKey,
+    title: input?.title,
+    body: input?.body,
+    attachments: input?.attachments,
+    createdAt: new Date().toISOString()
+  });
+  if (!item) {
+    throw new ProfileStorageError("invalid_post_item", "Nothing to add.");
+  }
+  store.push(item);
+  profile.evidenceStore = store;
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(id, profile, options);
+  return { item, count: store.length, usage };
+}
+
+function listEvidenceStore(clientId, options = {}) {
+  const profile = readProfile(normalizeClientId(clientId), options);
+  const store = (Array.isArray(profile.evidenceStore) ? profile.evidenceStore : [])
+    .map(normalizeStoredPostItem)
+    .filter(Boolean);
+  return { count: store.length, evidence: store };
+}
+
+function deleteEvidenceFromStore(clientId, evidenceId, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const wanted = String(evidenceId || "").trim();
+  const before = (Array.isArray(profile.evidenceStore) ? profile.evidenceStore : [])
+    .map(normalizeStoredPostItem)
+    .filter(Boolean);
+  const store = before.filter((item) => item.id !== wanted);
+  if (store.length === before.length) {
+    throw new ProfileStorageError("post_item_not_found", "Evidence not found.");
+  }
+  profile.evidenceStore = store;
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(id, profile, options);
+  return { removed: true, count: store.length, usage };
+}
+
+// Resolve store evidence onto a post's bucket (idempotent).
+function ensurePostEvidence(profile, post, evidenceId) {
+  const wanted = String(evidenceId || "").trim();
+  const existing = (post.evidence || []).find((item) => item.id === wanted);
+  if (existing) {
+    return existing;
+  }
+  const source = (Array.isArray(profile.evidenceStore) ? profile.evidenceStore : [])
+    .map(normalizeStoredPostItem)
+    .filter(Boolean)
+    .find((item) => item.id === wanted);
+  if (!source) {
+    throw new ProfileStorageError("post_evidence_not_found", "That evidence is not in your store.");
+  }
+  post.evidence = [...(post.evidence || []), source];
+  return source;
+}
+
+function addPostItem(clientId, postId, input, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const wanted = String(postId || "").trim();
+  const posts = normalizeStoredPosts(profile.posts);
+  const post = posts.find((entry) => entry.id === wanted);
+  if (!post) {
+    throw new ProfileStorageError("post_not_found", "Post not found.");
+  }
+  if ((post.evidence || []).length >= MAX_POST_ITEMS) {
+    throw new ProfileStorageError("post_items_limit_reached", "This post has too much evidence.");
+  }
+  const item = normalizeStoredPostItem({
+    markType: input?.markType,
+    markKey: input?.markKey,
+    title: input?.title,
+    body: input?.body,
+    attachments: input?.attachments,
+    createdAt: new Date().toISOString()
+  });
+  if (!item) {
+    throw new ProfileStorageError("invalid_post_item", "Nothing to add.");
+  }
+  post.evidence = [...(post.evidence || []), item];
+  post.updatedAt = new Date().toISOString();
+  profile.posts = posts;
+  profile.updatedAt = post.updatedAt;
+  const usage = writeProfile(id, profile, options);
+  return { item, postId: post.id, evidenceCount: post.evidence.length, usage };
+}
+
+function deletePostItem(clientId, postId, itemId, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const wanted = String(postId || "").trim();
+  const wantedItem = String(itemId || "").trim();
+  const posts = normalizeStoredPosts(profile.posts);
+  const post = posts.find((entry) => entry.id === wanted);
+  if (!post) {
+    throw new ProfileStorageError("post_not_found", "Post not found.");
+  }
+  const before = (post.evidence || []).length;
+  post.evidence = (post.evidence || []).filter((item) => item.id !== wantedItem);
+  if (post.evidence.length === before) {
+    throw new ProfileStorageError("post_item_not_found", "Evidence not found.");
+  }
+  // Drop any thread entries that referenced the removed evidence.
+  post.entries = (post.entries || []).filter((entry) => entry.kind !== "evidence" || entry.evidenceId !== wantedItem);
+  post.updatedAt = new Date().toISOString();
+  profile.posts = posts;
+  profile.updatedAt = post.updatedAt;
+  const usage = writeProfile(id, profile, options);
+  return { removed: true, evidenceCount: post.evidence.length, usage };
+}
+
+// Edit the theory itself (claim / statement).
+function updateProfilePost(clientId, postId, input, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const wanted = String(postId || "").trim();
+  const posts = normalizeStoredPosts(profile.posts);
+  const post = posts.find((entry) => entry.id === wanted);
+  if (!post) {
+    throw new ProfileStorageError("post_not_found", "Post not found.");
+  }
+  if (input?.title !== undefined) {
+    post.title = String(input.title || "").trim().slice(0, 300) || post.title;
+  }
+  if (input?.body !== undefined) {
+    const limit = post.type === "journal" ? MAX_POST_BODY_LENGTH : MAX_POST_TEXT_LENGTH;
+    post.body = sanitizeMessageHtml(String(input.body || "")).slice(0, limit);
+  }
+  if (input?.attachments !== undefined) {
+    post.attachments = normalizePostAttachments(input.attachments);
+  }
+  post.updatedAt = new Date().toISOString();
+  profile.posts = posts;
+  profile.updatedAt = post.updatedAt;
+  const usage = writeProfile(id, profile, options);
+  return {
+    post: presentPost(post, id, String(profile.displayName || "").trim(), buildPostSharePath(profile, post)),
+    usage
+  };
+}
+
+function clampEntryPosition(value, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return max;
+  }
+  return Math.max(0, Math.min(max, Math.trunc(number)));
+}
+
+// Insert a thread entry: prose, or a piece of evidence from the bucket.
+function addPostEntry(clientId, postId, input, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const wanted = String(postId || "").trim();
+  const posts = normalizeStoredPosts(profile.posts);
+  const post = posts.find((entry) => entry.id === wanted);
+  if (!post) {
+    throw new ProfileStorageError("post_not_found", "Post not found.");
+  }
+  if ((post.entries || []).length >= MAX_POST_ENTRIES) {
+    throw new ProfileStorageError("post_entries_limit_reached", "This post has too many entries.");
+  }
+  const kind = input?.kind === "evidence" ? "evidence" : "text";
+  const evidenceId = String(input?.evidenceId || "").trim();
+  if (kind === "evidence") {
+    // Evidence can come straight from the store; it joins the post bucket.
+    ensurePostEvidence(profile, post, evidenceId);
+  }
+  const entry = normalizeStoredPostEntry({
+    kind,
+    text: kind === "text" ? input?.text : "",
+    evidenceId: kind === "evidence" ? evidenceId : "",
+    createdAt: new Date().toISOString()
+  });
+  if (!entry) {
+    throw new ProfileStorageError("invalid_post_entry", "Write something first.");
+  }
+  const position = clampEntryPosition(input?.position, (post.entries || []).length);
+  const entries = [...(post.entries || [])];
+  entries.splice(position, 0, entry);
+  post.entries = entries;
+  post.updatedAt = entry.createdAt;
+  profile.posts = posts;
+  profile.updatedAt = post.updatedAt;
+  const usage = writeProfile(id, profile, options);
+  return { entry, entries: post.entries.map((item) => ({ ...item })), usage };
+}
+
+function updatePostEntry(clientId, postId, entryId, input, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const wanted = String(postId || "").trim();
+  const posts = normalizeStoredPosts(profile.posts);
+  const post = posts.find((entry) => entry.id === wanted);
+  if (!post) {
+    throw new ProfileStorageError("post_not_found", "Post not found.");
+  }
+  const entries = [...(post.entries || [])];
+  const index = entries.findIndex((entry) => entry.id === String(entryId || "").trim());
+  if (index === -1) {
+    throw new ProfileStorageError("post_entry_not_found", "Entry not found.");
+  }
+  const entry = entries[index];
+  if (input?.text !== undefined && entry.kind === "text") {
+    const text = String(input.text || "").trim().slice(0, MAX_POST_TEXT_LENGTH);
+    if (!text) {
+      throw new ProfileStorageError("invalid_post_entry", "Write something first.");
+    }
+    entry.text = text;
+  }
+  if (input?.move === "up" || input?.move === "down") {
+    const target = input.move === "up" ? index - 1 : index + 1;
+    if (target >= 0 && target < entries.length) {
+      entries.splice(index, 1);
+      entries.splice(target, 0, entry);
+    }
+  }
+  post.entries = entries;
+  post.updatedAt = new Date().toISOString();
+  profile.posts = posts;
+  profile.updatedAt = post.updatedAt;
+  const usage = writeProfile(id, profile, options);
+  return { entries: post.entries.map((item) => ({ ...item })), usage };
+}
+
+function deletePostEntry(clientId, postId, entryId, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const wanted = String(postId || "").trim();
+  const posts = normalizeStoredPosts(profile.posts);
+  const post = posts.find((entry) => entry.id === wanted);
+  if (!post) {
+    throw new ProfileStorageError("post_not_found", "Post not found.");
+  }
+  const before = (post.entries || []).length;
+  post.entries = (post.entries || []).filter((entry) => entry.id !== String(entryId || "").trim());
+  if (post.entries.length === before) {
+    throw new ProfileStorageError("post_entry_not_found", "Entry not found.");
+  }
+  post.updatedAt = new Date().toISOString();
+  profile.posts = posts;
+  profile.updatedAt = post.updatedAt;
+  const usage = writeProfile(id, profile, options);
+  return { removed: true, entries: post.entries.map((item) => ({ ...item })), usage };
+}
+
+function listProfilePosts(clientId, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const authorName = String(profile.displayName || "").trim();
+  return normalizeStoredPosts(profile.posts)
+    .filter((post) => post.type === "post")
+    .map((post) => presentPost(post, id, authorName, buildPostSharePath(profile, post)))
+    .reverse();
+}
+
+function deleteProfilePost(clientId, postId, options = {}) {
+  const id = normalizeClientId(clientId);
+  const profile = readProfile(id, options);
+  const wanted = String(postId || "").trim();
+  const before = normalizeStoredPosts(profile.posts);
+  const posts = before.filter((post) => post.id !== wanted);
+  if (posts.length === before.length) {
+    throw new ProfileStorageError("post_not_found", "Shared entry not found.");
+  }
+  profile.posts = posts;
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(id, profile, options);
+  return { removed: true, usage };
+}
+
+function listPostsForViewer(targetClientId, viewerClientId, options = {}) {
+  const { profile, targetId, visibility } = assertProfileShareAllowed(targetClientId, viewerClientId, options);
+  const authorName = String(profile.displayName || "").trim();
+  const posts = normalizeStoredPosts(profile.posts)
+    .filter((post) => post.type === "post")
+    .map((post) => presentPost(post, targetId, authorName))
+    .reverse();
+  return {
+    clientId: profile.clientId,
+    displayName: authorName,
+    visibility,
+    count: posts.length,
+    posts
+  };
+}
+
+// Combined feed: the viewer's own shares plus friends' and public shares.
+// Visibility per author follows the same rule as the journal.
+function getProfileFeed(viewerClientId, options = {}) {
+  const viewerId = normalizeClientId(viewerClientId);
+  const viewerProfile = readProfile(viewerId, options);
+  const friendIds = new Set(normalizeFriends(viewerProfile.friends).map((entry) => entry.clientId));
+  const candidates = new Set([viewerId, ...friendIds]);
+
+  // Public journals join the feed even for non-friends.
+  listProfileClientIds(options).forEach((clientId) => {
+    try {
+      const profile = readProfile(clientId, options);
+      if (normalizeJournalVisibility(profile.journalVisibility, DEFAULT_JOURNAL_VISIBILITY) === "public") {
+        candidates.add(clientId);
+      }
+    } catch (_error) {
+      // Skip unreadable profiles.
+    }
+  });
+
+  const entries = [];
+  candidates.forEach((authorId) => {
+    let profile;
+    try {
+      profile = readProfile(authorId, options);
+    } catch (_error) {
+      return;
+    }
+    const visibility = normalizeJournalVisibility(profile.journalVisibility, DEFAULT_JOURNAL_VISIBILITY);
+    const isSelf = authorId === viewerId;
+    const isFriend = friendIds.has(authorId)
+      || normalizeFriends(profile.friends).some((entry) => entry.clientId === viewerId);
+    if (!isSelf && visibility !== "public" && !(visibility === "friends" && isFriend)) {
+      return;
+    }
+    const authorName = String(profile.displayName || "").trim();
+    // Posts are their own thing; shared journal entries are not posts.
+    normalizeStoredPosts(profile.posts)
+      .filter((post) => post.type === "post")
+      .forEach((post) => {
+        entries.push(presentPost(post, authorId, authorName));
+      });
+  });
+
+  entries.sort((left, right) => String(right.updatedAt || right.createdAt).localeCompare(String(left.updatedAt || left.createdAt)));
+  return { count: entries.length, posts: entries.slice(0, 100) };
+}
+
+function addPostComment(targetClientId, postId, viewerClientId, input, options = {}) {
+  const { profile, targetId, viewerId } = assertProfileShareAllowed(targetClientId, viewerClientId, options);
+  const text = String(input?.text ?? input?.body ?? "").trim();
+  if (!text) {
+    throw new ProfileStorageError("invalid_comment", "Write a comment first.");
+  }
+  const wanted = String(postId || "").trim();
+  const posts = normalizeStoredPosts(profile.posts);
+  const post = posts.find((entry) => entry.id === wanted);
+  if (!post) {
+    throw new ProfileStorageError("post_not_found", "Shared entry not found.");
+  }
+  if (post.comments.length >= MAX_POST_COMMENTS) {
+    throw new ProfileStorageError("post_comments_limit_reached", "This entry has too many comments.");
+  }
+  const viewerProfile = readProfile(viewerId, options);
+  const comment = {
+    id: `pcmt_${crypto.randomBytes(6).toString("hex")}`,
+    clientId: viewerId,
+    name: String(viewerProfile.displayName || "").trim() || viewerId,
+    text: text.slice(0, MAX_POST_COMMENT_LENGTH),
+    createdAt: new Date().toISOString()
+  };
+  post.comments.push(comment);
+  profile.posts = posts;
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(targetId, profile, counterpartWriteOptions(options));
+  return { comment, usage };
+}
+
+function updateProfileTagline(clientId, input, options = {}) {
+  const profile = readProfile(clientId, options);
+  const tagline = String(input?.tagline ?? input?.status ?? "").trim().slice(0, MAX_TAGLINE_LENGTH);
+  profile.tagline = tagline;
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(clientId, profile, options);
+  return { tagline, usage };
+}
+
 function updateProfileBio(clientId, input, options = {}) {
   const profile = readProfile(clientId, options);
   const bio = String((input && input.bio) || "").trim().slice(0, 2000);
@@ -3521,6 +4445,8 @@ module.exports = {
   deleteProfileQuickNote,
   addProfileMessage,
   buildAttachmentShareUrl,
+  buildPostSharePath,
+  buildPostShareToken,
   buildSharePath,
   createProfileLink,
   decodeAttachmentPayload,
@@ -3541,8 +4467,12 @@ module.exports = {
   getProfileLink,
   listProfileLinks,
   resolveProfileLinkToken,
+  resolvePostShareToken,
   resolveShareSecret,
   resolveSignedShareAttachment,
+  renderPostShareHtml,
+  previewProfilePost,
+  getProfilePostShare,
   updateProfileLink,
   getProfileBio,
   getProfilePage,
@@ -3582,9 +4512,28 @@ module.exports = {
   recordQuizAttempt,
   resetProfile,
   updateProfileBio,
+  updateProfileTagline,
   updateProfilePage,
   updateProfileImage,
   deleteProfileImage,
+  getJournalForViewer,
+  normalizeJournalVisibility,
+  updateProfileJournalVisibility,
+  createProfilePost,
+  listProfilePosts,
+  deleteProfilePost,
+  listPostsForViewer,
+  getProfileFeed,
+  addPostComment,
+  addPostItem,
+  deletePostItem,
+  addEvidenceToStore,
+  listEvidenceStore,
+  deleteEvidenceFromStore,
+  updateProfilePost,
+  addPostEntry,
+  updatePostEntry,
+  deletePostEntry,
   updateProfileBoardWatch,
   updateProfileCalendarFeed,
   updateProfileDisplayName,
