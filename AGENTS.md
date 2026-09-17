@@ -152,7 +152,14 @@ npm run check:html        # untagged innerHTML linter
 
 The chat bot is a sibling checkout: `../KABBAK-BOT` (Discord + Matrix adapters over one command core). It talks to this API over HTTP with `x-api-key`.
 
-**Rule: when a change here alters a route, response shape, auth behavior, or domain feature the bot consumes, update `../KABBAK-BOT` in the same change** (and note it in the commit). The bot is a plain Node app: no build step, `node --check <file>` to verify. Keep the bot-facing contract stable or bump the bot alongside.
+**Mandatory rule: every API change ships with a matching `../KABBAK-BOT` update.** Do not let the bot drift behind the API. Any change here that touches a route, response shape, query/body params, auth behavior, error codes, deck/data systems, or a domain feature may be consumed by the bot, so:
+
+1. Before finishing, open `../KABBAK-BOT` and grep it for the affected route/field (`lib/kabbak-api.js`, `lib/catalog.js`, `lib/commands.js`).
+2. Update the bot in the **same change** so it matches the new contract (new endpoint, renamed field, new `system`/`language`/`method` values, envelope/error change, etc.). Add new bot behavior in `lib/`, not in a `platforms/*` adapter.
+3. Verify the bot: `node --check <changed-file>` for each edited bot file (no build step).
+4. Note the bot update in the commit/summary. If the bot genuinely needs no change, say so explicitly and cite what you checked — "no bot change needed" must be a verified statement, not an assumption.
+
+When you add or change a bot-facing endpoint, update the list below in the same edit. Prefer additive, backward-compatible changes; if you must break the contract, bump the bot in lockstep.
 
 Endpoints the bot calls (keep these shapes/names):
 
@@ -163,7 +170,8 @@ Endpoints the bot calls (keep these shapes/names):
 - Decks: `GET /decks/options` (items are `{ id, name, label, system }`), `GET /decks`. `system` is `tarot` | `iching` | `playing-cards` | … — tarot-only features (spreads, card lookups) must filter out non-`tarot` decks.
 - I Ching: `GET /iching`, `GET /iching/hexagrams/:number`.
 - Texts: `GET /texts`, `GET /texts/search`, `GET /texts/:sourceId/works/:workId/sections/:sectionId`.
-- Library: `GET /tattvas`, `GET /tattvas/:id`, `GET /gematria/words`, `GET /locations/*`, `GET /quiz/*`.
+- Library: `GET /tattvas`, `GET /tattvas/:id`, `GET /locations/*`, `GET /quiz/*`.
+- Gematria: `GET /gematria/words` (`value` + optional `language` = `english`|`hebrew`|`greek`, `method`, `ciphers`), `GET /gematria/methods` (`{ hebrew: [{id,label,description}], greek: [...] }`), `GET /gematria/calculate` (`text`, `language`, `method`). `language`/`method` are additive — bots that only send `value` keep the English behavior.
 - Assets: `GET /assets/<path>` (query `apiKey` only for media tags).
 
 Bot layout: `lib/kabbak-api.js` (client), `lib/catalog.js` (autocomplete + caches), `lib/commands.js` (command core), `lib/spread-stitch.js` / `lib/tattva-image.js` (image rendering), `platforms/*` (thin adapters). Add new bot behavior in `lib/`, not in an adapter.

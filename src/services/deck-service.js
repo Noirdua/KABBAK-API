@@ -476,6 +476,12 @@ function resolvePlayingCardFiles(manifest, cardName) {
   const cards = manifest?.cards && typeof manifest.cards === "object" ? manifest.cards : {};
   const parsed = parsePlayingCard(cardName);
   if (!parsed) {
+    if (/joker/i.test(String(cardName || ""))) {
+      const direct = cards.joker ?? cards.jokers ?? cards["joker-1"] ?? cards.joker1;
+      if (direct != null) return normalizeCardFiles(direct);
+      const entry = Object.entries(cards).find(([name]) => /joker/i.test(String(name)));
+      return entry ? normalizeCardFiles(entry[1]) : [];
+    }
     return [];
   }
   const file = cards[parsed.key]

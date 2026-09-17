@@ -1,6 +1,35 @@
-const { loadGematriaWordIndex } = require("./data-loader");
+const { loadGematriaWordIndex, loadHebrewDictionary, loadGreekDictionary } = require("./data-loader");
 const { computeSimpleOrdinalGematria, computeSyllableValue } = require("./word-service");
+const {
+  computeGematria,
+  defaultMethodForLanguage,
+  isHebrewScript,
+  isGreekScript,
+  isValidMethod,
+  normalizeHebrewText,
+  normalizeGreekText
+} = require("../lib/script-gematria");
 const { createHttpError } = require("../lib/http-errors");
+
+const DICTIONARY_LANGUAGES = new Set(["hebrew", "greek"]);
+
+function normalizeLanguage(rawLanguage, rawScript) {
+  const raw = String(rawLanguage || rawScript || "").trim().toLowerCase();
+  if (!raw || raw === "english" || raw === "en") {
+    return "english";
+  }
+  if (raw === "hebrew" || raw === "he" || raw === "hbo") {
+    return "hebrew";
+  }
+  if (raw === "greek" || raw === "grc" || raw === "el") {
+    return "greek";
+  }
+  throw createHttpError(
+    400,
+    "invalid_gematria_language",
+    `Unknown language '${raw}'. Use english, hebrew, or greek.`
+  );
+}
 
 function sanitizeCipherEntries(index) {
   return (Array.isArray(index?.ciphers) ? index.ciphers : [])
@@ -67,8 +96,78 @@ function parseGematriaCipherFilter(rawValue, cipherEntries) {
   return requestedCipherIdSet;
 }
 
-async function findWordsByGematriaValue(rawValue, rawCipherFilter) {
+// Hebrew/Greek reverse lookup: value every dictionary entry (Strong's Hebrew /
+// Thayer's Greek) in its own script and return the words matching the value.
+async function findDictionaryWordsByValue(language, value, method) {
+  const isHebrew = language === "hebrew";
+  const dictionary = isHebrew ? await loadHebrewDictionary() : await loadGreekDictionary();
+  const entries = Array.isArray(dictionary?.entries) ? dictionary.entries : [];
+  const matches = [];
+  let indexedWordCount = 0;
+
+  for (const entry of entries) {
+    const rawWord = isHebrew ? String(entry?.[0] || "") : String(entry?.[1] || entry?.[0] || "");
+    const word = (isHebrew ? normalizeHebrewText(rawWord) : normalizeGreekText(rawWord)).trim();
+    if (!word) continue;
+    if (isHebrew ? !isHebrewScript(word) : !isGreekScript(word)) continue;
+    indexedWordCount += 1;
+
+    const gematriaValue = computeGematria(word, language, method);
+    if (gematriaValue !== value) continue;
+
+    const transliteration = String(entry?.[2] || "").trim();
+    const lemma = isHebrew ? String(entry?.[1] || "").trim() : "";
+    const grammar = isHebrew ? "" : String(entry?.[3] || "").trim();
+    const definition = String(entry?.[isHebrew ? 3 : 4] || "").trim();
+
+    matches.push({
+      word,
+      gematriaValue,
+      ...(transliteration ? { transliteration } : {}),
+      ...(lemma && lemma !== word ? { lemma } : {}),
+      ...(grammar ? { grammar } : {}),
+      ...(definition ? { definition } : {})
+    });
+  }
+
+  matches.sort((left, right) => (
+    left.word.length - right.word.length || left.word.localeCompare(right.word)
+  ));
+
+  return {
+    value,
+    language,
+    method,
+    count: matches.length,
+    matches,
+    ciphers: [],
+    meta: {
+      language,
+      method,
+      source: String(dictionary?.meta?.source || ""),
+      sourceWordCount: Number(dictionary?.meta?.sourceWordCount || entries.length || 0),
+      indexedWordCount,
+      matchedCount: matches.length
+    }
+  };
+}
+
+async function findWordsByGematriaValue(rawValue, rawCipherFilter, rawLanguage, rawScript, rawMethod) {
   const value = parseGematriaValue(rawValue);
+  const language = normalizeLanguage(rawLanguage, rawScript);
+  if (DICTIONARY_LANGUAGES.has(language)) {
+    const requestedMethod = String(rawMethod || "").trim().toLowerCase();
+    if (!isValidMethod(language, requestedMethod)) {
+      throw createHttpError(
+        400,
+        "invalid_gematria_method",
+        `Unknown ${language} method '${requestedMethod}'.`
+      );
+    }
+    const method = requestedMethod || defaultMethodForLanguage(language);
+    return findDictionaryWordsByValue(language, value, method);
+  }
+
   const index = await loadGematriaWordIndex();
   const cipherEntries = sanitizeCipherEntries(index);
   const requestedCipherIdSet = parseGematriaCipherFilter(rawCipherFilter, cipherEntries);
@@ -134,6 +233,7 @@ async function findWordsByGematriaValue(rawValue, rawCipherFilter) {
 
   return {
     value,
+    language: "english",
     count: matches.length,
     cipherCount: ciphers.length,
     filters: requestedCipherIdSet
@@ -145,16 +245,46 @@ async function findWordsByGematriaValue(rawValue, rawCipherFilter) {
       : undefined,
     matches,
     ciphers,
-    meta: index?.meta && typeof index.meta === "object"
-      ? {
-          indexedWordCount: Number(index.meta.indexedWordCount || 0),
-          sourceWordCount: Number(index.meta.sourceWordCount || 0)
-        }
-      : undefined
+    meta: {
+      language: "english",
+      ...(index?.meta && typeof index.meta === "object"
+        ? {
+            indexedWordCount: Number(index.meta.indexedWordCount || 0),
+            sourceWordCount: Number(index.meta.sourceWordCount || 0)
+          }
+        : {})
+    }
+  };
+}
+
+async function calculateGematriaText(rawText, rawLanguage, rawMethod) {
+  const text = String(rawText ?? "").trim();
+  if (!text) {
+    throw createHttpError(400, "invalid_gematria_text", "Query parameter 'text' is required.");
+  }
+  const language = normalizeLanguage(rawLanguage, null);
+  if (language === "english") {
+    throw createHttpError(
+      400,
+      "invalid_gematria_language",
+      "English gematria uses ciphers; pass language=hebrew or language=greek."
+    );
+  }
+  const requestedMethod = String(rawMethod || "").trim().toLowerCase();
+  if (!isValidMethod(language, requestedMethod)) {
+    throw createHttpError(400, "invalid_gematria_method", `Unknown ${language} method '${requestedMethod}'.`);
+  }
+  const method = requestedMethod || defaultMethodForLanguage(language);
+  return {
+    text,
+    language,
+    method,
+    value: computeGematria(text, language, method)
   };
 }
 
 module.exports = {
   findWordsByGematriaValue,
+  calculateGematriaText,
   parseGematriaValue
 };

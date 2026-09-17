@@ -127,11 +127,22 @@ function buildDeckLabelMap(manifest) {
       add(file, label ? `Hexagram ${number} · ${label}` : `Hexagram ${number}`);
     });
     if (manifest?.cardBack) add(manifest.cardBack, "Card back");
+    (Array.isArray(manifest?.extras) ? manifest.extras : (manifest?.extras ? [manifest.extras] : []))
+      .forEach((entry) => add(entry, "Misc/Extra"));
     return map;
   }
   if (system === "playing-cards") {
-    Object.entries(manifest?.cards || {}).forEach(([key, file]) => add(file, titleCase(key)));
+    Object.entries(manifest?.cards || {}).forEach(([key, file]) => {
+      if (String(key).toLowerCase() === "joker") {
+        const files = Array.isArray(file) ? file : [file];
+        files.forEach((entry, index) => add(entry, files.length > 1 ? `Joker ${index + 1}` : "Joker"));
+        return;
+      }
+      add(file, titleCase(key));
+    });
     if (manifest?.cardBack) add(manifest.cardBack, "Card back");
+    (Array.isArray(manifest?.extras) ? manifest.extras : (manifest?.extras ? [manifest.extras] : []))
+      .forEach((entry) => add(entry, "Misc/Extra"));
     return map;
   }
   const courtOverrides = manifest?.courtNameOverrides || {};
@@ -158,6 +169,8 @@ function buildDeckLabelMap(manifest) {
     });
   }
   if (manifest?.cardBack) add(manifest.cardBack, "Card back");
+  (Array.isArray(manifest?.extras) ? manifest.extras : (manifest?.extras ? [manifest.extras] : []))
+    .forEach((entry) => add(entry, "Misc/Extra"));
   return map;
 }
 

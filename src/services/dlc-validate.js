@@ -310,6 +310,14 @@ function validateDeck(dir, errors, warnings) {
   const deckTitle = String(manifest.name || manifest.title || manifest.label || "").trim();
   if (!deckTitle) errors.push("deck.json is missing a `name`/`label`.");
 
+  const extras = Array.isArray(manifest.extras) ? manifest.extras : (manifest.extras ? [manifest.extras] : []);
+  extras.forEach((entry) => {
+    const name = String(entry || "").trim();
+    if (!name) return;
+    const resolved = resolveInsideFile(dir, name);
+    if (!resolved.ok) errors.push(`deck.json extras references '${name}': ${resolved.reason}.`);
+  });
+
   const system = String(manifest.system || "").trim().toLowerCase();
   if (system === "iching") {
     validateIChingDeck(dir, manifest, errors, warnings);
