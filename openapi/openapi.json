@@ -2102,6 +2102,104 @@
         }
       }
     },
+    "/games": {
+      "get": {
+        "tags": ["games"],
+        "summary": "List playable turn-based games (builtin and plugin)",
+        "operationId": "listGames",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/games/sessions": {
+      "get": {
+        "tags": ["games"],
+        "summary": "List the caller's turn-based game sessions",
+        "operationId": "listGameSessions",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["games"],
+        "summary": "Challenge another user to a turn-based game",
+        "operationId": "createGameSession",
+        "responses": {
+          "201": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/games/sessions/{sessionId}": {
+      "get": {
+        "tags": ["games"],
+        "summary": "Get one game session (secret state is hidden until finished)",
+        "operationId": "getGameSession",
+        "parameters": [
+          { "name": "sessionId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/games/sessions/{sessionId}/accept": {
+      "post": {
+        "tags": ["games"],
+        "summary": "Accept a game challenge",
+        "operationId": "acceptGameSession",
+        "parameters": [
+          { "name": "sessionId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/games/sessions/{sessionId}/decline": {
+      "post": {
+        "tags": ["games"],
+        "summary": "Decline a game challenge",
+        "operationId": "declineGameSession",
+        "parameters": [
+          { "name": "sessionId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/games/sessions/{sessionId}/moves": {
+      "post": {
+        "tags": ["games"],
+        "summary": "Play a turn in a game session",
+        "operationId": "playGameMove",
+        "parameters": [
+          { "name": "sessionId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
     "/board/topics": {
       "get": {
         "tags": [

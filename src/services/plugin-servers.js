@@ -23,6 +23,18 @@ const {
 let loadedServers = new Map();
 let loadedAt = 0;
 
+// Evict every cached module inside a plugin directory so a reload actually
+// re-reads the plugin's own helper modules (not just its entry file).
+function evictPluginModules(pluginDir) {
+  const prefix = pluginDir + path.sep;
+  for (const key of Object.keys(require.cache)) {
+    const filename = require.cache[key]?.filename;
+    if (filename && (filename === pluginDir || filename.startsWith(prefix))) {
+      delete require.cache[key];
+    }
+  }
+}
+
 function apiRoot() {
   return path.resolve(__dirname, "..", "..");
 }
@@ -117,8 +129,12 @@ function buildContext(name, rootDir) {
         return listProfileClientIds(options);
       }
     },
-    // Shared scheduler: durable daily/interval jobs. Job ids are namespaced to
-    // this plugin and are cleared automatically when it reloads.
+    games: {
+      register(definition) {
+        const { registerGame } = require("./game-service");
+        return registerGame(definition, { pluginName: name });
+      }
+    },
     schedule: {
       daily(jobId, hour, run, { minute = 0 } = {}) {
         const { registerJob } = require("./scheduler");
@@ -169,8 +185,7 @@ function loadPluginServer(plugin, log) {
   }
 
   try {
-    const resolvedEntry = require.resolve(entryPath);
-    delete require.cache[resolvedEntry];
+    evictPluginModules(pluginDir);
     const mod = require(entryPath);
     const register = typeof mod === "function" ? mod : mod?.register;
     if (typeof register !== "function") {
@@ -183,6 +198,10 @@ function loadPluginServer(plugin, log) {
     try {
       const { cancelJobsForPrefix } = require("./scheduler");
       cancelJobsForPrefix(`plugin:${plugin.name}:`);
+    } catch (_error) {}
+    try {
+      const { unregisterPluginGames } = require("./game-service");
+      unregisterPluginGames(plugin.name);
     } catch (_error) {}
     register(router, buildContext(plugin.name, root.dir));
     log(`[plugins] server routes loaded for ${plugin.name}.`);
@@ -197,6 +216,10 @@ function loadPluginServer(plugin, log) {
 }
 
 function reloadPluginServers({ log = () => {} } = {}) {
+  try {
+    const { unregisterPluginGames } = require("./game-service");
+    unregisterPluginGames();
+  } catch (_error) {}
   loadedServers = new Map();
   loadedAt = Date.now();
   listInstalledPlugins().forEach((plugin) => {

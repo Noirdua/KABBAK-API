@@ -74,6 +74,17 @@ async function startServer({ logger = console } = {}) {
 
   await ensureStorageReady({ logger: activeLogger });
 
+  // Load plugin servers once at startup so plugin routes and plugin-registered
+  // games exist before the first request (lazy dispatch alone would hide them
+  // from GET /games until a plugin route happened to be hit).
+  try {
+    require("./services/plugin-servers").reloadPluginServers({
+      log: (message) => activeLogger.log(message)
+    });
+  } catch (error) {
+    activeLogger.warn(`[api] Plugin server registration failed: ${error && error.message ? error.message : error}`);
+  }
+
   const runtime = require("./services/runtime-settings").getRuntimeSettings();
   activeLogger.log(`[api] Request body limit: ${runtime.jsonBodyLimit} · plugin upload limit: ${Math.round(resolvePluginUploadLimit() / (1024 * 1024))}MB`);
   // Uploads travel as base64 (about 1.34x), so the body limit must exceed the
