@@ -393,6 +393,30 @@ function validateDeck(dir, errors, warnings) {
   if (!templates.length && explicitMapped && explicitMapped < 78) {
     warnings.push(`Deck maps ${explicitMapped}/78 cards (incomplete decks install but stay partial).`);
   }
+
+  if (minorsMap) {
+    const pipRanks = new Set(["ace", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+      "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
+    const knownCourts = new Set([
+      "page", "knave", "valet", "jack", "fante", "maiden", "daughter",
+      "knight", "cavalier", "chevalier", "horseman",
+      "queen", "reine", "dame",
+      "king", "roi",
+      "princess", "prince"
+    ]);
+    const unknownCourts = [];
+    Object.keys(minorsMap).forEach((key) => {
+      const match = String(key || "").trim().toLowerCase().match(/^([a-z][a-z0-9-]*)\s+of\s+/);
+      if (!match) return;
+      const rank = match[1];
+      if (pipRanks.has(rank) || knownCourts.has(rank)) return;
+      unknownCourts.push(rank);
+    });
+    const uniqueUnknown = [...new Set(unknownCourts)];
+    if (uniqueUnknown.length) {
+      warnings.push(`Unknown court rank(s) ${uniqueUnknown.join(", ")} — set courtRankAliases (e.g. "sibyl": "princess") so they map to Knight/Queen/Prince/Princess.`);
+    }
+  }
 }
 
 function validatePlugin(dir, kind, errors, warnings) {

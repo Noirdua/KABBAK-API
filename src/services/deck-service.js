@@ -159,7 +159,7 @@ function normalizeSuitId(suitInput) {
 function parseMinorCard(cardName) {
   const match = String(cardName || "")
     .trim()
-    .match(/^(ace|two|three|four|five|six|seven|eight|nine|ten|knight|queen|prince|princess|king|page|[2-9]|10)\s+of\s+(cups|wands|swords|pentacles|disks)$/i);
+    .match(/^(ace|two|three|four|five|six|seven|eight|nine|ten|knight|queen|prince|princess|king|page|knave|[2-9]|10)\s+of\s+(cups|wands|swords|pentacles|disks)$/i);
   if (!match) {
     return null;
   }
@@ -238,43 +238,217 @@ function resolveDeckThumbnailPath(manifest, relativePath) {
   return toDeckAssetPath(manifest, `${manifest.thumbnails.root}/${normalizedPath}`) || null;
 }
 
+const THOTH_TO_RWS_COURT = {
+  princess: "page",
+  prince: "knight",
+  queen: "queen",
+  knight: "king"
+};
+
+const RWS_COURT_SYNONYMS = {
+  page: ["page", "knave", "valet", "jack", "fante", "maiden", "daughter"],
+  knight: ["knight", "cavalier", "chevalier", "horseman"],
+  queen: ["queen", "reine", "dame"],
+  king: ["king", "roi"]
+};
+
+const PAGE_FAMILY = new Set(RWS_COURT_SYNONYMS.page);
+const THOTH_UNIQUE_COURTS = new Set(["princess", "prince"]);
+
+const SUIT_SYNONYMS = {
+  wands: ["wands", "batons", "staves", "rods"],
+  cups: ["cups", "chalices", "goblets"],
+  swords: ["swords", "blades"],
+  disks: ["disks", "pentacles", "coins", "deniers"]
+};
+
+function firstWord(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .split(/\s+/)[0] || "";
+}
+
+function addCourtToken(tokens, value) {
+  const token = firstWord(value);
+  if (token) {
+    tokens.add(token);
+  }
+}
+
+function collectNamedCourtTokens(minorRule, tokens = new Set(), depth = 0) {
+  if (!minorRule || typeof minorRule !== "object" || depth > 2) {
+    return tokens;
+  }
+  getRankOrder(minorRule).forEach((entry) => addCourtToken(tokens, entry));
+  const cards = minorRule.cards;
+  if (cards && typeof cards === "object") {
+    Object.keys(cards).forEach((key) => {
+      const match = String(key || "").trim().toLowerCase().match(/^([a-z]+)\s+of\s+/);
+      if (match) {
+        addCourtToken(tokens, match[1]);
+      }
+    });
+  }
+  if (depth === 0) {
+    collectNamedCourtTokens(minorRule.courts, tokens, 1);
+    collectNamedCourtTokens(minorRule.smalls, tokens, 1);
+  }
+  return tokens;
+}
+
+function usesRwsCourtNames(minorRule) {
+  const tokens = collectNamedCourtTokens(minorRule);
+  const hasPageFamily = [...tokens].some((token) => PAGE_FAMILY.has(token));
+  const hasThoth = [...tokens].some((token) => THOTH_UNIQUE_COURTS.has(token));
+  return hasPageFamily && !hasThoth;
+}
+
+function courtAliasMap(manifest) {
+  const raw = {
+    ...(manifest?.courtRankAliases && typeof manifest.courtRankAliases === "object" ? manifest.courtRankAliases : {}),
+    ...(manifest?.minors?.courtRankAliases && typeof manifest.minors.courtRankAliases === "object" ? manifest.minors.courtRankAliases : {})
+  };
+  const map = {};
+  Object.entries(raw).forEach(([from, to]) => {
+    const src = firstWord(from);
+    const dest = firstWord(to);
+    if (src && dest) {
+      map[src] = dest;
+    }
+  });
+  return map;
+}
+
+function synonymsForCourt(rank, rws) {
+  if (RWS_COURT_SYNONYMS[rank]) {
+    return RWS_COURT_SYNONYMS[rank];
+  }
+  if (rws && THOTH_TO_RWS_COURT[rank]) {
+    return RWS_COURT_SYNONYMS[THOTH_TO_RWS_COURT[rank]] || [];
+  }
+  return [];
+}
+
+function courtRankLookupOrder(rankKey, minorRule, { preferMapped = false, manifest = null } = {}) {
+  const rank = firstWord(rankKey);
+  const rws = usesRwsCourtNames(minorRule);
+  const mapped = rws ? THOTH_TO_RWS_COURT[rank] || "" : "";
+  const order = [];
+  const seen = new Set();
+  const push = (value) => {
+    const next = firstWord(value);
+    if (!next || seen.has(next)) {
+      return;
+    }
+    seen.add(next);
+    order.push(next);
+  };
+  const pushFamily = (canonical) => {
+    if (!canonical) {
+      return;
+    }
+    push(canonical);
+    synonymsForCourt(canonical, rws).forEach(push);
+  };
+  if (preferMapped) {
+    pushFamily(mapped || rank);
+    pushFamily(rank);
+  } else {
+    pushFamily(rank);
+    pushFamily(mapped);
+  }
+  const overrides = manifest?.courtNameOverrides && typeof manifest.courtNameOverrides === "object"
+    ? manifest.courtNameOverrides
+    : {};
+  Object.entries(overrides).forEach(([from, to]) => {
+    if (seen.has(firstWord(from))) {
+      push(to);
+    }
+  });
+  const aliases = courtAliasMap(manifest);
+  Object.entries(aliases).forEach(([from, to]) => {
+    const dest = firstWord(to);
+    if (seen.has(dest) || dest === rank || dest === mapped) {
+      push(from);
+    }
+  });
+  return order;
+}
+
+function suitLookupOrder(suitId, manifest) {
+  const suit = normalizeSuitId(suitId);
+  const order = [];
+  const seen = new Set();
+  const push = (value) => {
+    const next = firstWord(value);
+    if (!next || seen.has(next)) {
+      return;
+    }
+    seen.add(next);
+    order.push(next);
+  };
+  (SUIT_SYNONYMS[suit] || [suit]).forEach(push);
+  const overrides = manifest?.suitNameOverrides && typeof manifest.suitNameOverrides === "object"
+    ? manifest.suitNameOverrides
+    : {};
+  push(overrides[suit]);
+  if (suit === "disks") {
+    push(overrides.pentacles);
+  }
+  if (suit === "wands") {
+    push(overrides.wands);
+  }
+  return order;
+}
+
 function getRankOrder(minorRule, fallbackRankOrder = []) {
   const explicitRankOrder = Array.isArray(minorRule?.rankOrder) ? minorRule.rankOrder : [];
   const rankOrderSource = explicitRankOrder.length ? explicitRankOrder : fallbackRankOrder;
   return rankOrderSource.map((entry) => String(entry || "").trim()).filter(Boolean);
 }
 
-function getRankIndex(minorRule, parsedMinor, fallbackRankOrder = []) {
+function getRankIndex(minorRule, parsedMinor, fallbackRankOrder = [], manifest = null) {
   if (!minorRule || !parsedMinor) {
     return null;
   }
   const lowerRankWord = String(parsedMinor.rankWord || "").toLowerCase();
   const lowerRankKey = String(parsedMinor.rankKey || "").toLowerCase();
+  const indexByKey = minorRule.rankIndexByKey && typeof minorRule.rankIndexByKey === "object"
+    ? minorRule.rankIndexByKey
+    : null;
+  const rankAliases = courtRankLookupOrder(lowerRankKey, minorRule, {
+    preferMapped: usesRwsCourtNames(minorRule) && !indexByKey,
+    manifest
+  });
 
-  const indexByKey = minorRule.rankIndexByKey;
-  if (indexByKey && typeof indexByKey === "object") {
-    const mapped = Number(indexByKey[lowerRankKey]);
-    if (Number.isInteger(mapped) && mapped >= 0) {
-      return mapped;
+  if (indexByKey) {
+    for (const alias of [lowerRankKey, ...rankAliases]) {
+      const mapped = Number(indexByKey[alias]);
+      if (Number.isInteger(mapped) && mapped >= 0) {
+        return mapped;
+      }
     }
   }
 
-  const rankOrder = getRankOrder(minorRule, fallbackRankOrder);
-  for (let i = 0; i < rankOrder.length; i += 1) {
-    const candidate = String(rankOrder[i] || "").toLowerCase();
-    if (candidate && (candidate === lowerRankWord || candidate === lowerRankKey)) {
-      return i;
+  const rankOrder = getRankOrder(minorRule, fallbackRankOrder).map((entry) => firstWord(entry));
+  for (const alias of rankAliases) {
+    const index = rankOrder.indexOf(alias);
+    if (index >= 0) {
+      return index;
     }
   }
-  return null;
+  const exact = rankOrder.indexOf(lowerRankWord);
+  return exact >= 0 ? exact : null;
 }
 
-function resolveMinorNumberTemplateGroup(groupRule, parsedMinor, fallbackRankOrder = []) {
+function resolveMinorNumberTemplateGroup(groupRule, parsedMinor, fallbackRankOrder = [], manifest = null) {
   if (!groupRule || typeof groupRule !== "object") {
     return null;
   }
 
-  const rankIndex = getRankIndex(groupRule, parsedMinor, fallbackRankOrder);
+  const rankIndex = getRankIndex(groupRule, parsedMinor, fallbackRankOrder, manifest);
   if (!Number.isInteger(rankIndex) || rankIndex < 0) {
     return null;
   }
@@ -341,19 +515,30 @@ function resolveMinorFile(manifest, parsedMinor) {
   }
 
   if (minorRule.mode === "file-map") {
-    const key = `${String(parsedMinor.rankKey || "").trim().toLowerCase()} of ${parsedMinor.suitId}`;
-    const files = normalizeCardFiles(minorRule.cards?.[key] || minorRule.cards?.[`${parsedMinor.suitId}:${parsedMinor.rankKey}`]);
-    return files[0] || null;
+    const ranks = courtRankLookupOrder(parsedMinor.rankKey, minorRule, { preferMapped: true, manifest });
+    const suits = suitLookupOrder(parsedMinor.suitId, manifest);
+    for (const rank of ranks) {
+      for (const suit of suits) {
+        const files = normalizeCardFiles(
+          minorRule.cards?.[`${rank} of ${suit}`]
+          || minorRule.cards?.[`${suit}:${rank}`]
+        );
+        if (files[0]) {
+          return files[0];
+        }
+      }
+    }
+    return null;
   }
 
   if (minorRule.mode === "split-number-template") {
     if (Number.isFinite(parsedMinor.pipValue)) {
-      return resolveMinorNumberTemplateGroup(minorRule.smalls, parsedMinor, defaultPipRankOrder);
+      return resolveMinorNumberTemplateGroup(minorRule.smalls, parsedMinor, defaultPipRankOrder, manifest);
     }
-    return resolveMinorNumberTemplateGroup(minorRule.courts, parsedMinor);
+    return resolveMinorNumberTemplateGroup(minorRule.courts, parsedMinor, [], manifest);
   }
 
-  const rankIndex = getRankIndex(minorRule, parsedMinor);
+  const rankIndex = getRankIndex(minorRule, parsedMinor, [], manifest);
   if (!Number.isInteger(rankIndex) || rankIndex < 0) {
     return null;
   }
@@ -557,7 +742,8 @@ function applyCourtNameOverrides(manifest, displayName) {
     return displayName;
   }
   let next = String(displayName || "");
-  [["page", overrides.page], ["knight", overrides.knight], ["queen", overrides.queen], ["king", overrides.king]]
+  [["page", overrides.page], ["knight", overrides.knight], ["queen", overrides.queen], ["king", overrides.king],
+    ["princess", overrides.princess], ["prince", overrides.prince]]
     .forEach(([rank, to]) => {
       const custom = String(to || "").trim();
       if (!custom) {
@@ -794,13 +980,22 @@ async function getDeckCardSearchAliases(query = {}) {
 
   const parsedMinor = parseMinorCard(fallbackName);
   if (parsedMinor) {
-    const suitAliases = suitSearchAliasesById[parsedMinor.suitId] || [parsedMinor.suitId];
-    suitAliases.forEach((suitAlias) => {
-      aliases.add(`${parsedMinor.rankKey} of ${suitAlias}`);
-      if (Number.isInteger(parsedMinor.pipValue)) {
-        aliases.add(`${parsedMinor.pipValue} of ${suitAlias}`);
-      }
+    const suitAliases = [
+      ...(suitSearchAliasesById[parsedMinor.suitId] || [parsedMinor.suitId]),
+      ...suitLookupOrder(parsedMinor.suitId, manifest)
+    ];
+    const uniqueSuits = [...new Set(suitAliases.map((entry) => firstWord(entry)).filter(Boolean))];
+    const rankAliases = courtRankLookupOrder(parsedMinor.rankKey, manifest?.minors, { manifest });
+    rankAliases.forEach((rankAlias) => {
+      uniqueSuits.forEach((suitAlias) => {
+        aliases.add(`${rankAlias} of ${suitAlias}`);
+      });
     });
+    if (Number.isInteger(parsedMinor.pipValue)) {
+      uniqueSuits.forEach((suitAlias) => {
+        aliases.add(`${parsedMinor.pipValue} of ${suitAlias}`);
+      });
+    }
   }
 
   return {
@@ -816,5 +1011,7 @@ module.exports = {
   listAllDeckAssets,
   resolveDeckCard,
   resolveDeckBack,
-  getDeckCardSearchAliases
+  getDeckCardSearchAliases,
+  parseMinorCard,
+  resolveMinorFile
 };

@@ -185,6 +185,7 @@ Bot layout: `lib/kabbak-api.js` (client), `lib/catalog.js` (autocomplete + cache
 - Failed skin `mount` must not leave `html[data-plugin-skin]` set (host restores chrome on throw).
 - `unregisterSection` must not delete builtin ids (`home`, `tarot`, `admin`, …).
 - Magick dataset is large; first paint should not wait on it (cache loader idles it).
+- Tarot card images resolve from Thoth names (Knight/Queen/Prince/Princess). RWS-style file-maps (Page/Knight/Queen/King) alias automatically (Princess→Page, Prince→Knight, Knight→King). Filenames like `32.jpg` come from that deck’s `minors.cards` map, not a global numbering. Funky ranks/suits: `courtRankAliases` (`"sibyl": "princess"`), `courtNameOverrides`, `suitNameOverrides`, or `rankIndexByKey`. Keep `src/services/deck-service.js` and `../KABBAK-GUI/app/card-images.js` in sync.
 - Scraper targets differ: `npm run scrape:sacred-texts -- --install` writes the **runtime library** (`source/data/text` + `library.json`; reload the API to show them in the reader). Add `--dlc` to also write DLC text items into `imports/dlc/texts/<id>/` (`metadata.json` + `<id>.json`) so they appear under Admin → DLC → Texts. The Admin DLC list only ever scans the DLC checkout, never `source/`.
 - Query-string API keys leak; do not add new ones except media tags that cannot send headers.
 - `dlc-catalog.js` is a god module — extend carefully; invalidate catalog cache on install/uninstall.
