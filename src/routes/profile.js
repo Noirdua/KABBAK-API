@@ -63,6 +63,7 @@ const {
   markAllInboxRead,
   markInboxRead
 } = require("../services/inbox-service");
+const { buildProfileCalendarEvents } = require("../services/calendar-feed-service");
 const { appendReply } = require("../services/reply-store");
 const { readManagedApiClients } = require("../services/api-client-registry");
 const { resolveClientLimits } = require("../services/api-roles");
@@ -402,9 +403,32 @@ router.get("/profile/events", wrapProfileHandler((request, response) => {
 
 // --- Calendar subscription feed ----------------------------------------------
 
+const CALENDAR_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function defaultCalendarDay(offsetDays) {
+  return new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 router.get("/profile/calendar-feed", wrapProfileHandler((request, response) => {
   const feed = getProfileCalendarFeed(getProfileClientId(request, response), getProfileOptions(request, response));
   response.apiSuccess(feed);
+}));
+
+// The same subscription events the ICS feed produces, as JSON, so the in-app
+// calendar can show what the user subscribed to.
+router.get("/profile/calendar-events", wrapProfileHandler(async (request, response) => {
+  const fromParam = String(request.query.from || "").trim();
+  const toParam = String(request.query.to || "").trim();
+  const fromIso = CALENDAR_DATE_PATTERN.test(fromParam) ? fromParam : defaultCalendarDay(-7);
+  const toIso = CALENDAR_DATE_PATTERN.test(toParam) ? toParam : defaultCalendarDay(60);
+  if (toIso < fromIso || (Date.parse(toIso) - Date.parse(fromIso)) > 400 * 24 * 60 * 60 * 1000) {
+    throw createHttpError(400, "invalid_date_range", "Provide from/to dates spanning at most 400 days.");
+  }
+  const result = await buildProfileCalendarEvents(
+    getProfileClientId(request, response),
+    { fromIso, toIso, options: getProfileOptions(request, response) }
+  );
+  response.apiSuccess(result);
 }));
 
 router.post("/profile/calendar-feed", wrapProfileHandler((request, response) => {

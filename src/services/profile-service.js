@@ -42,7 +42,11 @@ const {
   MAX_FRIENDS_PER_PROFILE,
   MAX_FRIEND_REQUESTS_PER_PROFILE,
   MAX_EVENT_RANGE_DAYS,
-  FEED_TOKEN_PREFIX
+  FEED_TOKEN_PREFIX,
+  CALENDAR_FEED_LAYERS,
+  DEFAULT_CALENDAR_FEED_LAYERS,
+  CALENDAR_MOON_PHASES,
+  CALENDAR_ASTROLOGY_DETAILS
 } = require("../config/profile-storage");
 
 const { buildSignedShareToken, verifySignedShareToken } = require("./share-service");
@@ -283,6 +287,10 @@ function normalizeStoredLocation(location) {
     || longitude < -180 || longitude > 180) {
     return null;
   }
+  const rawOffset = Number(location.utcOffsetMinutes);
+  const utcOffsetMinutes = Number.isFinite(rawOffset) && rawOffset >= -720 && rawOffset <= 840
+    ? Math.round(rawOffset)
+    : null;
   return {
     latitude,
     longitude,
@@ -290,7 +298,8 @@ function normalizeStoredLocation(location) {
     placeId: String(location.placeId || "").trim(),
     countryId: String(location.countryId || "").trim(),
     regionId: String(location.regionId || "").trim(),
-    cityId: String(location.cityId || "").trim()
+    cityId: String(location.cityId || "").trim(),
+    utcOffsetMinutes
   };
 }
 
@@ -2319,12 +2328,63 @@ function listProfileEventsInRange(clientId, fromInput, toInput, options = {}) {
 function normalizeStoredCalendarFeed(raw) {
   const source = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
   const token = String(source.token || "").trim();
+  // Layers/notesFormat stay absent until the user saves a selection: the feed
+  // uses their presence to tell a saved subscription from a legacy ?layers= URL.
+  const hasLayers = Array.isArray(source.layers) || (typeof source.layers === "string" && source.layers.trim());
+  const notesFormat = String(source.notesFormat || "").trim().toLowerCase();
   return {
     enabled: source.enabled === true && Boolean(token),
     token,
+    ...(hasLayers ? { layers: normalizeCalendarFeedLayers(source.layers) } : {}),
+    ...(notesFormat === "journal" || notesFormat === "events" ? { notesFormat } : {}),
+    ...(source.options && typeof source.options === "object" ? { options: normalizeCalendarFeedOptions(source.options) } : {}),
     createdAt: String(source.createdAt || "").trim(),
     updatedAt: String(source.updatedAt || "").trim()
   };
+}
+
+// Per-calendar display options (moon phases to include, astrology boundary size).
+// An explicit array is honoured even when empty (means "none"); only an absent
+// value falls back to all phases.
+function normalizeCalendarFeedOptions(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const hasPhases = Array.isArray(source.moonPhases);
+  const phases = hasPhases
+    ? [...new Set(source.moonPhases
+        .map((phase) => String(phase || "").trim().toLowerCase())
+        .filter((phase) => CALENDAR_MOON_PHASES.includes(phase)))]
+    : [...CALENDAR_MOON_PHASES];
+  const detailRaw = String(source.astrologyDetail || "").trim().toLowerCase();
+  return {
+    moonPhases: phases,
+    astrologyDetail: CALENDAR_ASTROLOGY_DETAILS.includes(detailRaw) ? detailRaw : "decan"
+  };
+}
+
+// Older feeds may carry the split sky layers; fold them into the simplified
+// `moon` / `astrology` names instead of dropping them.
+const CALENDAR_FEED_LAYER_ALIASES = Object.freeze({
+  decan: "astrology",
+  "moon-full": "moon",
+  "moon-new": "moon"
+});
+
+function normalizeCalendarFeedLayers(value) {
+  const known = new Set(CALENDAR_FEED_LAYERS);
+  const explicit = Array.isArray(value) || (typeof value === "string" && value.trim() !== "");
+  const requested = (Array.isArray(value) ? value : String(value || "").split(","))
+    .map((entry) => {
+      const layer = String(entry || "").trim().toLowerCase();
+      return CALENDAR_FEED_LAYER_ALIASES[layer] || layer;
+    })
+    .filter((entry) => known.has(entry));
+  const unique = [...new Set(requested)];
+  if (unique.length) {
+    return unique;
+  }
+  // An explicit empty selection means "no layers"; only an absent value falls
+  // back to the defaults.
+  return explicit ? [] : [...DEFAULT_CALENDAR_FEED_LAYERS];
 }
 
 function generateCalendarFeedToken(clientId) {
@@ -2344,6 +2404,9 @@ function getProfileCalendarFeed(clientId, options = {}) {
     enabled: feed.enabled,
     token: feed.token,
     path: feed.token ? buildCalendarFeedPath(feed.token) : "",
+    layers: feed.layers || [...DEFAULT_CALENDAR_FEED_LAYERS],
+    notesFormat: feed.notesFormat || "events",
+    options: feed.options || normalizeCalendarFeedOptions(null),
     createdAt: feed.createdAt,
     updatedAt: feed.updatedAt
   };
@@ -2351,8 +2414,14 @@ function getProfileCalendarFeed(clientId, options = {}) {
 
 function updateProfileCalendarFeed(clientId, input, options = {}) {
   const action = String(input?.action || "").trim().toLowerCase();
-  if (!["enable", "disable", "rotate"].includes(action)) {
+  const hasLayers = input?.layers !== undefined;
+  const hasFormat = input?.notesFormat !== undefined;
+  const hasOptions = input?.options !== undefined;
+  if (action && !["enable", "disable", "rotate"].includes(action)) {
     throw new ProfileStorageError("invalid_feed_action", "Feed action must be enable, disable, or rotate.");
+  }
+  if (!action && !hasLayers && !hasFormat && !hasOptions) {
+    throw new ProfileStorageError("invalid_feed_action", "Provide an action or feed settings to update.");
   }
   const profile = readProfile(clientId, options);
   const existing = normalizeStoredCalendarFeed(profile.calendarFeed);
@@ -2361,9 +2430,26 @@ function updateProfileCalendarFeed(clientId, input, options = {}) {
   if (action === "rotate" || (action === "enable" && !token)) {
     token = generateCalendarFeedToken(clientId);
   }
+  const enabled = action === "disable" ? false : action === "enable" ? true : existing.enabled;
+  // Only persist a selection when one is given, so a feed that was merely
+  // enabled keeps honoring a legacy ?layers= URL until the user saves one.
+  const rawFeed = profile.calendarFeed && typeof profile.calendarFeed === "object" ? profile.calendarFeed : {};
+  const previousLayers = Array.isArray(rawFeed.layers) ? normalizeCalendarFeedLayers(rawFeed.layers) : null;
+  const previousFormat = rawFeed.notesFormat === "journal" ? "journal" : (rawFeed.notesFormat === "events" ? "events" : null);
+  const nextLayers = hasLayers ? normalizeCalendarFeedLayers(input.layers) : previousLayers;
+  const nextFormat = hasFormat
+    ? (String(input.notesFormat || "").trim().toLowerCase() === "journal" ? "journal" : "events")
+    : previousFormat;
+  const previousOptions = rawFeed.options && typeof rawFeed.options === "object"
+    ? normalizeCalendarFeedOptions(rawFeed.options)
+    : null;
+  const nextOptions = hasOptions ? normalizeCalendarFeedOptions(input.options) : previousOptions;
   profile.calendarFeed = {
-    enabled: action !== "disable",
+    enabled,
     token,
+    ...(nextLayers ? { layers: nextLayers } : {}),
+    ...(nextFormat ? { notesFormat: nextFormat } : {}),
+    ...(nextOptions ? { options: nextOptions } : {}),
     createdAt: existing.createdAt || nowIso,
     updatedAt: nowIso
   };
@@ -2375,6 +2461,9 @@ function updateProfileCalendarFeed(clientId, input, options = {}) {
       enabled: feed.enabled,
       token: feed.token,
       path: buildCalendarFeedPath(feed.token),
+      layers: feed.layers || [...DEFAULT_CALENDAR_FEED_LAYERS],
+      notesFormat: feed.notesFormat || "events",
+      options: feed.options || normalizeCalendarFeedOptions(null),
       createdAt: feed.createdAt,
       updatedAt: feed.updatedAt
     },
@@ -3236,6 +3325,11 @@ function updateProfileLocation(clientId, input, options = {}) {
       "Pick a country/region/city, or provide numeric latitude (-90..90) and longitude (-180..180)."
     );
   }
+  // Offset powers location-aware calendar subscriptions (moon/decan civil dates).
+  const rawOffset = Number(input?.utcOffsetMinutes);
+  const utcOffsetMinutes = Number.isFinite(rawOffset) && rawOffset >= -720 && rawOffset <= 840
+    ? Math.round(rawOffset)
+    : null;
   const location = {
     latitude,
     longitude,
@@ -3243,7 +3337,8 @@ function updateProfileLocation(clientId, input, options = {}) {
     placeId: String(input?.placeId || place?.id || "").trim(),
     countryId: String(input?.countryId || input?.country || place?.countryId || "").trim(),
     regionId: String(input?.regionId || input?.region || place?.regionId || "").trim(),
-    cityId: String(input?.cityId || input?.city || place?.cityId || "").trim()
+    cityId: String(input?.cityId || input?.city || place?.cityId || "").trim(),
+    utcOffsetMinutes
   };
   profile.location = location;
   profile.updatedAt = new Date().toISOString();
@@ -3453,6 +3548,8 @@ module.exports = {
   getProfilePage,
   getProfileImage,
   getProfileCalendarFeed,
+  normalizeCalendarFeedLayers,
+  normalizeCalendarFeedOptions,
   getProfileEvent,
   getProfileBoardWatch,
   getProfileEventAttachment,

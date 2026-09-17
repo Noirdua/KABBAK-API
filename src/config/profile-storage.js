@@ -48,6 +48,20 @@ const MAX_BROADCASTS = 500;
 const MAX_EVENT_OCCURRENCES = 1000; // per event per range query
 const MAX_EVENT_RANGE_DAYS = 1100; // ~3 years of expanded occurrences
 const FEED_TOKEN_PREFIX = "kbf1";
+// Calendar feed subscription layers. `moon` is the four principal phases;
+// `astrology` is the decan changes (sun crossing each 10° of the zodiac).
+const CALENDAR_FEED_LAYERS = Object.freeze([
+  "user",
+  "notes",
+  "holidays",
+  "moon",
+  "astrology"
+]);
+const DEFAULT_CALENDAR_FEED_LAYERS = Object.freeze(["user", "moon", "holidays"]);
+// Per-calendar subscription options. Moon phases are the four principal phases;
+// astrology detail picks the boundary size (10° decans, 1° steps, or sign starts).
+const CALENDAR_MOON_PHASES = Object.freeze(["new", "first-quarter", "full", "last-quarter"]);
+const CALENDAR_ASTROLOGY_DETAILS = Object.freeze(["decan", "degree", "sign"]);
 
 module.exports = {
   profilesRoot,
@@ -91,5 +105,9 @@ module.exports = {
   MAX_FRIEND_REQUESTS_PER_PROFILE,
   MAX_BROADCASTS,
   MAX_EVENT_RANGE_DAYS,
-  FEED_TOKEN_PREFIX
+  FEED_TOKEN_PREFIX,
+  CALENDAR_FEED_LAYERS,
+  DEFAULT_CALENDAR_FEED_LAYERS,
+  CALENDAR_MOON_PHASES,
+  CALENDAR_ASTROLOGY_DETAILS
 };

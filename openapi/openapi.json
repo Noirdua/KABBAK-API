@@ -1510,7 +1510,9 @@
         "security": [],
         "parameters": [
           { "name": "token", "in": "query", "required": true, "schema": { "type": "string" } },
-          { "name": "layers", "in": "query", "required": false, "schema": { "type": "string" } }
+          { "name": "layers", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Legacy override for feeds with no saved selection; the profile's saved layers win once set." },
+          { "name": "notesFormat", "in": "query", "required": false, "schema": { "type": "string", "enum": ["events", "journal"] } },
+          { "name": "utcOffsetMinutes", "in": "query", "required": false, "schema": { "type": "integer" }, "description": "Override the location offset used for civil dates (defaults to the profile location)." }
         ],
         "responses": {
           "200": { "$ref": "#/components/responses/BinaryAsset" },
@@ -1530,8 +1532,24 @@
       },
       "post": {
         "tags": ["profile"],
-        "summary": "Enable, disable, or rotate the authenticated profile's calendar feed",
+        "summary": "Enable, disable, rotate, or set the layers/format/options of the authenticated profile's calendar feed",
         "operationId": "updateProfileCalendarFeed",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/profile/calendar-events": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get the profile's calendar subscription events as JSON for the in-app calendar",
+        "operationId": "getProfileCalendarEvents",
+        "parameters": [
+          { "name": "from", "in": "query", "required": false, "schema": { "type": "string", "format": "date" } },
+          { "name": "to", "in": "query", "required": false, "schema": { "type": "string", "format": "date" } }
+        ],
         "responses": {
           "200": { "$ref": "#/components/responses/JsonPayload" },
           "400": { "$ref": "#/components/responses/BadRequest" },

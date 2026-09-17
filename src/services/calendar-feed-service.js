@@ -1,4 +1,4 @@
-const SunCalc = require("suncalc");
+const Astronomy = require("astronomy-engine");
 
 const { loadReferenceData } = require("./data-loader");
 const {
@@ -7,10 +7,15 @@ const {
   findEventAttachment,
   findNoteAttachment,
   getProfileRevision,
+  normalizeCalendarFeedOptions,
+  readProfile,
   resolveCalendarFeedToken,
   resolveEventOccurrenceAttachments
 } = require("./profile-service");
-const { getMoonPhaseName } = require("./calendar-service");
+const {
+  CALENDAR_FEED_LAYERS,
+  DEFAULT_CALENDAR_FEED_LAYERS
+} = require("../config/profile-storage");
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const FEED_PAST_DAYS = 365;
@@ -18,9 +23,16 @@ const FEED_FUTURE_DAYS = 730;
 const FEED_CACHE_TTL_MS = 10 * 60 * 1000;
 const FEED_CACHE_MAX = 200;
 const NOTE_DESCRIPTION_MAX = 4000;
-const DEFAULT_LAYERS = Object.freeze(["user", "moon", "holidays"]);
-const KNOWN_LAYERS = new Set([...DEFAULT_LAYERS, "notes"]);
-const PRINCIPAL_MOON_PHASES = new Set(["New Moon", "First Quarter", "Full Moon", "Last Quarter"]);
+const KNOWN_LAYERS = new Set(CALENDAR_FEED_LAYERS);
+// Moon phase angles (Sun→Moon elongation) and their slug/label.
+const MOON_PHASE_TARGETS = Object.freeze([
+  { angle: 0, slug: "new", label: "New Moon" },
+  { angle: 90, slug: "first-quarter", label: "First Quarter" },
+  { angle: 180, slug: "full", label: "Full Moon" },
+  { angle: 270, slug: "last-quarter", label: "Last Quarter" }
+]);
+const DECAN_DEGREES = 10;
+const SEARCH_LIMIT_DAYS = 45;
 
 const feedCache = new Map();
 
@@ -195,14 +207,62 @@ function renderIcs(calendarName, events) {
 }
 
 function normalizeLayers(rawLayers) {
-  const requested = String(rawLayers || "")
-    .split(",")
-    .map((entry) => entry.trim().toLowerCase())
+  const explicit = Array.isArray(rawLayers) || (typeof rawLayers === "string" && rawLayers.trim() !== "");
+  const requested = (Array.isArray(rawLayers) ? rawLayers : String(rawLayers || "").split(","))
+    .map((entry) => String(entry || "").trim().toLowerCase())
     .filter((entry) => KNOWN_LAYERS.has(entry));
-  if (!requested.length) {
-    return new Set(DEFAULT_LAYERS);
+  if (requested.length) {
+    return new Set(requested);
   }
-  return new Set(requested);
+  // Explicit empty means "no layers"; absent falls back to the defaults.
+  return explicit ? new Set() : new Set(DEFAULT_CALENDAR_FEED_LAYERS);
+}
+
+// Feed times are civil dates at the subscriber's location, so resolve an offset
+// from the request, then the saved location, then the longitude.
+function resolveFeedOffsetMinutes(profile, explicit) {
+  const provided = Number(explicit);
+  if (Number.isFinite(provided) && provided >= -720 && provided <= 840) {
+    return Math.round(provided);
+  }
+  const stored = Number(profile?.location?.utcOffsetMinutes);
+  if (Number.isFinite(stored) && stored >= -720 && stored <= 840) {
+    return Math.round(stored);
+  }
+  const longitude = Number(profile?.location?.longitude);
+  if (Number.isFinite(longitude)) {
+    return Math.round(longitude / 15) * 60;
+  }
+  return 0;
+}
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+// Civil date of an instant at the subscriber's offset.
+function localDateLabel(date, offsetMinutes) {
+  const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
+  return `${shifted.getUTCFullYear()}-${pad2(shifted.getUTCMonth() + 1)}-${pad2(shifted.getUTCDate())}`;
+}
+
+function formatLocalMoment(date, offsetMinutes) {
+  const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
+  const absolute = Math.abs(offsetMinutes);
+  const zone = `UTC${offsetMinutes < 0 ? "-" : "+"}${pad2(Math.floor(absolute / 60))}:${pad2(absolute % 60)}`;
+  return `${localDateLabel(date, offsetMinutes)} ${pad2(shifted.getUTCHours())}:${pad2(shifted.getUTCMinutes())} ${zone}`;
+}
+
+function localTimeLabel(date, offsetMinutes) {
+  const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
+  return `${pad2(shifted.getUTCHours())}:${pad2(shifted.getUTCMinutes())}`;
+}
+
+function utcWindow(fromIso, toIso, offsetMinutes) {
+  return {
+    start: new Date(Date.parse(`${fromIso}T00:00:00Z`) - offsetMinutes * 60 * 1000),
+    end: new Date(Date.parse(`${toIso}T23:59:59Z`) - offsetMinutes * 60 * 1000)
+  };
 }
 
 function collectUserEvents(events, fromIso, toIso, target, context = {}) {
@@ -404,27 +464,125 @@ function collectNotes(notes, fromIso, toIso, target, context = {}, format = "eve
   });
 }
 
-function collectMoonPhases(fromIso, toIso, target) {
-  const [fromYear, fromMonth, fromDay] = fromIso.split("-").map(Number);
-  let cursor = new Date(Date.UTC(fromYear, fromMonth - 1, fromDay));
-  const [toYear, toMonth, toDay] = toIso.split("-").map(Number);
-  const end = new Date(Date.UTC(toYear, toMonth - 1, toDay));
-  let previousPhase = "";
-  for (; cursor <= end; cursor = new Date(cursor.getTime() + DAY_IN_MS)) {
-    const phase = getMoonPhaseName(SunCalc.getMoonIllumination(cursor).phase);
-    const date = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, "0")}-${String(cursor.getUTCDate()).padStart(2, "0")}`;
-    if (PRINCIPAL_MOON_PHASES.has(phase) && phase !== previousPhase) {
+// Exact principal-phase instants (astronomy-engine's moon phase angle), emitted
+// as all-day events on the subscriber's local date with the precise moment in
+// the description.
+function collectMoonPhases(fromIso, toIso, target, { offsetMinutes = 0, phases } = {}) {
+  const { start, end } = utcWindow(fromIso, toIso, offsetMinutes);
+  // An explicit array is honoured even when empty (no phases); only an absent
+  // value means "all phases".
+  const allowed = Array.isArray(phases) ? new Set(phases) : null;
+  MOON_PHASE_TARGETS.filter((phase) => !allowed || allowed.has(phase.slug)).forEach(({ angle, slug, label }) => {
+    let cursor = new Date(start.getTime());
+    for (let guard = 0; guard < 80; guard += 1) {
+      const found = Astronomy.SearchMoonPhase(angle, cursor, SEARCH_LIMIT_DAYS);
+      if (!found || !found.date) {
+        break;
+      }
+      if (found.date.getTime() > end.getTime()) {
+        break;
+      }
+      const date = localDateLabel(found.date, offsetMinutes);
       target.push({
-        uid: `moon-${date}@kabbak`,
+        uid: `moon-${slug}-${date}@kabbak`,
         dtstamp: compactTimestamp(new Date().toISOString()),
         allDay: true,
         date,
-        summary: `Moon: ${phase}`,
+        time: localTimeLabel(found.date, offsetMinutes),
+        summary: `Moon: ${label}`,
+        description: `${label} exact at ${formatLocalMoment(found.date, offsetMinutes)}.`,
         categories: "moon"
       });
+      cursor = new Date(found.date.getTime() + 60 * 1000);
     }
-    previousPhase = phase;
+  });
+}
+
+// Exact astrology boundaries: the Sun's apparent ecliptic longitude crossing a
+// step. `detail` picks the step: "decan" (10°, the default), "degree" (1°, about
+// daily), or "sign" (30°, the sign ingresses).
+function collectAstrologyEvents(referenceData, fromIso, toIso, target, { offsetMinutes = 0, detail = "decan" } = {}) {
+  const signs = Array.isArray(referenceData?.signs) ? referenceData.signs : [];
+  const decansBySign = referenceData?.decansBySign || {};
+  if (!signs.length) {
+    return;
   }
+  const step = detail === "sign" ? 30 : (detail === "degree" ? 1 : DECAN_DEGREES);
+  const byOrder = new Map(signs.map((sign) => [Number(sign.order) || 0, sign]));
+  const { start, end } = utcWindow(fromIso, toIso, offsetMinutes);
+  const startLongitude = SunLongitude(start);
+  let targetLongitude = (Math.floor(startLongitude / step) + 1) * step;
+  let cursor = new Date(start.getTime());
+  const maxEvents = step === 1 ? 1200 : 400;
+  for (let guard = 0; guard < maxEvents; guard += 1) {
+    const normalized = ((targetLongitude % 360) + 360) % 360;
+    const found = Astronomy.SearchSunLongitude(normalized, cursor, SEARCH_LIMIT_DAYS);
+    if (!found || !found.date) {
+      break;
+    }
+    if (found.date.getTime() > end.getTime()) {
+      break;
+    }
+    const signOrder = Math.floor(normalized / 30) + 1;
+    const sign = byOrder.get(signOrder);
+    const signName = sign?.name || "";
+    const degree = Math.round(normalized % 30);
+    const date = localDateLabel(found.date, offsetMinutes);
+    const time = localTimeLabel(found.date, offsetMinutes);
+    const exact = formatLocalMoment(found.date, offsetMinutes);
+    const dtstamp = compactTimestamp(new Date().toISOString());
+
+    if (detail === "sign") {
+      target.push({
+        uid: `sign-${sign?.id || signOrder}-${date}@kabbak`,
+        dtstamp,
+        allDay: true,
+        date,
+        time,
+        summary: `Sun enters ${signName}`,
+        description: `Sun enters ${signName} at 0° ${signName} — exact ${exact}.`,
+        categories: "astrology"
+      });
+    } else if (detail === "degree") {
+      target.push({
+        uid: `degree-${sign?.id || signOrder}-${degree}-${date}@kabbak`,
+        dtstamp,
+        allDay: true,
+        date,
+        time,
+        summary: `Sun ${degree}° ${signName}`,
+        description: `Sun reaches ${degree}° ${signName} — exact ${exact}.`,
+        categories: "astrology"
+      });
+    } else {
+      const decanIndex = Math.floor((normalized % 30) / DECAN_DEGREES) + 1;
+      const decan = (decansBySign[sign?.id] || []).find((entry) => entry.index === decanIndex) || null;
+      const label = decan?.tarotMinorArcana || `${signName} decan ${decanIndex}`.trim();
+      target.push({
+        uid: `decan-${sign?.id || signOrder}-${decanIndex}-${date}@kabbak`,
+        dtstamp,
+        allDay: true,
+        date,
+        time,
+        // Index is 1..3 within the sign (0°/10°/20°) and resets each sign; make
+        // that explicit, since the tarot card number runs across the zodiac.
+        summary: `Decan ${decanIndex}/3: ${label}`,
+        description: `Sun enters decan ${decanIndex} of ${signName} (${label}) at ${degree}° ${signName} — exact ${exact}.`,
+        categories: "astrology"
+      });
+    }
+    targetLongitude = normalized + step;
+    cursor = new Date(found.date.getTime() + 60 * 1000);
+  }
+}
+
+function SunLongitude(date) {
+  const position = Astronomy.SunPosition(date);
+  const longitude = Number(position?.elon);
+  if (!Number.isFinite(longitude)) {
+    return 0;
+  }
+  return ((longitude % 360) + 360) % 360;
 }
 
 function readFeedCache(key) {
@@ -449,14 +607,25 @@ function writeFeedCache(key, body) {
   }
 }
 
-async function buildCalendarFeed({ token, layers, notesFormat = "events", now = new Date(), options = {}, baseUrl = "", origin = "" } = {}) {
+async function buildCalendarFeed({ token, layers, notesFormat = "", now = new Date(), utcOffsetMinutes, options = {}, baseUrl = "", origin = "" } = {}) {
   const resolved = resolveCalendarFeedToken(token, options);
   if (!resolved) {
     return null;
   }
 
-  const layerSet = normalizeLayers(layers);
-  const noteMode = String(notesFormat || "events").toLowerCase() === "journal" ? "journal" : "events";
+  // Saved subscription choices win, so the token-only URL reflects the current
+  // selection without the user re-adding the calendar. A ?layers= query is only
+  // honored for feeds that have no saved selection yet (legacy subscriptions),
+  // which lets an old layered URL migrate as soon as the user saves once.
+  const stored = resolved.profile.calendarFeed && typeof resolved.profile.calendarFeed === "object"
+    ? resolved.profile.calendarFeed
+    : {};
+  const hasStoredLayers = Array.isArray(stored.layers);
+  const layerSet = normalizeLayers(hasStoredLayers ? stored.layers : (layers || stored.layers));
+  const storedFormat = String(stored.notesFormat || "").toLowerCase();
+  const noteMode = (storedFormat || String(notesFormat || "").toLowerCase() || "events") === "journal" ? "journal" : "events";
+  const offsetMinutes = resolveFeedOffsetMinutes(resolved.profile, utcOffsetMinutes);
+  const feedOptions = normalizeCalendarFeedOptions(stored.options);
   // The revision bumps on every profile write, so a new event/note shows in the
   // feed immediately instead of waiting out the cache TTL. baseUrl and token are
   // in the key too because attachment links embed both.
@@ -465,6 +634,9 @@ async function buildCalendarFeed({ token, layers, notesFormat = "events", now = 
     getProfileRevision(resolved.clientId),
     [...layerSet].sort().join(","),
     noteMode,
+    feedOptions.astrologyDetail,
+    [...feedOptions.moonPhases].sort().join(","),
+    String(offsetMinutes),
     token,
     String(baseUrl).replace(/\/+$/, ""),
     String(origin).replace(/\/+$/, "")
@@ -476,26 +648,95 @@ async function buildCalendarFeed({ token, layers, notesFormat = "events", now = 
 
   const fromIso = localIsoDate(new Date(now.getTime() - FEED_PAST_DAYS * DAY_IN_MS));
   const toIso = localIsoDate(new Date(now.getTime() + FEED_FUTURE_DAYS * DAY_IN_MS));
-  const feedEvents = [];
-  const collectContext = { baseUrl, origin, token, profile: resolved.profile, clientId: resolved.clientId };
-  if (layerSet.has("user")) {
-    collectUserEvents(resolved.profile.events || [], fromIso, toIso, feedEvents, collectContext);
-  }
-  if (layerSet.has("holidays")) {
-    const referenceData = await loadReferenceData();
-    collectHolidays(referenceData, fromIso, toIso, feedEvents);
-  }
-  if (layerSet.has("moon")) {
-    collectMoonPhases(fromIso, toIso, feedEvents);
-  }
-  if (layerSet.has("notes")) {
-    collectNotes(resolved.profile.notes || [], fromIso, toIso, feedEvents, collectContext, noteMode);
-  }
+  const feedEvents = await collectSubscriptionEvents({
+    profile: resolved.profile,
+    layers: layerSet,
+    fromIso,
+    toIso,
+    offsetMinutes,
+    noteMode,
+    feedOptions,
+    collectContext: { baseUrl, origin, token, profile: resolved.profile, clientId: resolved.clientId }
+  });
 
   const calendarName = String(resolved.profile.displayName || "").trim() || "KABBAK";
   const body = renderIcs(calendarName, feedEvents);
   writeFeedCache(cacheKey, body);
   return body;
+}
+
+// Build the events for the selected layers. Shared by the ICS feed and the
+// in-app calendar so both always agree on what a subscription contains.
+async function collectSubscriptionEvents({
+  profile,
+  layers,
+  fromIso,
+  toIso,
+  offsetMinutes = 0,
+  noteMode = "events",
+  feedOptions = {},
+  collectContext = {}
+} = {}) {
+  const layerSet = layers instanceof Set ? layers : normalizeLayers(layers);
+  const { moonPhases, astrologyDetail } = normalizeCalendarFeedOptions(feedOptions);
+  const feedEvents = [];
+  if (layerSet.has("user")) {
+    collectUserEvents(profile?.events || [], fromIso, toIso, feedEvents, collectContext);
+  }
+  if (layerSet.has("holidays") || layerSet.has("astrology")) {
+    const referenceData = await loadReferenceData();
+    if (layerSet.has("holidays")) {
+      collectHolidays(referenceData, fromIso, toIso, feedEvents);
+    }
+    if (layerSet.has("astrology")) {
+      collectAstrologyEvents(referenceData, fromIso, toIso, feedEvents, { offsetMinutes, detail: astrologyDetail });
+    }
+  }
+  if (layerSet.has("moon")) {
+    collectMoonPhases(fromIso, toIso, feedEvents, { offsetMinutes, phases: moonPhases });
+  }
+  if (layerSet.has("notes")) {
+    collectNotes(profile?.notes || [], fromIso, toIso, feedEvents, collectContext, noteMode);
+  }
+  return feedEvents;
+}
+
+// The same events as JSON for the in-app calendar, so a user can confirm what
+// their subscription contains. `time` is the exact local moment when known.
+async function buildProfileCalendarEvents(clientId, { fromIso, toIso, options = {} } = {}) {
+  const profile = readProfile(clientId, options);
+  const stored = profile.calendarFeed && typeof profile.calendarFeed === "object" ? profile.calendarFeed : {};
+  const layerSet = normalizeLayers(stored.layers);
+  const offsetMinutes = resolveFeedOffsetMinutes(profile);
+  const noteMode = String(stored.notesFormat || "events").toLowerCase() === "journal" ? "journal" : "events";
+  const feedOptions = normalizeCalendarFeedOptions(stored.options);
+  // The in-app calendar already renders the profile's own events from the events
+  // API (editable), so the read-only overlay excludes the `user` layer.
+  const overlayLayers = new Set([...layerSet].filter((layer) => layer !== "user"));
+  const events = await collectSubscriptionEvents({
+    profile,
+    layers: overlayLayers,
+    fromIso,
+    toIso,
+    offsetMinutes,
+    noteMode,
+    feedOptions,
+    collectContext: { baseUrl: "", origin: "", token: "", profile, clientId: "" }
+  });
+  return {
+    layers: [...layerSet],
+    options: feedOptions,
+    offsetMinutes,
+    events: events.map((event) => ({
+      id: event.uid,
+      title: event.summary,
+      date: event.date,
+      time: event.time || "",
+      allDay: event.allDay !== false,
+      category: event.categories || "",
+      description: event.description || ""
+    }))
+  };
 }
 
 // Resolve an event attachment for the public feed route. Returns null when the
@@ -518,8 +759,15 @@ function resolveFeedNoteAttachment({ token, noteId, sceneId, attachmentId, optio
 
 module.exports = {
   buildCalendarFeed,
+  buildProfileCalendarEvents,
   escapeIcsText,
   foldIcsLine,
   resolveFeedAttachment,
-  resolveFeedNoteAttachment
+  resolveFeedNoteAttachment,
+  // Exposed for tests and for callers that precompute layers/events.
+  collectAstrologyEvents,
+  collectMoonPhases,
+  collectSubscriptionEvents,
+  normalizeLayers,
+  resolveFeedOffsetMinutes
 };

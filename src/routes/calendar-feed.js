@@ -35,12 +35,14 @@ router.get("/calendar/feed.ics", feedRateLimiter, async (request, response) => {
   const token = String(request.query.token || "").trim();
   const layers = String(request.query.layers || "").trim();
   const notesFormat = String(request.query.notesFormat || "").trim();
+  const utcOffsetMinutes = String(request.query.utcOffsetMinutes || "").trim();
   const base = requestBase(request);
   const body = token
     ? await buildCalendarFeed({
         token,
         layers,
         notesFormat,
+        utcOffsetMinutes,
         baseUrl: base.baseUrl,
         origin: base.origin
       })
