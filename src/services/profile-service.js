@@ -38,6 +38,8 @@ const {
   SHARE_SIGNED_PREFIX,
   MESSAGE_DIRECT_PREFIX,
   MAX_MESSAGES_PER_PROFILE,
+  MAX_FRIENDS_PER_PROFILE,
+  MAX_FRIEND_REQUESTS_PER_PROFILE,
   MAX_EVENT_RANGE_DAYS,
   FEED_TOKEN_PREFIX
 } = require("../config/profile-storage");
@@ -339,6 +341,10 @@ function normalizeProfile(rawProfile, clientId, options = {}) {
       ? { directoryVisibility: normalizeDirectoryVisibility(source.directoryVisibility, "private") }
       : {}),
     ...(Array.isArray(source.boardWatch) ? { boardWatch: normalizeBoardWatch(source.boardWatch) } : {}),
+    ...(source.friends !== undefined ? { friends: normalizeFriends(source.friends) } : {}),
+    ...(source.friendRequests && typeof source.friendRequests === "object" && !Array.isArray(source.friendRequests)
+      ? { friendRequests: normalizeFriendRequests(source.friendRequests) }
+      : {}),
     quiz: {
       attempts: Array.isArray(source.quiz?.attempts) ? source.quiz.attempts.filter((attempt) => attempt && typeof attempt === "object") : []
     }
@@ -531,6 +537,301 @@ function listPublicDirectoryEntries(options = {}) {
   }
   entries.sort((left, right) => left.displayName.localeCompare(right.displayName));
   return entries;
+}
+
+// --- Friends + directory social actions --------------------------------------
+// Friendships are mutual: accepting a request writes both profiles. Requests are
+// stored per profile as incoming/outgoing, and only profiles that opted into the
+// public directory can be added or messaged by strangers.
+
+function normalizeFriends(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set();
+  const entries = [];
+  for (const raw of value) {
+    const source = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : { clientId: raw };
+    const clientId = String(source.clientId || "").trim().slice(0, 120);
+    if (!clientId || seen.has(clientId)) {
+      continue;
+    }
+    seen.add(clientId);
+    entries.push({
+      clientId,
+      name: String(source.name || "").trim().slice(0, 80),
+      at: String(source.at || "").trim()
+    });
+  }
+  return entries.slice(0, MAX_FRIENDS_PER_PROFILE);
+}
+
+// Each profile has its own tiered storage limits. Writes to the other side of a
+// relationship must not inherit the caller's quota/attachment options, which
+// would otherwise truncate or drop the other user's stored data.
+function counterpartWriteOptions(options = {}) {
+  return {
+    rootPath: options.rootPath,
+    profilesRoot: options.profilesRoot,
+    encryptionSecret: options.encryptionSecret
+  };
+}
+
+// Two-profile mutation. The counterpart is persisted before the actor so a
+// failed second write cannot leave the actor with a relationship the other side
+// never recorded.
+function updateMutualRelation(actorId, otherId, options, mutate) {
+  const actorProfile = readProfile(actorId, options);
+  const otherProfile = readProfile(otherId, options);
+  mutate(actorProfile, otherProfile);
+  const nowIso = new Date().toISOString();
+  actorProfile.updatedAt = nowIso;
+  otherProfile.updatedAt = nowIso;
+  writeProfile(otherId, otherProfile, counterpartWriteOptions(options));
+  writeProfile(actorId, actorProfile, options);
+}
+
+function normalizeFriendRequestEntry(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const clientId = String(value.clientId || "").trim().slice(0, 120);
+  if (!clientId) {
+    return null;
+  }
+  return {
+    clientId,
+    name: String(value.name || "").trim().slice(0, 80),
+    at: String(value.at || value.createdAt || "").trim()
+  };
+}
+
+function normalizeFriendRequests(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const dedupe = (list) => {
+    const seen = new Set();
+    const result = [];
+    (Array.isArray(list) ? list : []).forEach((entry) => {
+      const normalized = normalizeFriendRequestEntry(entry);
+      if (!normalized || seen.has(normalized.clientId)) {
+        return;
+      }
+      seen.add(normalized.clientId);
+      result.push(normalized);
+    });
+    return result.slice(0, MAX_FRIEND_REQUESTS_PER_PROFILE);
+  };
+  return { incoming: dedupe(source.incoming), outgoing: dedupe(source.outgoing) };
+}
+
+function isPublicDirectoryProfile(profile) {
+  return normalizeDirectoryVisibility(profile?.directoryVisibility, "private") === "public";
+}
+
+function areFriends(profile, otherClientId) {
+  const wanted = String(otherClientId || "").trim();
+  return Boolean(wanted) && normalizeFriends(profile?.friends).some((entry) => entry.clientId === wanted);
+}
+
+// Names are captured when a request/friendship is created, so listing friends
+// needs no per-friend profile reads.
+function getProfileFriends(clientId, options = {}) {
+  const profile = readProfile(clientId, options);
+  const requests = normalizeFriendRequests(profile.friendRequests);
+  const withName = (entry) => ({
+    ...entry,
+    name: entry.name || entry.clientId
+  });
+  return {
+    friends: normalizeFriends(profile.friends).map((entry) => ({
+      clientId: entry.clientId,
+      name: entry.name || entry.clientId
+    })),
+    incoming: requests.incoming.map(withName),
+    outgoing: requests.outgoing.map(withName)
+  };
+}
+
+function sendFriendRequest(fromClientId, targetClientId, options = {}) {
+  const fromId = normalizeClientId(fromClientId);
+  const targetId = normalizeClientId(targetClientId);
+  if (fromId === targetId) {
+    throw new ProfileStorageError("invalid_friend_request", "You cannot add yourself as a friend.");
+  }
+  const fromProfile = readProfile(fromId, options);
+  const targetProfile = readProfile(targetId, options);
+  if (areFriends(fromProfile, targetId) || areFriends(targetProfile, fromId)) {
+    return { status: "friends", friends: getProfileFriends(fromId, options) };
+  }
+  if (!isPublicDirectoryProfile(targetProfile)) {
+    throw new ProfileStorageError("not_in_directory", "That user is not listed in the public directory.");
+  }
+  const fromRequests = normalizeFriendRequests(fromProfile.friendRequests);
+  const targetRequests = normalizeFriendRequests(targetProfile.friendRequests);
+  if (targetRequests.outgoing.some((entry) => entry.clientId === fromId)) {
+    return acceptFriendRequest(fromId, targetId, options);
+  }
+  if (fromRequests.outgoing.some((entry) => entry.clientId === targetId)) {
+    return { status: "requested", friends: getProfileFriends(fromId, options) };
+  }
+  if (fromRequests.outgoing.length >= MAX_FRIEND_REQUESTS_PER_PROFILE
+    || targetRequests.incoming.length >= MAX_FRIEND_REQUESTS_PER_PROFILE) {
+    throw new ProfileStorageError("friend_requests_limit_reached", "Too many pending friend requests.");
+  }
+
+  const fromName = String(fromProfile.displayName || "").trim() || fromId;
+  const targetName = String(targetProfile.displayName || "").trim() || targetId;
+  updateMutualRelation(fromId, targetId, options, (actor, other) => {
+    const nowIso = new Date().toISOString();
+    const actorRequests = normalizeFriendRequests(actor.friendRequests);
+    const otherRequests = normalizeFriendRequests(other.friendRequests);
+    actorRequests.outgoing.push({ clientId: targetId, name: targetName, at: nowIso });
+    otherRequests.incoming.push({ clientId: fromId, name: fromName, at: nowIso });
+    actor.friendRequests = actorRequests;
+    other.friendRequests = otherRequests;
+  });
+
+  try {
+    addProfileMessage(targetId, {
+      kind: "message",
+      title: `${fromName} (@${fromId}) wants to add you as a friend`,
+      description: "Open your profile to accept or decline the request.",
+      visibility: "internal"
+    }, { sender: `${fromName} (@${fromId})` }, counterpartWriteOptions(options));
+  } catch (_error) {
+    // Notification is best-effort; the request itself is already stored.
+  }
+  return { status: "requested", friends: getProfileFriends(fromId, options) };
+}
+
+function acceptFriendRequest(clientId, requesterClientId, options = {}) {
+  const id = normalizeClientId(clientId);
+  const otherId = normalizeClientId(requesterClientId);
+  if (id === otherId) {
+    throw new ProfileStorageError("invalid_friend_request", "You cannot befriend yourself.");
+  }
+  const existing = readProfile(id, options);
+  if (areFriends(existing, otherId)) {
+    return { status: "friends", friends: getProfileFriends(id, options) };
+  }
+  updateMutualRelation(id, otherId, options, (actor, other) => {
+    const requests = normalizeFriendRequests(actor.friendRequests);
+    if (!requests.incoming.some((entry) => entry.clientId === otherId)) {
+      throw new ProfileStorageError("friend_request_not_found", "There is no pending friend request from that user.");
+    }
+    if (normalizeFriends(actor.friends).length >= MAX_FRIENDS_PER_PROFILE
+      || normalizeFriends(other.friends).length >= MAX_FRIENDS_PER_PROFILE) {
+      throw new ProfileStorageError("friends_limit_reached", "A friends list is already full.");
+    }
+    const otherRequests = normalizeFriendRequests(other.friendRequests);
+    const nowIso = new Date().toISOString();
+    const actorName = String(actor.displayName || "").trim() || id;
+    const otherName = String(other.displayName || "").trim() || otherId;
+    actor.friends = normalizeFriends([
+      ...normalizeFriends(actor.friends),
+      { clientId: otherId, name: otherName, at: nowIso }
+    ]);
+    other.friends = normalizeFriends([
+      ...normalizeFriends(other.friends),
+      { clientId: id, name: actorName, at: nowIso }
+    ]);
+    requests.incoming = requests.incoming.filter((entry) => entry.clientId !== otherId);
+    otherRequests.outgoing = otherRequests.outgoing.filter((entry) => entry.clientId !== id);
+    actor.friendRequests = requests;
+    other.friendRequests = otherRequests;
+  });
+  return { status: "friends", friends: getProfileFriends(id, options) };
+}
+
+function declineFriendRequest(clientId, requesterClientId, options = {}) {
+  const id = normalizeClientId(clientId);
+  const otherId = normalizeClientId(requesterClientId);
+  if (id === otherId) {
+    throw new ProfileStorageError("invalid_friend_request", "You cannot decline your own request.");
+  }
+  updateMutualRelation(id, otherId, options, (actor, other) => {
+    const requests = normalizeFriendRequests(actor.friendRequests);
+    if (!requests.incoming.some((entry) => entry.clientId === otherId)) {
+      throw new ProfileStorageError("friend_request_not_found", "There is no pending friend request from that user.");
+    }
+    const otherRequests = normalizeFriendRequests(other.friendRequests);
+    requests.incoming = requests.incoming.filter((entry) => entry.clientId !== otherId);
+    otherRequests.outgoing = otherRequests.outgoing.filter((entry) => entry.clientId !== id);
+    actor.friendRequests = requests;
+    other.friendRequests = otherRequests;
+  });
+  return { status: "none", friends: getProfileFriends(id, options) };
+}
+
+function cancelFriendRequest(clientId, targetClientId, options = {}) {
+  const id = normalizeClientId(clientId);
+  const targetId = normalizeClientId(targetClientId);
+  if (id === targetId) {
+    throw new ProfileStorageError("invalid_friend_request", "You cannot cancel a request to yourself.");
+  }
+  updateMutualRelation(id, targetId, options, (actor, other) => {
+    const requests = normalizeFriendRequests(actor.friendRequests);
+    if (!requests.outgoing.some((entry) => entry.clientId === targetId)) {
+      throw new ProfileStorageError("friend_request_not_found", "There is no outgoing friend request to that user.");
+    }
+    const otherRequests = normalizeFriendRequests(other.friendRequests);
+    requests.outgoing = requests.outgoing.filter((entry) => entry.clientId !== targetId);
+    otherRequests.incoming = otherRequests.incoming.filter((entry) => entry.clientId !== id);
+    actor.friendRequests = requests;
+    other.friendRequests = otherRequests;
+  });
+  return { status: "none", friends: getProfileFriends(id, options) };
+}
+
+function removeFriend(clientId, friendClientId, options = {}) {
+  const id = normalizeClientId(clientId);
+  const friendId = normalizeClientId(friendClientId);
+  if (id === friendId) {
+    throw new ProfileStorageError("invalid_friend_request", "You cannot remove yourself.");
+  }
+  updateMutualRelation(id, friendId, options, (actor, other) => {
+    if (!normalizeFriends(actor.friends).some((entry) => entry.clientId === friendId)) {
+      throw new ProfileStorageError("friend_not_found", "That user is not in your friends list.");
+    }
+    actor.friends = normalizeFriends(actor.friends).filter((entry) => entry.clientId !== friendId);
+    other.friends = normalizeFriends(other.friends).filter((entry) => entry.clientId !== id);
+  });
+  return { status: "none", friends: getProfileFriends(id, options) };
+}
+
+// Deliver a direct inbox message to another user. Only public-directory users
+// (or existing friends) accept messages so private profiles stay unreachable.
+function sendDirectoryMessage(fromClientId, targetClientId, input = {}, options = {}) {
+  const fromId = normalizeClientId(fromClientId);
+  const targetId = normalizeClientId(targetClientId);
+  if (fromId === targetId) {
+    throw new ProfileStorageError("invalid_message", "You cannot message yourself.");
+  }
+  const fromProfile = readProfile(fromId, options);
+  const targetProfile = readProfile(targetId, options);
+  const friends = areFriends(targetProfile, fromId) || areFriends(fromProfile, targetId);
+  if (!isPublicDirectoryProfile(targetProfile) && !friends) {
+    throw new ProfileStorageError("not_in_directory", "That user is not accepting public messages.");
+  }
+  const body = String(input?.body ?? input?.description ?? "").trim();
+  if (!body) {
+    throw new ProfileStorageError("invalid_message", "Write a message first.");
+  }
+  const fromName = String(fromProfile.displayName || "").trim() || fromId;
+  // Attribution includes the stable client id so a self-set display name cannot
+  // be used to impersonate another user or a system sender.
+  const sender = `${fromName} (@${fromId})`;
+  const subject = String(input?.title || "").trim() || `Message from ${fromName}`;
+  const result = addProfileMessage(targetId, {
+    kind: "message",
+    title: subject.slice(0, MAX_LINK_TITLE_LENGTH),
+    description: body.slice(0, MAX_LINK_DESCRIPTION_LENGTH),
+    visibility: "internal"
+  }, { sender }, counterpartWriteOptions(options));
+  return {
+    sender,
+    message: { id: result.message.id, title: result.message.title }
+  };
 }
 
 // Internal quiz leaderboard. Only profiles that opted into the public directory
@@ -764,6 +1065,7 @@ function getProfileSummary(clientId, options = {}) {
       events: Array.isArray(profile.events) ? profile.events.length : 0,
       links: Array.isArray(profile.links) ? profile.links.length : 0,
       messages: Array.isArray(profile.messages) ? profile.messages.length : 0,
+      friends: normalizeFriends(profile.friends).length,
       quizAttempts: profile.quiz.attempts.length,
       attachments: attachmentCount
     }
@@ -3061,12 +3363,19 @@ module.exports = {
   getProfileEvent,
   getProfileBoardWatch,
   getProfileEventAttachment,
+  getProfileFriends,
   getProfileLibrary,
   getQuizLeaderboard,
   listTopicWatchers,
   getProfileRevision,
   listProfileClientIds,
   listPublicDirectoryEntries,
+  acceptFriendRequest,
+  cancelFriendRequest,
+  declineFriendRequest,
+  removeFriend,
+  sendDirectoryMessage,
+  sendFriendRequest,
   getProfileNote,
   getProfilePluginState,
   getProfileQuizProgress,

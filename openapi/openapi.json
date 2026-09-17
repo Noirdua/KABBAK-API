@@ -1717,6 +1717,107 @@
         }
       }
     },
+    "/profile/directory/users/{clientId}/message": {
+      "post": {
+        "tags": ["profile"],
+        "summary": "Send a direct inbox message to a public-directory user",
+        "operationId": "sendDirectoryMessage",
+        "parameters": [
+          { "name": "clientId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "201": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/friends": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "List friends plus incoming and outgoing friend requests",
+        "operationId": "getProfileFriends",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/profile/friends/requests": {
+      "post": {
+        "tags": ["profile"],
+        "summary": "Send a friend request to a public-directory user",
+        "operationId": "sendFriendRequest",
+        "responses": {
+          "201": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/JsonPayload" }
+        }
+      }
+    },
+    "/profile/friends/requests/{clientId}/accept": {
+      "post": {
+        "tags": ["profile"],
+        "summary": "Accept an incoming friend request",
+        "operationId": "acceptFriendRequest",
+        "parameters": [
+          { "name": "clientId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/friends/requests/{clientId}/decline": {
+      "post": {
+        "tags": ["profile"],
+        "summary": "Decline an incoming friend request",
+        "operationId": "declineFriendRequest",
+        "parameters": [
+          { "name": "clientId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/friends/requests/{clientId}": {
+      "delete": {
+        "tags": ["profile"],
+        "summary": "Cancel an outgoing friend request",
+        "operationId": "cancelFriendRequest",
+        "parameters": [
+          { "name": "clientId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/friends/{clientId}": {
+      "delete": {
+        "tags": ["profile"],
+        "summary": "Remove a friend",
+        "operationId": "removeFriend",
+        "parameters": [
+          { "name": "clientId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
     "/profile/quiet-hours": {
       "get": {
         "tags": ["profile"],

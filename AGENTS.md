@@ -170,7 +170,7 @@ Endpoints the bot calls (keep these shapes/names):
 - Decks: `GET /decks/options` (items are `{ id, name, label, system }`), `GET /decks`. `system` is `tarot` | `iching` | `playing-cards` | … — tarot-only features (spreads, card lookups) must filter out non-`tarot` decks.
 - I Ching: `GET /iching`, `GET /iching/hexagrams/:number`.
 - Texts: `GET /texts`, `GET /texts/search`, `GET /texts/:sourceId/works/:workId/sections/:sectionId`.
-- Library: `GET /tattvas`, `GET /tattvas/:id`, `GET /locations/*`, `GET /quiz/*`.
+- Library: `GET /tattvas`, `GET /tattvas/:id`, `GET /locations/*`, `GET /quiz/session` (`count` 1–25, default 5), `GET /quiz/questions/pull`, `GET /quiz/categories`.
 - Gematria: `GET /gematria/words` (`value` + optional `language` = `english`|`hebrew`|`greek`, `method`, `ciphers`), `GET /gematria/methods` (`{ hebrew: [{id,label,description}], greek: [...] }`), `GET /gematria/calculate` (`text`, `language`, `method`). `language`/`method` are additive — bots that only send `value` keep the English behavior.
 - Assets: `GET /assets/<path>` (query `apiKey` only for media tags).
 

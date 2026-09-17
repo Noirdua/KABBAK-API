@@ -18,6 +18,7 @@ const {
   getProfileCalendarFeed,
   getProfileEvent,
   getProfileEventAttachment,
+  getProfileFriends,
   getProfileLibrary,
   getProfileLink,
   listProfileLinks,
@@ -31,6 +32,12 @@ const {
   listProfileNotes,
   listProfileQuickNotes,
   recordQuizAttempt,
+  acceptFriendRequest,
+  cancelFriendRequest,
+  declineFriendRequest,
+  removeFriend,
+  sendDirectoryMessage,
+  sendFriendRequest,
   updateProfileQuickNote,
   updateProfileBio,
   updateProfileCalendarFeed,
@@ -139,6 +146,24 @@ function mapProfileStorageError(error) {
   }
   if (error.code === "links_limit_reached") {
     return createHttpError(409, "links_limit_reached", error.message);
+  }
+  if (error.code === "friend_not_found") {
+    return createNotFoundError("friend_not_found", error.message);
+  }
+  if (error.code === "friend_request_not_found") {
+    return createNotFoundError("friend_request_not_found", error.message);
+  }
+  if (error.code === "not_in_directory") {
+    return createNotFoundError("not_in_directory", error.message);
+  }
+  if (error.code === "already_friends") {
+    return createHttpError(409, "already_friends", error.message);
+  }
+  if (error.code === "friend_requests_limit_reached") {
+    return createHttpError(409, "friend_requests_limit_reached", error.message);
+  }
+  if (error.code === "friends_limit_reached") {
+    return createHttpError(409, "friends_limit_reached", error.message);
   }
 
   return createHttpError(400, error.code || "invalid_profile_request", error.message);
@@ -687,6 +712,105 @@ router.patch("/profile/directory", wrapProfileHandler((request, response) => {
     storageUsedBytes: result.usage.usedBytes,
     storageQuotaBytes: result.usage.quotaBytes
   });
+}));
+
+// --- Friends + directory social actions --------------------------------------
+
+router.get("/profile/friends", wrapProfileHandler((request, response) => {
+  const friends = getProfileFriends(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess(friends);
+}));
+
+router.post("/profile/friends/requests", wrapProfileHandler((request, response) => {
+  const result = sendFriendRequest(
+    getProfileClientId(request, response),
+    getRequestBody(request).clientId,
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "send_friend_request",
+    status: result.status
+  });
+
+  response.status(201).apiSuccess(result);
+}));
+
+router.post("/profile/friends/requests/:clientId/accept", wrapProfileHandler((request, response) => {
+  const result = acceptFriendRequest(
+    getProfileClientId(request, response),
+    request.params.clientId,
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "accept_friend_request",
+    status: result.status
+  });
+
+  response.apiSuccess(result);
+}));
+
+router.post("/profile/friends/requests/:clientId/decline", wrapProfileHandler((request, response) => {
+  const result = declineFriendRequest(
+    getProfileClientId(request, response),
+    request.params.clientId,
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "decline_friend_request",
+    status: result.status
+  });
+
+  response.apiSuccess(result);
+}));
+
+router.delete("/profile/friends/requests/:clientId", wrapProfileHandler((request, response) => {
+  const result = cancelFriendRequest(
+    getProfileClientId(request, response),
+    request.params.clientId,
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "cancel_friend_request",
+    status: result.status
+  });
+
+  response.apiSuccess(result);
+}));
+
+router.delete("/profile/friends/:clientId", wrapProfileHandler((request, response) => {
+  const result = removeFriend(
+    getProfileClientId(request, response),
+    request.params.clientId,
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "remove_friend",
+    status: result.status
+  });
+
+  response.apiSuccess(result);
+}));
+
+router.post("/profile/directory/users/:clientId/message", wrapProfileHandler((request, response) => {
+  const body = getRequestBody(request);
+  const result = sendDirectoryMessage(
+    getProfileClientId(request, response),
+    request.params.clientId,
+    body,
+    getProfileOptions(request, response)
+  );
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "send_directory_message",
+    messageId: result.message.id
+  });
+
+  response.status(201).apiSuccess(result);
 }));
 
 router.get("/profile/quiz-progress", wrapProfileHandler((request, response) => {
