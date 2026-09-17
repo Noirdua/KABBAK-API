@@ -709,5 +709,6 @@ module.exports = {
   getWeekEventsForQuery,
   getNowSnapshot,
   getTarotCardsForDate,
-  getMoonPhaseName
+  getMoonPhaseName,
+  parseGeo
 };

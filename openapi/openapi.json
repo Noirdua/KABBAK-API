@@ -2766,6 +2766,91 @@
         }
       }
     },
+    "/astrology/natal": {
+      "get": {
+        "tags": [
+          "astrology"
+        ],
+        "summary": "Cast a natal chart for a birth date, optional time, and location",
+        "operationId": "getNatalChart",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Latitude"
+          },
+          {
+            "$ref": "#/components/parameters/Longitude"
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Birth date YYYY-MM-DD. Required unless datetime is set."
+          },
+          {
+            "name": "time",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Birth time HH:MM or HH:MM:SS. Interpreted as local mean time at longitude unless utcOffsetMinutes is set."
+          },
+          {
+            "name": "datetime",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "ISO instant. Overrides date/time when present."
+          },
+          {
+            "name": "timeUnknown",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "utcOffsetMinutes",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "number" }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "placeId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
     "/astrology/planets": {
       "get": {
         "tags": [

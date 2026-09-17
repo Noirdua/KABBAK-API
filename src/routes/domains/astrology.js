@@ -1,6 +1,7 @@
 const { createApiRouter } = require("../../lib/create-api-router");
 const { loadReferenceData } = require("../../services/data-loader");
 const { parsePaginationParams } = require("../../lib/pagination");
+const { getNatalChart } = require("../../services/natal-service");
 const {
   createEntityNotFound,
   findByNormalizedId,
@@ -8,6 +9,11 @@ const {
 } = require("./shared");
 
 const router = createApiRouter();
+
+router.get("/natal", async (request, response) => {
+  const chart = await getNatalChart(request.query);
+  response.apiSuccess(chart);
+});
 
 router.get("/planets", async (request, response) => {
   const referenceData = await loadReferenceData();
