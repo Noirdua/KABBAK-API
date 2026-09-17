@@ -15,6 +15,8 @@ const {
   decodeAttachmentPayload,
   deleteProfileLink,
   getProfileBio,
+  getProfilePage,
+  getProfileImage,
   getProfileCalendarFeed,
   getProfileEvent,
   getProfileEventAttachment,
@@ -40,6 +42,9 @@ const {
   sendFriendRequest,
   updateProfileQuickNote,
   updateProfileBio,
+  updateProfilePage,
+  updateProfileImage,
+  deleteProfileImage,
   updateProfileCalendarFeed,
   updateProfileDisplayName,
   updateProfileDirectory,
@@ -164,6 +169,9 @@ function mapProfileStorageError(error) {
   }
   if (error.code === "friends_limit_reached") {
     return createHttpError(409, "friends_limit_reached", error.message);
+  }
+  if (error.code === "image_not_found") {
+    return createNotFoundError("image_not_found", error.message);
   }
 
   return createHttpError(400, error.code || "invalid_profile_request", error.message);
@@ -850,6 +858,95 @@ router.patch("/profile/bio", wrapProfileHandler((request, response) => {
   });
 
   response.apiSuccess({ bio: result.bio }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+function sendProfileImage(request, response, kind) {
+  const image = getProfileImage(getProfileClientId(request, response), kind, getProfileOptions(request, response));
+  const { type, buffer } = decodeAttachmentPayload(image);
+  response.setHeader("Content-Type", type || "application/octet-stream");
+  response.setHeader("Cache-Control", "private, max-age=60");
+  response.send(buffer);
+}
+
+router.get("/profile/avatar", wrapProfileHandler((request, response) => {
+  sendProfileImage(request, response, "avatar");
+}));
+
+router.put("/profile/avatar", wrapProfileHandler((request, response) => {
+  const result = updateProfileImage(
+    getProfileClientId(request, response),
+    "avatar",
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "update_profile_avatar" });
+  response.apiSuccess({ type: result.type, size: result.size }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.delete("/profile/avatar", wrapProfileHandler((request, response) => {
+  const result = deleteProfileImage(
+    getProfileClientId(request, response),
+    "avatar",
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "delete_profile_avatar" });
+  response.apiSuccess({ removed: true }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.get("/profile/banner", wrapProfileHandler((request, response) => {
+  sendProfileImage(request, response, "banner");
+}));
+
+router.put("/profile/banner", wrapProfileHandler((request, response) => {
+  const result = updateProfileImage(
+    getProfileClientId(request, response),
+    "banner",
+    getRequestBody(request),
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "update_profile_banner" });
+  response.apiSuccess({ type: result.type, size: result.size }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.delete("/profile/banner", wrapProfileHandler((request, response) => {
+  const result = deleteProfileImage(
+    getProfileClientId(request, response),
+    "banner",
+    getProfileOptions(request, response)
+  );
+  emitProfileMutationAuditEvent(request, response, { action: "delete_profile_banner" });
+  response.apiSuccess({ removed: true }, {
+    storageUsedBytes: result.usage.usedBytes,
+    storageQuotaBytes: result.usage.quotaBytes
+  });
+}));
+
+router.get("/profile/page", wrapProfileHandler((request, response) => {
+  const page = getProfilePage(getProfileClientId(request, response), getProfileOptions(request, response));
+  response.apiSuccess(page);
+}));
+
+router.patch("/profile/page", wrapProfileHandler((request, response) => {
+  const body = getRequestBody(request);
+  const result = updateProfilePage(getProfileClientId(request, response), body, getProfileOptions(request, response));
+
+  emitProfileMutationAuditEvent(request, response, {
+    action: "update_profile_page"
+  });
+
+  response.apiSuccess({ pageHtml: result.pageHtml }, {
     storageUsedBytes: result.usage.usedBytes,
     storageQuotaBytes: result.usage.quotaBytes
   });

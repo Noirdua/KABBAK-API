@@ -1394,6 +1394,51 @@
         }
       }
     },
+    "/profile/avatar": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get the authenticated profile avatar image",
+        "operationId": "getProfileAvatar",
+        "responses": {
+          "200": { "description": "Image bytes" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/banner": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get the authenticated profile banner image",
+        "operationId": "getProfileBanner",
+        "responses": {
+          "200": { "description": "Image bytes" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profile/page": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Get the authenticated profile custom HTML page",
+        "operationId": "getProfilePage",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "patch": {
+        "tags": ["profile"],
+        "summary": "Set the authenticated profile custom HTML page",
+        "operationId": "updateProfilePage",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
     "/profile/quick-notes": {
       "get": {
         "tags": ["profile"],

@@ -16,6 +16,7 @@ const {
   MAX_SCENE_NOTES_LENGTH,
   MAX_ATTACHMENTS_PER_SCENE,
   MAX_ATTACHMENT_SIZE_BYTES,
+  MAX_PROFILE_IMAGE_BYTES,
   MAX_QUICK_NOTES_PER_PROFILE,
   MAX_QUICK_NOTE_TEXT_LENGTH,
   MAX_QUICK_NOTE_SKY_LENGTH,
@@ -45,7 +46,7 @@ const {
 } = require("../config/profile-storage");
 
 const { buildSignedShareToken, verifySignedShareToken } = require("./share-service");
-const { sanitizeMessageHtml } = require("../lib/html-sanitize");
+const { sanitizeMessageHtml, MAX_HTML_LENGTH } = require("../lib/html-sanitize");
 
 class ProfileStorageError extends Error {
   constructor(code, message) {
@@ -340,6 +341,9 @@ function normalizeProfile(rawProfile, clientId, options = {}) {
     ...(typeof source.directoryVisibility === "string"
       ? { directoryVisibility: normalizeDirectoryVisibility(source.directoryVisibility, "private") }
       : {}),
+    ...(typeof source.pageHtml === "string" ? { pageHtml: sanitizeMessageHtml(source.pageHtml) } : {}),
+    ...(normalizeProfileImage(source.avatar) ? { avatar: normalizeProfileImage(source.avatar) } : {}),
+    ...(normalizeProfileImage(source.banner) ? { banner: normalizeProfileImage(source.banner) } : {}),
     ...(Array.isArray(source.boardWatch) ? { boardWatch: normalizeBoardWatch(source.boardWatch) } : {}),
     ...(source.friends !== undefined ? { friends: normalizeFriends(source.friends) } : {}),
     ...(source.friendRequests && typeof source.friendRequests === "object" && !Array.isArray(source.friendRequests)
@@ -1054,6 +1058,9 @@ function getProfileSummary(clientId, options = {}) {
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
     bio: profile.bio || "",
+    hasPage: Boolean(String(profile.pageHtml || "").trim()),
+    hasAvatar: Boolean(profile.avatar?.data),
+    hasBanner: Boolean(profile.banner?.data),
     displayName: profile.displayName || "",
     location: profile.location || null,
     preferredDeck: profile.preferredDeck || "",
@@ -3111,6 +3118,90 @@ function getProfileBio(clientId, options = {}) {
   };
 }
 
+function getProfilePage(clientId, options = {}) {
+  const profile = readProfile(clientId, options);
+  return {
+    clientId: profile.clientId,
+    pageHtml: profile.pageHtml || ""
+  };
+}
+
+function updateProfilePage(clientId, input, options = {}) {
+  const profile = readProfile(clientId, options);
+  const pageHtml = sanitizeMessageHtml(input?.pageHtml ?? input?.html ?? "").slice(0, MAX_HTML_LENGTH);
+  profile.pageHtml = pageHtml;
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(clientId, profile, options);
+  return {
+    pageHtml,
+    usage
+  };
+}
+
+const PROFILE_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+function normalizeProfileImage(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const type = String(value.type || "").trim().toLowerCase().split(";")[0];
+  const data = String(value.data || "");
+  if (!PROFILE_IMAGE_TYPES.has(type) || !data.startsWith("data:image/")) {
+    return undefined;
+  }
+  const size = Math.max(0, Number(value.size) || Math.ceil(data.length * 0.75));
+  if (size > MAX_PROFILE_IMAGE_BYTES) {
+    return undefined;
+  }
+  return { type, data, size };
+}
+
+function getProfileImage(clientId, kind, options = {}) {
+  const profile = readProfile(clientId, options);
+  const image = kind === "banner" ? profile.banner : profile.avatar;
+  if (!image?.data) {
+    throw new ProfileStorageError("image_not_found", "No image uploaded.");
+  }
+  return image;
+}
+
+function updateProfileImage(clientId, kind, input, options = {}) {
+  const profile = readProfile(clientId, options);
+  const decoded = decodeAttachmentPayload({ data: input?.data || input?.image || "", type: input?.type });
+  const type = String(decoded.type || "").toLowerCase().split(";")[0];
+  if (!PROFILE_IMAGE_TYPES.has(type)) {
+    throw new ProfileStorageError("invalid_image", "Upload a JPEG, PNG, WebP, or GIF.");
+  }
+  if (!decoded.buffer.length || decoded.buffer.length > MAX_PROFILE_IMAGE_BYTES) {
+    throw new ProfileStorageError("image_too_large", "That image is too large (2MB max).");
+  }
+  const stored = {
+    type,
+    data: `data:${type};base64,${decoded.buffer.toString("base64")}`,
+    size: decoded.buffer.length
+  };
+  if (kind === "banner") {
+    profile.banner = stored;
+  } else {
+    profile.avatar = stored;
+  }
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(clientId, profile, options);
+  return { type, size: stored.size, usage };
+}
+
+function deleteProfileImage(clientId, kind, options = {}) {
+  const profile = readProfile(clientId, options);
+  if (kind === "banner") {
+    delete profile.banner;
+  } else {
+    delete profile.avatar;
+  }
+  profile.updatedAt = new Date().toISOString();
+  const usage = writeProfile(clientId, profile, options);
+  return { usage };
+}
+
 function updateProfileBio(clientId, input, options = {}) {
   const profile = readProfile(clientId, options);
   const bio = String((input && input.bio) || "").trim().slice(0, 2000);
@@ -3359,6 +3450,8 @@ module.exports = {
   resolveSignedShareAttachment,
   updateProfileLink,
   getProfileBio,
+  getProfilePage,
+  getProfileImage,
   getProfileCalendarFeed,
   getProfileEvent,
   getProfileBoardWatch,
@@ -3392,6 +3485,9 @@ module.exports = {
   recordQuizAttempt,
   resetProfile,
   updateProfileBio,
+  updateProfilePage,
+  updateProfileImage,
+  deleteProfileImage,
   updateProfileBoardWatch,
   updateProfileCalendarFeed,
   updateProfileDisplayName,

@@ -38,6 +38,12 @@ router.get("/plugins", (request, response, next) => {
   });
 });
 
+// Segments owned by the authenticated DLC routes (dlc.js). This pre-auth asset
+// route must not swallow them, or e.g. GET /plugins/demo-users/logs (a public
+// plugin) would be treated as a missing asset and 404 instead of reaching the
+// logs/config endpoints behind requireApiKey.
+const RESERVED_PLUGIN_SEGMENTS = new Set(["config", "contents", "files", "logs", "playlists"]);
+
 // Public entry assets (JS/CSS/images) for opted-in plugins. A plugin's
 // config.json is never public.
 router.get("/plugins/:name/:fileName", (request, response, next) => {
@@ -47,7 +53,9 @@ router.get("/plugins/:name/:fileName", (request, response, next) => {
     return;
   }
   const fileName = String(request.params.fileName || "").trim();
-  if (!fileName || isRestrictedPublicPluginFile(name, fileName)) {
+  if (!fileName
+    || RESERVED_PLUGIN_SEGMENTS.has(fileName.toLowerCase())
+    || isRestrictedPublicPluginFile(name, fileName)) {
     next();
     return;
   }
