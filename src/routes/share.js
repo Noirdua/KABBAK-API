@@ -6,12 +6,11 @@ const {
   buildSharePath,
   decodeAttachmentPayload,
   normalizeJournalVisibility,
-  renderPostShareHtml,
   resolveDirectMessageToken,
-  resolvePostShareToken,
   resolveProfileLinkToken,
   resolveSignedShareAttachment
 } = require("../services/profile-service");
+const { renderPostShareHtml, resolvePostShareToken } = require("../services/post-share-service");
 const { resolveBroadcastToken } = require("../services/message-store");
 const { renderShareErrorPage, renderSharePage } = require("../services/share-service");
 
@@ -123,8 +122,16 @@ function resolveAttachmentForToken(token, attachmentId) {
     if (direct) {
       return direct;
     }
-    // Evidence assets are addressed by the evidence item id.
-    const evidence = (post.post.evidence || []).find((entry) => entry.id === attachmentId) || null;
+    const evidenceItems = post.post.evidence || [];
+    // Evidence media is addressed by its own attachment id.
+    for (const item of evidenceItems) {
+      const attachment = (item.attachments || []).find((entry) => entry.id === attachmentId);
+      if (attachment) {
+        return attachment;
+      }
+    }
+    // Fallback for links minted before per-attachment addressing.
+    const evidence = evidenceItems.find((entry) => entry.id === attachmentId) || null;
     return evidence ? (evidence.attachments || [])[0] || null : null;
   }
   const broadcast = resolveBroadcastToken(token);
@@ -176,9 +183,8 @@ router.get("/share/:token", shareRateLimiter, (request, response) => {
     return;
   }
 
-  response.status(404).setHeader("Content-Type", "text/html; charset=utf-8");
-  response.setHeader("X-Robots-Tag", "noindex, nofollow");
-  response.send(renderShareErrorPage({}));
+  setHtmlHeaders(response);
+  response.status(404).send(renderShareErrorPage({}));
 });
 
 router.get("/share/:token/asset/:attachmentId", shareRateLimiter, (request, response) => {

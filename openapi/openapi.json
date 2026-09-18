@@ -1854,7 +1854,7 @@
       "post": {
         "tags": ["profile"],
         "summary": "Create a post (share a journal entry via noteId, or a free post/thread via body, max 999 chars)",
-        "description": "Owner-facing post payloads include `sharePath` (the public share page path) when the profile's calendar feed secret is enabled, otherwise an empty string.",
+        "description": "Free posts/threads accept `body` (max 999 chars), `entries`, and `evidenceIds`. `entries` is the composer's ordered thread: each entry is `{ kind: \"text\", text }` (rich HTML) or `{ kind: \"evidence\", evidenceId }`, where `evidenceId` is a store item id also named in `evidenceIds` (an id referenced only by an entry is accepted and joins the post's evidence bucket). Entries render in the given order; more than the entry limit is rejected with `post_entries_limit_reached` rather than truncated. Owner-facing post payloads include `sharePath` (the public share page path) when the profile's calendar feed secret is enabled, otherwise an empty string.",
         "operationId": "createProfilePost",
         "responses": {
           "201": { "$ref": "#/components/responses/JsonPayload" },
@@ -1880,7 +1880,7 @@
       "get": {
         "tags": ["profile"],
         "summary": "Get the share page path, token, and HTML for one of the owner's posts",
-        "description": "Returns `{ path, token, html }`. When the profile has no feed secret the response is `{ path: \"\", token: \"\", html: \"\" }`.",
+        "description": "Returns `{ path, token, html }`. `html` is always rendered; when the profile has no feed secret `path` and `token` are empty strings.",
         "operationId": "getProfilePostShare",
         "parameters": [
           { "name": "postId", "in": "path", "required": true, "schema": { "type": "string" } }

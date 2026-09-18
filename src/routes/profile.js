@@ -63,8 +63,6 @@ const {
   updatePostEntry,
   deletePostEntry,
   addPostComment,
-  previewProfilePost,
-  getProfilePostShare,
   updateProfileCalendarFeed,
   updateProfileDisplayName,
   updateProfileDirectory,
@@ -76,6 +74,7 @@ const {
   updateProfilePluginState,
   updateProfilePreferredDeck
 } = require("../services/profile-service");
+const { getProfilePostShare, previewProfilePost } = require("../services/post-share-service");
 const {
   getInbox,
   getInboxMessage,
@@ -196,9 +195,6 @@ function mapProfileStorageError(error) {
   }
   if (error.code === "journal_private") {
     return createHttpError(403, "journal_private", error.message);
-  }
-  if (error.code === "note_not_found") {
-    return createNotFoundError("note_not_found", error.message);
   }
   if (error.code === "post_not_found") {
     return createNotFoundError("post_not_found", error.message);
@@ -957,7 +953,7 @@ router.post("/profile/posts/:postId/entries", wrapProfileHandler((request, respo
     getRequestBody(request),
     getProfileOptions(request, response)
   );
-  emitProfileMutationAuditEvent(request, response, { action: "add_profile_post_entry", entryId: result.entry.id });
+  emitProfileMutationAuditEvent(request, response, { action: "add_profile_post_entry", postId: request.params.postId, entryId: result.entry.id });
   response.status(201).apiSuccess({ entry: result.entry, entries: result.entries }, {
     storageUsedBytes: result.usage.usedBytes,
     storageQuotaBytes: result.usage.quotaBytes
@@ -972,7 +968,7 @@ router.patch("/profile/posts/:postId/entries/:entryId", wrapProfileHandler((requ
     getRequestBody(request),
     getProfileOptions(request, response)
   );
-  emitProfileMutationAuditEvent(request, response, { action: "update_profile_post_entry" });
+  emitProfileMutationAuditEvent(request, response, { action: "update_profile_post_entry", postId: request.params.postId, entryId: request.params.entryId });
   response.apiSuccess({ entries: result.entries }, {
     storageUsedBytes: result.usage.usedBytes,
     storageQuotaBytes: result.usage.quotaBytes
@@ -986,7 +982,7 @@ router.delete("/profile/posts/:postId/entries/:entryId", wrapProfileHandler((req
     request.params.entryId,
     getProfileOptions(request, response)
   );
-  emitProfileMutationAuditEvent(request, response, { action: "delete_profile_post_entry" });
+  emitProfileMutationAuditEvent(request, response, { action: "delete_profile_post_entry", postId: request.params.postId, entryId: request.params.entryId });
   response.apiSuccess({ removed: result.removed, entries: result.entries }, {
     storageUsedBytes: result.usage.usedBytes,
     storageQuotaBytes: result.usage.quotaBytes
@@ -1017,7 +1013,7 @@ router.delete("/profile/evidence/:evidenceId", wrapProfileHandler((request, resp
     request.params.evidenceId,
     getProfileOptions(request, response)
   );
-  emitProfileMutationAuditEvent(request, response, { action: "delete_evidence_store" });
+  emitProfileMutationAuditEvent(request, response, { action: "delete_evidence_store", evidenceId: request.params.evidenceId });
   response.apiSuccess({ removed: result.removed, count: result.count }, {
     storageUsedBytes: result.usage.usedBytes,
     storageQuotaBytes: result.usage.quotaBytes
@@ -1032,7 +1028,7 @@ router.post("/profile/posts/:postId/items", wrapProfileHandler((request, respons
     getProfileOptions(request, response)
   );
   emitProfileMutationAuditEvent(request, response, { action: "add_profile_post_item", postId: result.postId });
-  response.status(201).apiSuccess({ item: result.item, itemCount: result.itemCount }, {
+  response.status(201).apiSuccess({ item: result.item, evidenceCount: result.evidenceCount }, {
     storageUsedBytes: result.usage.usedBytes,
     storageQuotaBytes: result.usage.quotaBytes
   });
@@ -1045,8 +1041,8 @@ router.delete("/profile/posts/:postId/items/:itemId", wrapProfileHandler((reques
     request.params.itemId,
     getProfileOptions(request, response)
   );
-  emitProfileMutationAuditEvent(request, response, { action: "delete_profile_post_item" });
-  response.apiSuccess({ removed: result.removed, itemCount: result.itemCount }, {
+  emitProfileMutationAuditEvent(request, response, { action: "delete_profile_post_item", postId: request.params.postId, itemId: request.params.itemId });
+  response.apiSuccess({ removed: result.removed, evidenceCount: result.evidenceCount }, {
     storageUsedBytes: result.usage.usedBytes,
     storageQuotaBytes: result.usage.quotaBytes
   });

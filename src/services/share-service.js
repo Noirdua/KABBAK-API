@@ -54,6 +54,45 @@ function verifySignedShareToken(token, secret) {
   }
 }
 
+// Shared preamble for the signed `s1.` share tokens: decode the payload, load
+// the owning profile and verify the signature. Callers supply profile access
+// because profile-service owns storage; `expectType` narrows to one token kind.
+function resolveSignedShareTokenContext(token, { expectType = "", loadProfile, resolveSecret } = {}) {
+  const raw = String(token || "").trim();
+  const parts = raw.split(".");
+  if (parts.length !== 3 || parts[0] !== SHARE_SIGNED_PREFIX) {
+    return null;
+  }
+  let payload;
+  try {
+    payload = JSON.parse(base64UrlDecode(parts[1]));
+  } catch {
+    return null;
+  }
+  if (expectType && String(payload?.t || "") !== expectType) {
+    return null;
+  }
+  const clientId = String(payload?.c || "").trim();
+  if (!clientId) {
+    return null;
+  }
+  let profile;
+  try {
+    profile = loadProfile(clientId);
+  } catch {
+    return null;
+  }
+  const secret = resolveSecret(profile);
+  if (!secret) {
+    return null;
+  }
+  const verified = verifySignedShareToken(raw, secret);
+  if (!verified || (expectType && verified.t !== expectType)) {
+    return null;
+  }
+  return { raw, payload, clientId, profile, secret, verified };
+}
+
 function formatBytes(bytes) {
   const value = Number(bytes);
   if (!Number.isFinite(value) || value <= 0) {
@@ -109,6 +148,34 @@ function shareStyles() {
   ].join("");
 }
 
+// Only injected when a post supplies an aside, so link/message/broadcast pages
+// keep their exact single-column stylesheet.
+function postLayoutStyles() {
+  return [
+    ".post-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,280px);",
+    "gap:22px;align-items:start}",
+    ".post-column{min-width:0}",
+    ".rail{border:1px solid #3f3f46;border-radius:12px;background:#111118;padding:14px;min-width:0}",
+    ".rail-title{margin:0 0 12px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#a1a1aa;",
+    "display:flex;justify-content:space-between;gap:8px;align-items:center}",
+    ".rail-count{font-size:11px;letter-spacing:.04em;color:#71717a}",
+    ".rail-items{display:flex;flex-direction:column;gap:14px}",
+    ".rail-item{padding-top:14px;border-top:1px solid #27272a}",
+    ".rail-item:first-child{padding-top:0;border-top:0}",
+    ".rail-item-body{color:#f4f4f5;font-size:15px;line-height:1.5;overflow-wrap:anywhere}",
+    ".rail-item-body p{margin:0 0 10px}",
+    ".rail-item-meta{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;font-size:12px;line-height:1.35}",
+    ".rail-item-title{color:#a1a1aa;overflow-wrap:anywhere}",
+    ".rail-item-mark{color:#71717a;letter-spacing:.04em}",
+    ".evidence-marker{display:flex;gap:8px;align-items:baseline;padding:8px 12px;border:1px solid #3f3f46;",
+    "border-radius:10px;background:#111118;font-size:13px}",
+    ".evidence-marker-label{flex:0 0 auto;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#71717a}",
+    ".evidence-marker a{color:#c7d2fe;text-decoration:none}",
+    ".evidence-marker a:hover{text-decoration:underline}",
+    "@media (max-width:640px){.post-layout{grid-template-columns:1fr;gap:18px}}"
+  ].join("");
+}
+
 function renderShareBody({ title, description, bodyHtml, inlineBody }) {
   if (bodyHtml) {
     if (inlineBody) {
@@ -131,7 +198,10 @@ function renderShareCard({
   ogImageUrl = "",
   bodyHtml = "",
   blocksHtml = "",
-  inlineBody = false
+  inlineBody = false,
+  asideHtml = "",
+  railTitle = "Evidence",
+  railCount = 0
 }) {
   const safeTitle = escapeHtml(title || "Shared item");
   const safeKind = kind ? `<div class="kind">${escapeHtml(kind)}</div>` : "";
@@ -155,6 +225,16 @@ function renderShareCard({
     })
     .join("");
   const itemsSection = itemsHtml ? `<section class="items">${itemsHtml}</section>` : "";
+  const header = `${safeKind}<h1>${safeTitle}</h1>${meta}`;
+  const content = `${body}${blocks}${itemsSection}`;
+  const rail = asideHtml
+    ? `<aside class="rail"><h2 class="rail-title"><span>${escapeHtml(railTitle)}</span>`
+      + `<span class="rail-count">${escapeHtml(String(railCount))}</span></h2>`
+      + `<div class="rail-items">${asideHtml}</div></aside>`
+    : "";
+  const cardContent = asideHtml
+    ? `<div class="post-layout"><div class="post-column">${header}${content}</div>${rail}</div>`
+    : `${header}${content}`;
   const ogImage = ogImageUrl
     ? `<meta property="og:image" content="${escapeHtml(ogImageUrl)}">`
     : "";
@@ -174,17 +254,12 @@ function renderShareCard({
     '<meta property="og:type" content="article">',
     ogImage,
     descriptionMeta,
-    `<style>${shareStyles()}</style>`,
+    `<style>${shareStyles()}${asideHtml ? postLayoutStyles() : ""}</style>`,
     "</head>",
     "<body>",
     '<main class="card">',
     '<div class="brand">KABBAK</div>',
-    safeKind,
-    `<h1>${safeTitle}</h1>`,
-    meta,
-    body,
-    blocks,
-    itemsSection,
+    cardContent,
     "<footer>Shared from KABBAK</footer>",
     "</main>",
     "</body>",
@@ -197,8 +272,21 @@ function renderSharePage(params = {}) {
 }
 
 // Profile posts/theories render their already-sanitized HTML inline (not in an
-// iframe) with an optional block list below the body.
-function renderPostPage({ title, kind, author, dateLine, bodyHtml, blocksHtml, items, ogImageUrl }) {
+// iframe) with an optional block list below the body and an optional evidence
+// rail beside the post column.
+function renderPostPage({
+  title,
+  kind,
+  author,
+  dateLine,
+  bodyHtml,
+  blocksHtml,
+  items,
+  ogImageUrl,
+  asideHtml,
+  railTitle,
+  railCount
+}) {
   return renderShareCard({
     title,
     kind,
@@ -207,7 +295,10 @@ function renderPostPage({ title, kind, author, dateLine, bodyHtml, blocksHtml, i
     ogImageUrl,
     bodyHtml,
     blocksHtml,
-    inlineBody: true
+    inlineBody: true,
+    asideHtml,
+    railTitle,
+    railCount
   });
 }
 
@@ -240,5 +331,6 @@ module.exports = {
   renderPostPage,
   renderShareErrorPage,
   renderSharePage,
+  resolveSignedShareTokenContext,
   verifySignedShareToken
 };
