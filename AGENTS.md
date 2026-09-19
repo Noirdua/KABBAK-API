@@ -1,6 +1,6 @@
 # KABBAK — agent reference
 
-KABBAK is a correspondence encyclopedia (tarot, kabbalah, astrology, alphabets, I Ching, etc.). This repo is the **API**. The browser app is a sibling checkout: `../KABBAK-GUI`.
+KABBAK is a correspondence encyclopedia (tarot, kabbalah, astrology, alphabets, I Ching, etc.). This repo is the **API**. The browser app is a sibling checkout: `../KABBAK-GUI`. The native Android/iPhone shell is `../KABBAK-APP` (Capacitor wrapping that GUI).
 
 Do not invent a bundler or framework. API is Express + SQLite JSON blobs. GUI is static HTML + IIFE scripts on `window.*`.
 
@@ -10,6 +10,7 @@ Do not invent a bundler or framework. API is Express + SQLite JSON blobs. GUI is
 |---|---|
 | `KABBAK-API` (this) | HTTP API, SQLite snapshot, DLC/plugin serving, admin, profiles |
 | `KABBAK-GUI` | Static SPA (`index.html` + `app/*.js`), no build step |
+| `KABBAK-APP` | Capacitor Android/iPhone shell; syncs GUI into `www/` |
 | `KABBAK-DLC` | Operator-provided DLC catalog (plugins, packs). No default URL; live checkout is `imports/dlc/` |
 
 Local run order:
@@ -17,6 +18,7 @@ Local run order:
 1. API: `npm install && npm start` → `http://127.0.0.1:3100` (override bind with `HOST`)
 2. GUI: `cd ../KABBAK-GUI && npm start` → `http://127.0.0.1:8080`
 3. Browser: connection gate asks for API base URL + key
+4. Native: API must bind `HOST=0.0.0.0`; in `../KABBAK-APP` run `npm install && npm run android`. On a phone the gate needs the computer's LAN URL, not `localhost`.
 
 ## API layout
 
@@ -90,9 +92,10 @@ Layout skins currently in the DLC checkout:
 |---|---|
 | `layout-default` | Built-in top bar (`preserveChrome`) |
 | `layout-dock` | Left dock + HUD |
+| `layout-phone` | Native-first mobile chrome: app bar + horizontally scrollable bottom rail with a pinned More sheet; default skin in `KABBAK-APP`. Its page area is a positioning context so the full-bleed `#home-welcome` overlay cannot cover the chrome. |
 | `mindmap-layout` | Correspondence mindmap; tools/admin/plugin pages stay real screens |
 
-Only one skin is active (`kabbak-active-skin` in the browser). Default if unset: `layout-default`.
+Only one skin is active (`kabbak-active-skin` in the browser). Default if unset: `layout-default`. Native shell (`KABBAK-APP`) defaults to `layout-phone`.
 
 ## GUI layout (`KABBAK-GUI`)
 
@@ -186,7 +189,7 @@ Bot layout: `lib/kabbak-api.js` (client), `lib/catalog.js` (autocomplete + cache
 
 ## Pitfalls
 
-- Bind default is `127.0.0.1`. LAN access needs `HOST=0.0.0.0` and matching `KABBAK_ALLOWED_ORIGINS`.
+- Bind default is `127.0.0.1`. LAN access needs `HOST=0.0.0.0` and matching `KABBAK_ALLOWED_ORIGINS`. Capacitor origins (`https://localhost`, `capacitor://localhost`) are always allowed.
 - No default DLC/plugin catalog URL. `npm run dlc -- repo <url>` (more than one repo is allowed; `dlc list` groups by source). Or Admin → DLC.
 - Demo user is a DLC plugin (`demo-users`): GUI + server routes. Demo gate key is **not** public unless loopback or `KABBAK_DEMO_ACCESS=1`. Install the plugin to use it.
 - Hydrus has no hardcoded key; plugin config GET redacts secrets; file URLs are proxied through `/api/v1/integrations/hydrus-network/…`.

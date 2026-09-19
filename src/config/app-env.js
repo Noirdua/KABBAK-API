@@ -5,6 +5,12 @@ const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_JSON_BODY_LIMIT = "40mb";
 
 const localOriginPattern = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i;
+const nativeOriginPattern = /^(?:capacitor|ionic):\/\/localhost$/i;
+
+function isTrustedClientOrigin(origin) {
+  const value = String(origin || "").trim();
+  return localOriginPattern.test(value) || nativeOriginPattern.test(value);
+}
 
 function parseAllowedOrigins(rawValue) {
   return Array.from(new Set(
@@ -114,6 +120,11 @@ function buildCorsOptions() {
         return;
       }
 
+      if (isTrustedClientOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+
       // Consult the runtime settings store first so admins can adjust allowed
       // origins from the Admin panel without a restart.
       let configuredOrigins = appEnv.allowedOrigins;
@@ -130,7 +141,7 @@ function buildCorsOptions() {
 
       const isAllowedOrigin = configuredOrigins.length > 0
         ? configuredOrigins.includes(origin)
-        : localOriginPattern.test(origin) || (runtimeAllowNullOrigin && origin === "null");
+        : runtimeAllowNullOrigin && origin === "null";
 
       if (isAllowedOrigin) {
         callback(null, true);
@@ -148,5 +159,6 @@ function buildCorsOptions() {
 module.exports = {
   appEnv,
   buildCorsOptions,
+  isTrustedClientOrigin,
   parseBooleanEnv
 };
