@@ -9,6 +9,7 @@ const {
 const { getAccessLevelDefaultCapabilities } = require("./api-access-levels");
 const { managedApiClientsPath } = require("../config/paths");
 const { createConfigError } = require("../lib/config-error");
+const { writeFileAtomicSync } = require("../lib/atomic-file");
 
 function normalizeApiKey(value) {
   return String(value || "").trim();
@@ -173,8 +174,7 @@ function notifyManagedApiClientsWritten() {
 
 function writeManagedApiClients(clients, { filePath = managedApiClientsPath } = {}) {
   const normalizedClients = normalizeConfiguredClientEntries(clients, { sourceName: filePath });
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(normalizedClients, null, 2)}\n`, "utf8");
+  writeFileAtomicSync(filePath, `${JSON.stringify(normalizedClients, null, 2)}\n`);
   notifyManagedApiClientsWritten();
   return cloneConfiguredClients(normalizedClients);
 }

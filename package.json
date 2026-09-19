@@ -9,7 +9,9 @@
     "check": "npm run check:syntax && npm run check:openapi",
     "check:openapi": "node --test tests/openapi.contract.test.js",
     "check:syntax": "node scripts/check-syntax.js src scripts tests",
+    "accounts": "node scripts/manage-accounts.js",
     "clients": "node scripts/manage-api-clients.js",
+    "mail:test": "node scripts/test-mail.js",
     "dlc": "node scripts/manage-imports.js dlc",
     "imports": "node scripts/manage-imports.js",
     "import:texts": "node scripts/import-text-sources.js",
@@ -17,7 +19,8 @@
     "scrape:sacred-texts": "node scripts/scrape-sacred-texts.js",
     "scrape:zio-scans": "node scripts/scrape-zio-scans.js",
     "smoke": "node scripts/smoke-test-api.js",
-    "test": "npm run test:integration && npm run test:profile && npm run test:games && npm run test:calendar && npm run test:clients && npm run test:deck",
+    "test": "npm run test:integration && npm run test:profile && npm run test:games && npm run test:calendar && npm run test:clients && npm run test:accounts && npm run test:deck",
+    "test:accounts": "node --test tests/account-service.test.js",
     "test:deck": "node --test tests/deck-court-resolve.test.js",
     "test:games": "node --test tests/game-service.test.js tests/star-game.test.js",
     "test:calendar": "node --test tests/calendar-feed.test.js",
@@ -35,6 +38,7 @@
     "express": "^4.21.2",
     "express-rate-limit": "^8.6.0",
     "node-addon-api": "^7.1.1",
+    "nodemailer": "^6.10.1",
     "sharp": "^0.34.5",
     "suncalc": "^1.9.0"
   }

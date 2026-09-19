@@ -43,9 +43,9 @@ Layering: **routes → services → data-loader (SQLite documents)**. Do not que
 
 ### Middleware order (`src/app.js`)
 
-Compression → request id → IP ban → observability → security headers → CORS → JSON body (runtime limit) → **health + public assets** → `requireApiKey` → rate limit → access level → protected routers.
+Compression → request id → IP ban → observability → security headers → CORS → JSON body (runtime limit) → **health + public assets + `/auth/*` (own limiter)** → `requireApiKey` → rate limit → access level → protected routers.
 
-Public without a key: `/api/v1/health*`, `/branding`, non-tarot `/assets/img`. DLC plugins can add their own public routes via a manifest `server` entry (mounted at `/api/v1/plugins/<name>/server/…`) — e.g. the `demo-users` plugin serves `/demo-access`.
+Public without a key: `/api/v1/health*`, `/branding`, non-tarot `/assets/img`. Trial account routes are core and pre-auth too: `GET /auth/providers`, `POST /auth/challenge|signup|verify|resend|login`, and the email link `GET /auth/verify`. DLC plugins can add their own public routes via a manifest `server` entry (mounted at `/api/v1/plugins/<name>/server/…`) — e.g. the `demo-users` plugin serves `/demo-access`.
 
 ### Success envelope
 
@@ -58,6 +58,8 @@ Use `response.apiSuccess(data)` or `response.apiPaginated(items, { offset, limit
 ### Auth
 
 Keys: `x-api-key` or `Authorization: Bearer`. Query `apiKey` still works for `<img>`/`<audio>` tags; prefer headers. Precedence: managed `storage/config/api-clients.json` → env clients → `KABBAK_API_KEYS` → `KABBAK_API_KEY`. Managed clients can set `hidden: true` (kept out of Admin → Users) and `expiresAt` (ISO; expired keys stop authenticating) — used by the `demo-users` plugin. `KABBAK_NO_AUTH=1` opens routes. Access levels (`basic` / `premium` / …) are hardcoded in `src/config/api-access.js`; admin “tiers” UI does not remap routes. Admin mutations need role `admin` or scope `api:admin`.
+
+Trial accounts: `storage/config/accounts.json` stores a public `username`, a **private** email (never returned to clients), a scrypt password hash, and exactly one hidden managed client with `expiresAt`, so the trial key expires on its own. Signup needs a captcha first (`POST /auth/challenge` → signed arithmetic challenge), then emails a 6-digit code; the 30-day `premium` key is minted on `POST /auth/verify` and login reissues it while the trial is active. Email needs SMTP (`KABBAK_SMTP_URL` or `KABBAK_SMTP_HOST/PORT/USER/PASS/SECURE`, plus `KABBAK_MAIL_FROM`); without it the code is logged and returned as `devCode` while `KABBAK_EMAIL_DEV_FALLBACK` is on (default: non-production with no SMTP). Env: `KABBAK_SIGNUP_ENABLED`, `KABBAK_TRIAL_DAYS` (default 30), `KABBAK_TRIAL_ACCESS_LEVEL` (default `premium`), `KABBAK_AUTH_SECRET` (HMAC for captcha/verify tokens; auto-generated to `storage/config/auth-secret.json` when unset), `KABBAK_PUBLIC_API_URL` (public base for verify links). Manage with `npm run accounts -- list` / `remove <accountId>`. The GUI connection gate (`app/auth-signup.js`) signs in with username/password (the raw API key is an advanced option), runs signup → verify → auto-connect, and Settings → API Connection has Log out. Google/Apple login is not implemented; the provider flags are placeholders. SMTP/ signup env vars are listed in `.env.example`; verify email delivery with `npm run mail:test -- --to <address>` before opening signup.
 
 ### Data
 
@@ -143,7 +145,9 @@ API (this repo):
 
 ```text
 npm start                 # src/server.js
-npm test                  # integration + client CLI
+npm test                  # integration + service tests
+npm run accounts -- list  # trial accounts; remove <accountId> revokes the key
+npm run mail:test -- --to you@example.com   # SMTP smoke test for verification email
 npm run check:syntax
 npm run migrate:data      # rebuild SQLite snapshot
 npm run dlc               # DLC checkout helpers

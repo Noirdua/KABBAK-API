@@ -38,6 +38,7 @@ const pluginsPublicRoutes = require("./routes/plugins-public");
 const calendarFeedRoutes = require("./routes/calendar-feed");
 const shareRoutes = require("./routes/share");
 const directoryRoutes = require("./routes/directory");
+const { createAuthRoutes } = require("./routes/auth");
 const boardRoutes = require("./routes/board");
 const gameRoutes = require("./routes/games");
 
@@ -134,6 +135,18 @@ function createApp({ logger = console } = {}) {
   });
 
   app.use(apiBasePath, healthRoutes);
+  // Public trial-account signup/login (pre-auth for the connection gate). The
+  // limiter is mounted on the auth subtree so it never throttles other routes.
+  app.use(
+    `${apiBasePath}/auth`,
+    createGlobalRateLimiter({
+      windowMs: 60_000,
+      max: 20,
+      banAfterViolations: 3,
+      banForMs: 30 * 60 * 1000
+    }),
+    createAuthRoutes()
+  );
   assetGroups.forEach(({ routeSegment, rootPath, requiredAccessLevel }) => {
     const mountPath = createAssetMountPath(routeSegment);
     if (requiredAccessLevel) {

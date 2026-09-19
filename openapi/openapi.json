@@ -117,6 +117,53 @@
     }
   ],
   "paths": {
+    "/auth/providers": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Get available trial sign-in providers and trial policy",
+        "operationId": "getAuthProviders",
+        "security": [],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          }
+        }
+      }
+    },
+    "/auth/verify": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Verify an account email from a link and show a confirmation page",
+        "operationId": "verifyAuthEmail",
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "HTML confirmation page",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -3811,6 +3858,71 @@
           },
           {
             "$ref": "#/components/parameters/Ciphers"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/gematria/methods": {
+      "get": {
+        "tags": [
+          "gematria"
+        ],
+        "summary": "List Hebrew and Greek gematria methods",
+        "operationId": "listGematriaMethods",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/gematria/calculate": {
+      "get": {
+        "tags": [
+          "gematria"
+        ],
+        "summary": "Calculate the gematria value of a text",
+        "operationId": "calculateGematria",
+        "parameters": [
+          {
+            "name": "text",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "english",
+                "hebrew",
+                "greek"
+              ]
+            }
+          },
+          {
+            "name": "method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {

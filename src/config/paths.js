@@ -32,6 +32,7 @@ const deckRegistryPath = path.join(decksRoot, "decks.json");
 const managedApiClientsPath = path.join(storageConfigRoot, "api-clients.json");
 const apiRolesPath = path.join(storageConfigRoot, "api-roles.json");
 const apiAccessLevelsPath = path.join(storageConfigRoot, "api-access-levels.json");
+const accountsPath = path.join(storageConfigRoot, "accounts.json");
 
 module.exports = {
   projectRoot,
@@ -60,6 +61,7 @@ module.exports = {
   managedApiClientsPath,
   apiRolesPath,
   apiAccessLevelsPath,
+  accountsPath,
   decksImportRoot,
   textImportRoot,
   referencesImportRoot,
