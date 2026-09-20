@@ -1023,12 +1023,23 @@ function installItem(item, { log = () => {} } = {}) {
   if (!category) throw new Error(`Unknown DLC kind '${item.kind}'.`);
   if (category.kind === "pack") throw new Error(`'${name}' is a pack; expand it before installing.`);
 
-  // Locally created/edited DLC lives in the workspace checkout, not the git
-  // source. Install it from there when present; otherwise fetch from the repo.
-  const workspaceSource = path.join(dlcRoot, category.dir, name);
-  let source = "";
-  if (isDirectory(workspaceSource) && fs.readdirSync(workspaceSource).length) {
-    source = workspaceSource;
+  // Locally created/edited DLC lives in the workspace checkout (or the sibling
+  // KABBAK-DLC repo), not the git source. Install from there when present.
+  const localCandidates = [];
+  const seenRoots = new Set();
+  function addLocalCandidate(root) {
+    const resolved = path.resolve(root);
+    if (seenRoots.has(resolved)) return;
+    seenRoots.add(resolved);
+    localCandidates.push(path.join(root, category.dir, name));
+  }
+  addLocalCandidate(dlcRoot);
+  addLocalCandidate(path.join(projectRoot, "..", "KABBAK-DLC"));
+  for (const { root } of dlcSources.listEnabledSourceRoots()) {
+    addLocalCandidate(root);
+  }
+  let source = localCandidates.find((candidate) => isDirectory(candidate) && fs.readdirSync(candidate).length) || "";
+  if (source) {
     log(`Installing ${category.dir}/${name} from the local DLC checkout...`);
   } else {
     const sourceRecord = item.sourceId

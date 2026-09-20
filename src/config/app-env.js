@@ -7,9 +7,49 @@ const DEFAULT_JSON_BODY_LIMIT = "40mb";
 const localOriginPattern = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i;
 const nativeOriginPattern = /^(?:capacitor|ionic):\/\/localhost$/i;
 
+function isPrivateLanHost(hostname) {
+  const host = String(hostname || "").replace(/^\[|\]$/g, "").toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+    return true;
+  }
+  const parts = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!parts) {
+    return false;
+  }
+  const octets = parts.slice(1, 5).map(Number);
+  if (octets.some((octet) => octet > 255)) {
+    return false;
+  }
+  const [a, b] = octets;
+  if (a === 10) {
+    return true;
+  }
+  if (a === 192 && b === 168) {
+    return true;
+  }
+  if (a === 172 && b >= 16 && b <= 31) {
+    return true;
+  }
+  if (a === 100 && b >= 64 && b <= 127) {
+    return true;
+  }
+  return false;
+}
+
 function isTrustedClientOrigin(origin) {
   const value = String(origin || "").trim();
-  return localOriginPattern.test(value) || nativeOriginPattern.test(value);
+  if (localOriginPattern.test(value) || nativeOriginPattern.test(value)) {
+    return true;
+  }
+  try {
+    const url = new URL(value);
+    if (!/^https?:$/i.test(url.protocol)) {
+      return false;
+    }
+    return isPrivateLanHost(url.hostname);
+  } catch (_error) {
+    return false;
+  }
 }
 
 function parseAllowedOrigins(rawValue) {
@@ -110,12 +150,17 @@ const appEnv = Object.freeze({
   pluginUploadLimitBytes: parsePluginUploadLimitMb(process.env.KABBAK_MAX_PLUGIN_UPLOAD_MB)
 });
 
-function buildCorsOptions() {
+function isPublicCorsPath(pathname) {
+  const path = String(pathname || "").split("?")[0];
+  return /\/api\/v1\/(health|auth|branding)(?:\/|$)/.test(path);
+}
+
+function buildCorsOptions({ allowAnyOrigin = false } = {}) {
   const allowNullOrigin = appEnv.allowNullOrigin;
 
   return {
     origin(origin, callback) {
-      if (!origin) {
+      if (!origin || allowAnyOrigin) {
         callback(null, true);
         return;
       }
@@ -159,6 +204,7 @@ function buildCorsOptions() {
 module.exports = {
   appEnv,
   buildCorsOptions,
+  isPublicCorsPath,
   isTrustedClientOrigin,
   parseBooleanEnv
 };

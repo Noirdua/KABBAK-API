@@ -66,6 +66,40 @@ function compactDateTime(dateIso, time) {
   return `${compactDate(dateIso)}T${hhmm.padStart(4, "0")}00`;
 }
 
+function compactUtcStamp(date) {
+  const instant = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(instant.getTime())) {
+    return compactUtcStamp(new Date());
+  }
+  return `${instant.getUTCFullYear()}${pad2(instant.getUTCMonth() + 1)}${pad2(instant.getUTCDate())}T${pad2(instant.getUTCHours())}${pad2(instant.getUTCMinutes())}${pad2(instant.getUTCSeconds())}Z`;
+}
+
+function icsUtcOffset(offsetMinutes) {
+  const sign = offsetMinutes < 0 ? "-" : "+";
+  const absolute = Math.abs(Math.round(Number(offsetMinutes) || 0));
+  return `${sign}${pad2(Math.floor(absolute / 60))}${pad2(absolute % 60)}`;
+}
+
+function offsetTzId(offsetMinutes) {
+  return `UTC${icsUtcOffset(offsetMinutes)}`;
+}
+
+function renderVtimezone(offsetMinutes) {
+  const offset = icsUtcOffset(offsetMinutes);
+  const tzid = offsetTzId(offsetMinutes);
+  return [
+    "BEGIN:VTIMEZONE",
+    `TZID:${tzid}`,
+    "BEGIN:STANDARD",
+    "DTSTART:19700101T000000",
+    `TZOFFSETFROM:${offset}`,
+    `TZOFFSETTO:${offset}`,
+    `TZNAME:${tzid}`,
+    "END:STANDARD",
+    "END:VTIMEZONE"
+  ];
+}
+
 function compactTimestamp(isoString) {
   const date = new Date(isoString);
   if (Number.isNaN(date.getTime())) {
@@ -133,14 +167,20 @@ function buildRRule(recurrence, allDay) {
 
 function renderVeventLines(event) {
   const lines = ["BEGIN:VEVENT", `UID:${event.uid}`, `DTSTAMP:${event.dtstamp}`];
-  if (event.allDay) {
+  if (event.utcStart instanceof Date && !Number.isNaN(event.utcStart.getTime())) {
+    lines.push(`DTSTART:${compactUtcStamp(event.utcStart)}`);
+    const utcEnd = event.utcEnd instanceof Date && !Number.isNaN(event.utcEnd.getTime())
+      ? event.utcEnd
+      : new Date(event.utcStart.getTime() + 30 * 60 * 1000);
+    lines.push(`DTEND:${compactUtcStamp(utcEnd)}`);
+  } else if (event.allDay) {
     lines.push(`DTSTART;VALUE=DATE:${compactDate(event.date)}`);
     lines.push(`DTEND;VALUE=DATE:${compactDate(addIsoDays(event.date, 1))}`);
   } else {
-    lines.push(`DTSTART:${compactDateTime(event.date, event.startTime)}`);
+    const tzid = event.tzid ? `;TZID=${event.tzid}` : "";
+    lines.push(`DTSTART${tzid}:${compactDateTime(event.date, event.startTime)}`);
     if (event.endTime) {
-      // Hours that cross midnight end on the next day.
-      lines.push(`DTEND:${compactDateTime(event.endDate || event.date, event.endTime)}`);
+      lines.push(`DTEND${tzid}:${compactDateTime(event.endDate || event.date, event.endTime)}`);
     }
   }
   if (event.rrule) {
@@ -196,17 +236,30 @@ function renderVjournalLines(journal) {
   return lines;
 }
 
-function renderIcs(calendarName, events) {
+function renderIcs(calendarName, events, offsetMinutes = 0) {
+  const tzid = offsetTzId(offsetMinutes);
+  const usesLocalTz = events.some((event) => event
+    && event.component !== "journal"
+    && event.allDay !== true
+    && !(event.utcStart instanceof Date)
+    && event.startTime);
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//KABBAK//Calendar Feed//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    `X-WR-CALNAME:${escapeIcsText(calendarName)}`
+    `X-WR-CALNAME:${escapeIcsText(calendarName)}`,
+    `X-WR-TIMEZONE:${tzid}`
   ];
+  if (usesLocalTz) {
+    lines.push(...renderVtimezone(offsetMinutes));
+  }
   events.forEach((event) => {
-    lines.push(...(event.component === "journal" ? renderVjournalLines(event) : renderVeventLines(event)));
+    const stamped = usesLocalTz && event && event.allDay !== true && !(event.utcStart instanceof Date) && event.startTime
+      ? { ...event, tzid }
+      : event;
+    lines.push(...(stamped.component === "journal" ? renderVjournalLines(stamped) : renderVeventLines(stamped)));
   });
   lines.push("END:VCALENDAR");
   return `${lines.map(foldIcsLine).join("\r\n")}\r\n`;
@@ -226,10 +279,50 @@ function normalizeLayers(rawLayers) {
 
 // Feed times are civil dates at the subscriber's location, so resolve an offset
 // from the request, then the saved location, then the longitude.
+function offsetMinutesForTimeZone(timeZone, at = new Date()) {
+  if (!String(timeZone || "").trim()) {
+    return null;
+  }
+  try {
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+    const parts = Object.fromEntries(
+      fmt.formatToParts(at).filter((part) => part.type !== "literal").map((part) => [part.type, part.value])
+    );
+    const asUtc = Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour),
+      Number(parts.minute),
+      Number(parts.second)
+    );
+    const offset = Math.round((asUtc - at.getTime()) / 60000);
+    if (!Number.isFinite(offset) || offset < -720 || offset > 840) {
+      return null;
+    }
+    return offset;
+  } catch (_error) {
+    return null;
+  }
+}
+
 function resolveFeedOffsetMinutes(profile, explicit) {
   const provided = Number(explicit);
   if (Number.isFinite(provided) && provided >= -720 && provided <= 840) {
     return Math.round(provided);
+  }
+  const fromZone = offsetMinutesForTimeZone(profile?.location?.timeZone);
+  if (fromZone != null) {
+    return fromZone;
   }
   const stored = Number(profile?.location?.utcOffsetMinutes);
   if (Number.isFinite(stored) && stored >= -720 && stored <= 840) {
@@ -254,8 +347,7 @@ function localDateLabel(date, offsetMinutes) {
 
 function formatLocalMoment(date, offsetMinutes) {
   const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
-  const absolute = Math.abs(offsetMinutes);
-  const zone = `UTC${offsetMinutes < 0 ? "-" : "+"}${pad2(Math.floor(absolute / 60))}:${pad2(absolute % 60)}`;
+  const zone = offsetTzId(offsetMinutes).replace(/([+-])(\d{2})(\d{2})$/, "$1$2:$3");
   return `${localDateLabel(date, offsetMinutes)} ${pad2(shifted.getUTCHours())}:${pad2(shifted.getUTCMinutes())} ${zone}`;
 }
 
@@ -492,9 +584,12 @@ function collectMoonPhases(fromIso, toIso, target, { offsetMinutes = 0, phases }
       target.push({
         uid: `moon-${slug}-${date}@kabbak`,
         dtstamp: compactTimestamp(new Date().toISOString()),
-        allDay: true,
+        allDay: false,
         date,
         time: localTimeLabel(found.date, offsetMinutes),
+        startTime: localTimeLabel(found.date, offsetMinutes),
+        utcStart: found.date,
+        utcEnd: new Date(found.date.getTime() + 30 * 60 * 1000),
         summary: `Moon: ${label}`,
         description: `${label} exact at ${formatLocalMoment(found.date, offsetMinutes)}.`,
         categories: "moon"
@@ -537,44 +632,40 @@ function collectAstrologyEvents(referenceData, fromIso, toIso, target, { offsetM
     const time = localTimeLabel(found.date, offsetMinutes);
     const exact = formatLocalMoment(found.date, offsetMinutes);
     const dtstamp = compactTimestamp(new Date().toISOString());
+    const timed = {
+      dtstamp,
+      allDay: false,
+      date,
+      time,
+      startTime: time,
+      utcStart: found.date,
+      utcEnd: new Date(found.date.getTime() + 30 * 60 * 1000),
+      categories: "astrology"
+    };
 
     if (detail === "sign") {
       target.push({
+        ...timed,
         uid: `sign-${sign?.id || signOrder}-${date}@kabbak`,
-        dtstamp,
-        allDay: true,
-        date,
-        time,
         summary: `Sun enters ${signName}`,
-        description: `Sun enters ${signName} at 0° ${signName} — exact ${exact}.`,
-        categories: "astrology"
+        description: `Sun enters ${signName} at 0° ${signName} — exact ${exact}.`
       });
     } else if (detail === "degree") {
       target.push({
+        ...timed,
         uid: `degree-${sign?.id || signOrder}-${degree}-${date}@kabbak`,
-        dtstamp,
-        allDay: true,
-        date,
-        time,
         summary: `Sun ${degree}° ${signName}`,
-        description: `Sun reaches ${degree}° ${signName} — exact ${exact}.`,
-        categories: "astrology"
+        description: `Sun reaches ${degree}° ${signName} — exact ${exact}.`
       });
     } else {
       const decanIndex = Math.floor((normalized % 30) / DECAN_DEGREES) + 1;
       const decan = (decansBySign[sign?.id] || []).find((entry) => entry.index === decanIndex) || null;
       const label = decan?.tarotMinorArcana || `${signName} decan ${decanIndex}`.trim();
       target.push({
+        ...timed,
         uid: `decan-${sign?.id || signOrder}-${decanIndex}-${date}@kabbak`,
-        dtstamp,
-        allDay: true,
-        date,
-        time,
-        // Index is 1..3 within the sign (0°/10°/20°) and resets each sign; make
-        // that explicit, since the tarot card number runs across the zodiac.
         summary: `Decan ${decanIndex}/3: ${label}`,
-        description: `Sun enters decan ${decanIndex} of ${signName} (${label}) at ${degree}° ${signName} — exact ${exact}.`,
-        categories: "astrology"
+        description: `Sun enters decan ${decanIndex} of ${signName} (${label}) at ${degree}° ${signName} — exact ${exact}.`
       });
     }
     targetLongitude = normalized + step;
@@ -624,6 +715,8 @@ function collectPlanetaryHours(profile, fromIso, toIso, target, { offsetMinutes 
         startTime: `${pad2(localStart.getUTCHours())}:${pad2(localStart.getUTCMinutes())}`,
         endTime: `${pad2(localEnd.getUTCHours())}:${pad2(localEnd.getUTCMinutes())}`,
         endDate: endDate !== date ? endDate : undefined,
+        utcStart: start,
+        utcEnd: finish,
         summary: `${symbol ? `${symbol} ` : ""}${planetName} hour`,
         description: `${hour.isDaylight ? "Day" : "Night"} hour of ${planetName}.`,
         categories: "planetary"
@@ -716,7 +809,7 @@ async function buildCalendarFeed({ token, layers, notesFormat = "", now = new Da
   });
 
   const calendarName = String(resolved.profile.displayName || "").trim() || "KABBAK";
-  const body = renderIcs(calendarName, feedEvents);
+  const body = renderIcs(calendarName, feedEvents, offsetMinutes);
   writeFeedCache(cacheKey, body);
   return body;
 }
@@ -762,11 +855,11 @@ async function collectSubscriptionEvents({
 
 // The same events as JSON for the in-app calendar, so a user can confirm what
 // their subscription contains. `time` is the exact local moment when known.
-async function buildProfileCalendarEvents(clientId, { fromIso, toIso, options = {} } = {}) {
+async function buildProfileCalendarEvents(clientId, { fromIso, toIso, utcOffsetMinutes, options = {} } = {}) {
   const profile = readProfile(clientId, options);
   const stored = profile.calendarFeed && typeof profile.calendarFeed === "object" ? profile.calendarFeed : {};
   const layerSet = normalizeLayers(stored.layers);
-  const offsetMinutes = resolveFeedOffsetMinutes(profile);
+  const offsetMinutes = resolveFeedOffsetMinutes(profile, utcOffsetMinutes);
   const noteMode = String(stored.notesFormat || "events").toLowerCase() === "journal" ? "journal" : "events";
   const feedOptions = normalizeCalendarFeedOptions(stored.options);
   // The in-app calendar renders the profile's own events from the events API and

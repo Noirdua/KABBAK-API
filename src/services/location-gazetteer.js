@@ -50,7 +50,8 @@ function summarizeRegion(region, country) {
     countryName: country.name,
     latitude: region.latitude,
     longitude: region.longitude,
-    cityCount: region.cities.length
+    cityCount: region.cities.length,
+    timeZone: timeZoneForPlace(country.id, region.localId)
   };
 }
 
@@ -64,12 +65,74 @@ function summarizeCity(city, country, region = null) {
     regionId: region ? region.id : "",
     regionName: region ? region.name : "",
     latitude: city.latitude,
-    longitude: city.longitude
+    longitude: city.longitude,
+    timeZone: timeZoneForPlace(country.id, region?.localId)
   };
 }
 
 function placeLabel(parts) {
   return parts.filter(Boolean).join(", ");
+}
+
+const US_REGION_TIME_ZONES = Object.freeze({
+  al: "America/Chicago",
+  ak: "America/Anchorage",
+  az: "America/Phoenix",
+  ar: "America/Chicago",
+  ca: "America/Los_Angeles",
+  co: "America/Denver",
+  ct: "America/New_York",
+  de: "America/New_York",
+  dc: "America/New_York",
+  fl: "America/New_York",
+  ga: "America/New_York",
+  hi: "Pacific/Honolulu",
+  id: "America/Boise",
+  il: "America/Chicago",
+  in: "America/Indiana/Indianapolis",
+  ia: "America/Chicago",
+  ks: "America/Chicago",
+  ky: "America/New_York",
+  la: "America/Chicago",
+  me: "America/New_York",
+  md: "America/New_York",
+  ma: "America/New_York",
+  mi: "America/Detroit",
+  mn: "America/Chicago",
+  ms: "America/Chicago",
+  mo: "America/Chicago",
+  mt: "America/Denver",
+  ne: "America/Chicago",
+  nv: "America/Los_Angeles",
+  nh: "America/New_York",
+  nj: "America/New_York",
+  nm: "America/Denver",
+  ny: "America/New_York",
+  nc: "America/New_York",
+  nd: "America/Chicago",
+  oh: "America/New_York",
+  ok: "America/Chicago",
+  or: "America/Los_Angeles",
+  pa: "America/New_York",
+  ri: "America/New_York",
+  sc: "America/New_York",
+  sd: "America/Chicago",
+  tn: "America/Chicago",
+  tx: "America/Chicago",
+  ut: "America/Denver",
+  vt: "America/New_York",
+  va: "America/New_York",
+  wa: "America/Los_Angeles",
+  wv: "America/New_York",
+  wi: "America/Chicago",
+  wy: "America/Denver"
+});
+
+function timeZoneForPlace(countryId, regionLocalId) {
+  if (String(countryId || "") === "us") {
+    return US_REGION_TIME_ZONES[String(regionLocalId || "").toLowerCase()] || "";
+  }
+  return "";
 }
 
 function buildIndex() {
@@ -307,7 +370,8 @@ function resolvePlace(input = {}) {
       longitude: city.longitude,
       countryId: city.country.id,
       regionId: city.region ? city.region.id : "",
-      cityId: city.id
+      cityId: city.id,
+      timeZone: timeZoneForPlace(city.country.id, city.region?.localId)
     };
   }
 
@@ -324,7 +388,8 @@ function resolvePlace(input = {}) {
       longitude: region.longitude,
       countryId: region.country.id,
       regionId: region.id,
-      cityId: ""
+      cityId: "",
+      timeZone: timeZoneForPlace(region.country.id, region.localId)
     };
   }
 

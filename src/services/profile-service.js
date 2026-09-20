@@ -268,6 +268,7 @@ function normalizeStoredLocation(location) {
     countryId: String(location.countryId || "").trim(),
     regionId: String(location.regionId || "").trim(),
     cityId: String(location.cityId || "").trim(),
+    timeZone: normalizeTimeZoneId(location.timeZone),
     utcOffsetMinutes
   };
 }
@@ -3874,6 +3875,55 @@ function updateProfileBio(clientId, input, options = {}) {
   };
 }
 
+function normalizeTimeZoneId(raw) {
+  const value = String(raw || "").trim();
+  if (!value || value.length > 80 || !/^[A-Za-z0-9_+\-\/]+$/.test(value)) {
+    return "";
+  }
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date());
+    return value;
+  } catch (_error) {
+    return "";
+  }
+}
+
+function offsetMinutesForTimeZone(timeZone, at = new Date()) {
+  if (!String(timeZone || "").trim()) {
+    return null;
+  }
+  try {
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+    const parts = Object.fromEntries(
+      fmt.formatToParts(at).filter((part) => part.type !== "literal").map((part) => [part.type, part.value])
+    );
+    const asUtc = Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour),
+      Number(parts.minute),
+      Number(parts.second)
+    );
+    const offset = Math.round((asUtc - at.getTime()) / 60000);
+    if (!Number.isFinite(offset) || offset < -720 || offset > 840) {
+      return null;
+    }
+    return offset;
+  } catch (_error) {
+    return null;
+  }
+}
+
 function updateProfileLocation(clientId, input, options = {}) {
   const profile = readProfile(clientId, options);
   let latitude = Number(input?.latitude ?? input?.lat);
@@ -3897,10 +3947,14 @@ function updateProfileLocation(clientId, input, options = {}) {
     );
   }
   // Offset powers location-aware calendar subscriptions (moon/decan civil dates).
+  const timeZone = normalizeTimeZoneId(input?.timeZone);
+  const fromZone = timeZone ? offsetMinutesForTimeZone(timeZone) : null;
   const rawOffset = Number(input?.utcOffsetMinutes);
-  const utcOffsetMinutes = Number.isFinite(rawOffset) && rawOffset >= -720 && rawOffset <= 840
-    ? Math.round(rawOffset)
-    : null;
+  const utcOffsetMinutes = Number.isFinite(fromZone)
+    ? fromZone
+    : (Number.isFinite(rawOffset) && rawOffset >= -720 && rawOffset <= 840
+      ? Math.round(rawOffset)
+      : null);
   const location = {
     latitude,
     longitude,
@@ -3909,6 +3963,7 @@ function updateProfileLocation(clientId, input, options = {}) {
     countryId: String(input?.countryId || input?.country || place?.countryId || "").trim(),
     regionId: String(input?.regionId || input?.region || place?.regionId || "").trim(),
     cityId: String(input?.cityId || input?.city || place?.cityId || "").trim(),
+    timeZone,
     utcOffsetMinutes
   };
   profile.location = location;

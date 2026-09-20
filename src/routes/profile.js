@@ -499,7 +499,12 @@ router.get("/profile/calendar-events", wrapProfileHandler(async (request, respon
   }
   const result = await buildProfileCalendarEvents(
     getProfileClientId(request, response),
-    { fromIso, toIso, options: getProfileOptions(request, response) }
+    {
+      fromIso,
+      toIso,
+      utcOffsetMinutes: request.query.utcOffsetMinutes,
+      options: getProfileOptions(request, response)
+    }
   );
   response.apiSuccess(result);
 }));

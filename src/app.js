@@ -5,7 +5,7 @@ const compression = require("compression");
 const { createNotFoundError } = require("./lib/http-errors");
 const { escapeRegExp } = require("./lib/string-utils");
 const { dataRoot, decksRoot, imgRoot } = require("./config/paths");
-const { buildCorsOptions } = require("./config/app-env");
+const { buildCorsOptions, isPublicCorsPath } = require("./config/app-env");
 const { apiBasePath } = require("./config/service");
 const { requireApiAccessLevel } = require("./middleware/api-access");
 const { requireApiKey } = require("./middleware/api-key");
@@ -126,7 +126,11 @@ function createApp({ logger = console } = {}) {
     logMode: () => require("./services/runtime-settings").getRuntimeSettings().requestLogMode
   }));
   app.use(applyApiSecurityHeaders);
-  app.use(cors(buildCorsOptions()));
+  const publicCors = cors(buildCorsOptions({ allowAnyOrigin: true }));
+  const restrictedCors = cors(buildCorsOptions());
+  app.use((request, response, next) => {
+    (isPublicCorsPath(request.path) ? publicCors : restrictedCors)(request, response, next);
+  });
   // The body limit is runtime-adjustable from the Admin panel, so resolve it
   // per request (parsers are cached per limit value).
   app.use((request, response, next) => {
