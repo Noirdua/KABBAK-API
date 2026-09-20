@@ -86,6 +86,11 @@ const { buildProfileCalendarEvents } = require("../services/calendar-feed-servic
 const { appendReply } = require("../services/reply-store");
 const { readManagedApiClients } = require("../services/api-client-registry");
 const { resolveClientLimits } = require("../services/api-roles");
+const {
+  buildSharedDemoProfileSummary,
+  createDemoPersonalDisabledError,
+  isSharedDemoClientId
+} = require("../lib/demo-client");
 
 const router = createApiRouter();
 
@@ -259,15 +264,43 @@ router.use("/profile", (request, response, next) => {
     return;
   }
 
+  if (isSharedDemoClientId(auth.clientId) && !isDemoAllowedProfileRequest(request)) {
+    next(createDemoPersonalDisabledError());
+    return;
+  }
+
   next();
 });
 
+function isDemoAllowedProfileRequest(request) {
+  if (String(request.method || "").toUpperCase() !== "GET") {
+    return false;
+  }
+  const remainder = String(request.url || request.path || "").split("?")[0].replace(/\/+$/, "");
+  if (remainder === "" || remainder === "/" || remainder === "/profile") {
+    return true;
+  }
+  const original = String(request.originalUrl || "").split("?")[0].replace(/\/+$/, "");
+  return /(?:^|\/)profile$/.test(original);
+}
+
 router.get("/profile", wrapProfileHandler((request, response) => {
-  const summary = getProfileSummary(getProfileClientId(request, response), getProfileOptions(request, response));
+  const clientId = getProfileClientId(request, response);
   const auth = response.locals?.auth || request.auth || {};
+  const authName = String(auth.name || "").trim();
+  if (isSharedDemoClientId(clientId)) {
+    response.apiSuccess({
+      ...buildSharedDemoProfileSummary(clientId),
+      authName
+    });
+    return;
+  }
+  const summary = getProfileSummary(clientId, getProfileOptions(request, response));
   response.apiSuccess({
     ...summary,
-    authName: String(auth.name || "").trim()
+    authName,
+    demo: false,
+    personalFeatures: true
   });
 }));
 

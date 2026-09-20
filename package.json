@@ -25,7 +25,7 @@
     "test:games": "node --test tests/game-service.test.js tests/star-game.test.js",
     "test:calendar": "node --test tests/calendar-feed.test.js",
     "test:clients": "node --test tests/manage-api-clients.script.test.js",
-    "test:integration": "node --test tests/app.integration.test.js tests/app-env.test.js",
+    "test:integration": "node --test tests/app.integration.test.js tests/app-env.test.js tests/demo-client.test.js",
     "test:profile": "node --test tests/profile-service.test.js tests/profile-post-share.test.js",
     "start": "node src/server.js",
     "dev": "node --watch src/server.js"

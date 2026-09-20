@@ -26,6 +26,7 @@ const {
   generateManagedApiClientKey,
   readManagedApiClients,
   removeManagedApiClient,
+  rotateManagedApiClientKey,
   upsertManagedApiClient
 } = require("./api-client-registry");
 
@@ -248,6 +249,16 @@ function findAccountByEmail(email, { filePath = accountsPath } = {}) {
   return readAccounts({ filePath }).find((account) => account.emailNormalized === normalizedEmail) || null;
 }
 
+function findAccountByIdentifier(identifier, { filePath = accountsPath } = {}) {
+  const value = String(identifier || "").trim();
+  if (!value) {
+    return null;
+  }
+  return value.includes("@")
+    ? findAccountByEmail(value, { filePath })
+    : findAccountByUsername(value, { filePath });
+}
+
 function getAccountById(accountId, { filePath = accountsPath } = {}) {
   return readAccounts({ filePath }).find((account) => account.id === accountId) || null;
 }
@@ -400,6 +411,84 @@ function resendVerification({ username, filePath = accountsPath } = {}) {
   };
 }
 
+// Forgot password: always report "sent" to avoid account enumeration; only an
+// existing account actually gets a code.
+function invalidResetCode() {
+  return createHttpError(400, "invalid_code", "That code is not correct.");
+}
+
+function requestPasswordReset({ identifier, filePath = accountsPath } = {}) {
+  const account = findAccountByIdentifier(identifier, { filePath });
+  if (!account) {
+    return { found: false };
+  }
+
+  const existing = account.passwordReset;
+  if (existing?.codeHash && Date.parse(existing.expiresAt || "") > Date.now()) {
+    return { found: true, throttled: true };
+  }
+
+  const code = generateVerificationCode();
+  updateAccount(account.id, {
+    passwordReset: createVerificationRecord(account.id, code)
+  }, { filePath });
+
+  const updated = getAccountById(account.id, { filePath }) || account;
+  return {
+    found: true,
+    account: publicAccount(updated),
+    email: account.email,
+    code,
+    expiresAt: updated.passwordReset.expiresAt
+  };
+}
+
+function resetPassword({ identifier, code, password, filePath = accountsPath, clientsFilePath } = {}) {
+  const validPassword = assertPassword(password);
+  const account = findAccountByIdentifier(identifier, { filePath });
+  if (!account) {
+    throw invalidResetCode();
+  }
+
+  const record = account.passwordReset;
+  if (!record || !record.codeHash || Date.parse(record.expiresAt || "") <= Date.now()) {
+    throw invalidResetCode();
+  }
+  if (Number(record.attempts || 0) >= VERIFICATION_MAX_ATTEMPTS) {
+    throw createHttpError(429, "too_many_attempts", "Too many incorrect codes. Request a new one.");
+  }
+
+  const provided = hashVerificationCode(account.id, code);
+  if (!timingSafeEqualHex(record.codeHash, provided)) {
+    updateAccount(account.id, {
+      passwordReset: { ...record, attempts: Number(record.attempts || 0) + 1 }
+    }, { filePath });
+    throw invalidResetCode();
+  }
+
+  let rotated = false;
+  if (account.trial?.clientId) {
+    rotateManagedApiClientKey(account.trial.clientId, { filePath: clientsFilePath });
+    rotated = true;
+  }
+
+  updateAccount(account.id, {
+    password: createPasswordRecord(validPassword),
+    emailVerified: true,
+    status: "active",
+    passwordReset: null,
+    verification: null
+  }, { filePath });
+
+  const updated = getAccountById(account.id, { filePath }) || account;
+  const trial = issueTrial(updated, { filePath, clientsFilePath });
+  return {
+    account: publicAccount(getAccountById(account.id, { filePath }) || updated),
+    trial,
+    rotated
+  };
+}
+
 function completeVerification(account, { filePath, clientsFilePath } = {}) {
   updateAccount(account.id, { emailVerified: true, status: "active", verification: null }, { filePath });
   const verified = getAccountById(account.id, { filePath }) || account;
@@ -542,11 +631,14 @@ module.exports = {
   resendVerification,
   verifyEmail,
   verifyEmailByToken,
+  requestPasswordReset,
+  resetPassword,
   login,
   authenticate,
   issueTrial,
   findAccountByUsername,
   findAccountByEmail,
+  findAccountByIdentifier,
   getAccountById,
   listAccounts,
   removeAccount,

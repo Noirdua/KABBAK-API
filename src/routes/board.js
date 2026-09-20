@@ -21,11 +21,13 @@ const {
   updateProfileBoardWatch
 } = require("../services/profile-service");
 const { ADMIN_API_MANAGEMENT_CAPABILITY } = require("../middleware/api-client-capability");
+const { rejectSharedDemoPersonalWrites } = require("../lib/demo-client");
 
 // Internal community message board. Requires a valid API key and is never
 // exposed publicly. Moderation is minimal: authors delete their own posts and
 // admins can delete anything.
 const router = createApiRouter();
+router.use("/board", rejectSharedDemoPersonalWrites);
 
 function getAuth(request, response) {
   const auth = response.locals?.auth || request.auth || {};

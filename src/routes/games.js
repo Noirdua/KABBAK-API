@@ -11,6 +11,7 @@ const {
   listSessions,
   playMove
 } = require("../services/game-service");
+const { createDemoPersonalDisabledError, isSharedDemoClientId } = require("../lib/demo-client");
 
 const router = createApiRouter();
 
@@ -21,6 +22,32 @@ function getAuth(request, response) {
   }
   return auth;
 }
+
+function isDemoAllowedGamesRequest(request) {
+  if (String(request.method || "").toUpperCase() !== "GET") {
+    return false;
+  }
+  const url = String(request.originalUrl || request.url || "").split("?")[0].replace(/\/+$/, "");
+  return /\/games$/.test(url);
+}
+
+router.use("/games", (request, response, next) => {
+  if (request.method === "OPTIONS") {
+    next();
+    return;
+  }
+  try {
+    const auth = getAuth(request, response);
+    if (isSharedDemoClientId(auth.clientId) && !isDemoAllowedGamesRequest(request)) {
+      next(createDemoPersonalDisabledError());
+      return;
+    }
+  } catch (error) {
+    next(mapGameError(error));
+    return;
+  }
+  next();
+});
 
 function mapGameError(error) {
   if (error?.code === "game_not_found") {

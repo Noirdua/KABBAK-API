@@ -51,7 +51,8 @@ function createAuthRoutes() {
         required: true,
         configured: mail.isMailConfigured(),
         devFallback: mail.isDevFallbackEnabled()
-      }
+      },
+      passwordReset: true
     });
   });
 
@@ -149,6 +150,59 @@ function createAuthRoutes() {
         ...(delivered.delivered ? {} : { emailConfigured: mail.isMailConfigured() }),
         ...(devFallback ? { devCode: result.code } : {})
       });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/forgot", async (request, response, next) => {
+    try {
+      const captchaOk = captcha.verifyChallenge({
+        token: request.body?.captchaToken,
+        answer: request.body?.captchaAnswer
+      });
+      if (!captchaOk) {
+        throw createHttpError(400, "captcha_failed", "That captcha answer was not correct. Try the new challenge.");
+      }
+
+      const result = accounts.requestPasswordReset({ identifier: request.body?.identifier });
+      const shouldSend = result.found === true && result.throttled !== true;
+
+      if (shouldSend) {
+        await mail.sendMail({
+          to: result.email,
+          subject: "Reset your KABBAK password",
+          text: [
+            `Your KABBAK password reset code is ${result.code}. It expires in 30 minutes.`,
+            "",
+            "If you did not request this, you can ignore this message."
+          ].join("\n")
+        });
+      }
+
+      const devFallback = mail.isDevFallbackEnabled();
+      response.apiSuccess({
+        sent: true,
+        ...(shouldSend && devFallback ? { devCode: result.code } : {})
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/reset", (request, response, next) => {
+    try {
+      const result = accounts.resetPassword({
+        identifier: request.body?.identifier,
+        code: request.body?.code,
+        password: request.body?.password
+      });
+
+      if (result.trial && result.trial.active) {
+        response.apiSuccess(accounts.trialPayload(result));
+        return;
+      }
+      response.apiSuccess({ account: result.account, reset: true });
     } catch (error) {
       next(error);
     }

@@ -9,6 +9,7 @@ const {
 } = require("../middleware/api-key");
 const { serviceName, serviceVersion } = require("../config/service");
 const { getStorageStatus } = require("../services/storage-bootstrap");
+const { isSharedDemoClientId } = require("../lib/demo-client");
 
 const router = createApiRouter();
 
@@ -76,6 +77,7 @@ function createBaseHealthPayload() {
 
 function createHealthAuthPayload(request) {
   const auth = resolveRequestAuthState(request);
+  const demo = isSharedDemoClientId(auth.clientId);
   return {
     authenticated: auth.authenticated === true,
     clientId: auth.clientId || "",
@@ -83,7 +85,9 @@ function createHealthAuthPayload(request) {
     name: auth.name || "",
     accessLevel: auth.accessLevel || "",
     roles: [...(auth.roles || [])],
-    scopes: [...(auth.scopes || [])]
+    scopes: [...(auth.scopes || [])],
+    demo,
+    personalFeatures: auth.authenticated === true && !demo
   };
 }
 

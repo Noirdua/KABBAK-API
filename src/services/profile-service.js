@@ -56,6 +56,7 @@ const {
   MAX_POST_ITEMS,
   MAX_POST_ENTRIES
 } = require("../config/profile-storage");
+const { isSharedDemoClientId } = require("../lib/demo-client");
 
 const {
   buildSignedShareToken,
@@ -516,7 +517,10 @@ function listPublicDirectoryEntries(options = {}) {
       continue;
     }
     const clientId = String(profile?.clientId || "").trim();
-    if (!clientId || normalizeDirectoryVisibility(profile.directoryVisibility, "private") !== "public") {
+    if (!clientId || isSharedDemoClientId(clientId)) {
+      continue;
+    }
+    if (normalizeDirectoryVisibility(profile.directoryVisibility, "private") !== "public") {
       continue;
     }
     entries.push({
