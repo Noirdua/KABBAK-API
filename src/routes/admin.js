@@ -90,7 +90,10 @@ function toManagedApiClientSummary(client) {
     roles: [...client.roles],
     scopes: [...client.scopes],
     hasKey: Boolean(String(client.key || "").trim()),
-    keyPreview: maskApiKey(client.key)
+    keyPreview: maskApiKey(client.key),
+    hidden: client.hidden === true,
+    expiresAt: String(client.expiresAt || ""),
+    subscription: client.subscription || null
   };
 }
 
@@ -603,6 +606,16 @@ router.patch("/admin/settings", (request, response) => {
   });
 
   response.apiSuccess(updated);
+});
+
+// Recent Stripe webhook events (subscription/payment changes and the
+// entitlements they granted or revoked).
+router.get("/admin/payments/events", (request, response) => {
+  const requested = Number(request.query.limit);
+  const events = require("../services/stripe-webhook-service").listStripeEvents(
+    Number.isFinite(requested) ? requested : 50
+  );
+  response.apiSuccess({ events });
 });
 
 // Recent inbound provider webhook events (delivery, bounce, complaint).

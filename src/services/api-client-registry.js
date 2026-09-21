@@ -44,6 +44,32 @@ function parseStringList(value, fieldName) {
   ));
 }
 
+// Billing state written by provider webhooks (Stripe). Kept small and
+// normalized so an operator hand-editing the registry cannot break reads.
+function normalizeSubscription(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const provider = normalizeOptionalString(value.provider).slice(0, 40);
+  if (!provider) {
+    return null;
+  }
+  const fields = (raw, max) => normalizeOptionalString(raw).slice(0, max);
+  return {
+    provider,
+    status: fields(value.status, 40),
+    customerId: fields(value.customerId, 200),
+    subscriptionId: fields(value.subscriptionId, 200),
+    priceId: fields(value.priceId, 200),
+    currentPeriodEnd: fields(value.currentPeriodEnd, 40),
+    updatedAt: fields(value.updatedAt, 40),
+    previousAccessLevel: fields(value.previousAccessLevel, 40),
+    grantedRoles: Array.isArray(value.grantedRoles)
+      ? value.grantedRoles.map((role) => normalizeOptionalString(role).slice(0, 120)).filter(Boolean)
+      : []
+  };
+}
+
 function normalizeConfiguredClientEntries(entries, { sourceName = "apiClients" } = {}) {
   if (!Array.isArray(entries)) {
     throw createConfigError(`${sourceName} must be a JSON array of client definitions.`);
@@ -83,6 +109,7 @@ function normalizeConfiguredClientEntries(entries, { sourceName = "apiClients" }
       defaultValue: DEFAULT_CLIENT_ACCESS_LEVEL
     });
     const defaultCapabilities = getAccessLevelDefaultCapabilities(accessLevel);
+    const subscription = normalizeSubscription(entry.subscription);
 
     return {
       id,
@@ -101,7 +128,9 @@ function normalizeConfiguredClientEntries(entries, { sourceName = "apiClients" }
       // Generic client flags used by plugins/system clients: `hidden` keeps a
       // client out of the normal Users list; `expiresAt` (ISO) expires its key.
       hidden: entry.hidden === true,
-      expiresAt: normalizeOptionalString(entry.expiresAt || entry.expires || "")
+      expiresAt: normalizeOptionalString(entry.expiresAt || entry.expires || ""),
+      // Only present once a payment provider has written billing state.
+      ...(subscription ? { subscription } : {})
     };
   });
 }
