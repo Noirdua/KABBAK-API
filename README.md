@@ -78,18 +78,24 @@ API keys are sent via `x-api-key` or `Authorization: Bearer <key>`. Unauthentica
 
 For named clients with per-client access levels and capabilities, use the registry at `storage/config/api-clients.json`. It hot-reloads on file change — no server restart needed.
 
-Manage it with the built-in CLI:
+Manage it with the built-in CLI. One command covers trial accounts and API clients:
 
 ```text
-npm run clients -- list
-npm run clients -- add -Name "my-client" -Access "pro+"
-npm run clients -- rekey -Id cli_<id>
-npm run clients -- upsert -Id client-basic -Key client-basic-key -AccountId account-basic -AccessLevel basic -Roles reader -Scopes api:read
-npm run clients -- upsert -Id client-basic -AccessLevel premium
-npm run clients -- remove -Id client-basic
+npm run accounts -- list                         # trial accounts + managed clients
+npm run accounts -- list clients
+npm run accounts -- add --name "my-client" --access pro+
+npm run accounts -- set --id cli_<id> --access premium
+npm run accounts -- set --id cli_<id> --roles reader,admin
+npm run accounts -- rekey --id cli_<id>          # rotate a client key
+npm run accounts -- remove --id cli_<id>
+npm run accounts -- show @username               # account detail + key status
+npm run accounts -- passwd @username             # set password and rotate the trial key
+npm run accounts -- rekey @username              # rotate the trial key only
 ```
 
-`add` generates the client id (`cli_<random hex>`) and API key (`kabbak_<random base64url>`) server-side. `rekey` replaces a lost key with a freshly generated one (target by `-Id` or unique `-Name`). The full key is printed once after creation/rotation and only ever stored masked. `list` prints one plain line per client so nothing gets cut off.
+`add` generates the client id (`cli_<random hex>`) and API key (`kabbak_<random base64url>`) server-side. `rekey` replaces a lost key with a freshly generated one. The full key is printed once after creation/rotation and only ever stored masked. `list` prints one plain line per client so nothing gets cut off.
+
+Account selectors are an id (`acc_…`), `@username`, or an email; client selectors are an id (`cli_…`) or a unique name. A bare selector tries accounts first, then clients; pass `--account` / `--client` to be explicit. `passwd` sets a new password without the email code and rotates the account's key, so other signed-in devices are logged out. The older flags (`-Id`, `-Name`, `-Access`) still work, and `scripts/manage-api-clients.js` remains the low-level client engine.
 
 Access levels are `basic`, `premium`, and `pro+` (defaults to `premium`). When roles/scopes are not provided, they are derived from the access level:
 

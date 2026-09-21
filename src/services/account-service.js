@@ -417,6 +417,24 @@ function invalidResetCode() {
   return createHttpError(400, "invalid_code", "That code is not correct.");
 }
 
+// Operator/admin reset: set a new password without the emailed code. The caller
+// is responsible for rotating the account's API key if it should be invalidated.
+function setAccountPassword(accountId, password, { filePath = accountsPath } = {}) {
+  const account = getAccountById(accountId, { filePath });
+  if (!account) {
+    return { updated: false };
+  }
+  const validPassword = assertPassword(password);
+  updateAccount(accountId, {
+    password: createPasswordRecord(validPassword),
+    passwordReset: null
+  }, { filePath });
+  return {
+    updated: true,
+    account: publicAccount(getAccountById(accountId, { filePath }) || account)
+  };
+}
+
 function requestPasswordReset({ identifier, filePath = accountsPath } = {}) {
   const account = findAccountByIdentifier(identifier, { filePath });
   if (!account) {
@@ -633,6 +651,7 @@ module.exports = {
   verifyEmailByToken,
   requestPasswordReset,
   resetPassword,
+  setAccountPassword,
   login,
   authenticate,
   issueTrial,

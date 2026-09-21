@@ -368,8 +368,8 @@ function buildUpsertInput(values, provided) {
   return input;
 }
 
-function main() {
-  const { command, subCommand, values, provided } = parseArguments(process.argv.slice(2));
+function main(argv) {
+  const { command, subCommand, values, provided } = parseArguments(argv);
 
   if (!command || command === "help" || command === "--help" || command === "-help") {
     printUsage(subCommand);
@@ -480,10 +480,20 @@ function main() {
   throw new Error(`Unknown command '${command}'.`);
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error?.message || error);
-  printUsage();
-  process.exitCode = 1;
+// Reused by the merged `npm run accounts` CLI; still runnable on its own.
+function run(argv = process.argv.slice(2)) {
+  try {
+    main(argv);
+    return 0;
+  } catch (error) {
+    console.error(error?.message || error);
+    printUsage();
+    return 1;
+  }
+}
+
+module.exports = { run, printUsage, printFullUsage, printCommandHelp };
+
+if (require.main === module) {
+  process.exitCode = run();
 }
