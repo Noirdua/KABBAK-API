@@ -524,15 +524,55 @@ function listPublicDirectoryEntries(options = {}) {
     if (normalizeDirectoryVisibility(profile.directoryVisibility, "private") !== "public") {
       continue;
     }
+    const username = resolveAccountUsername(clientId);
+    const displayName = String(profile.displayName || "").trim().slice(0, 80);
     entries.push({
       clientId,
-      displayName: String(profile.displayName || "").trim().slice(0, 80),
+      username,
+      displayName: displayName || (username ? `@${username}` : ""),
+      tagline: String(profile.tagline || "").slice(0, 120),
       bio: String(profile.bio || "").slice(0, 300),
-      memberSince: String(profile.createdAt || "")
+      memberSince: String(profile.createdAt || ""),
+      hasAvatar: Boolean(profile.avatar?.data)
     });
   }
   entries.sort((left, right) => left.displayName.localeCompare(right.displayName));
   return entries;
+}
+
+// Public profile view for a directory listing (never includes email, location,
+// or any journal content).
+function getPublicDirectoryProfile(targetClientId, options = {}) {
+  const targetId = normalizeClientId(targetClientId);
+  const profile = readProfile(targetId, options);
+  if (!isPublicDirectoryProfile(profile)) {
+    throw new ProfileStorageError("not_in_directory", "That user is not listed in the public directory.");
+  }
+  const username = resolveAccountUsername(targetId);
+  const displayName = String(profile.displayName || "").trim();
+  return {
+    clientId: targetId,
+    username,
+    displayName: displayName || (username ? `@${username}` : ""),
+    bio: String(profile.bio || "").slice(0, 600),
+    tagline: String(profile.tagline || "").slice(0, 120),
+    memberSince: String(profile.createdAt || ""),
+    hasAvatar: Boolean(profile.avatar?.data),
+    hasBanner: Boolean(profile.banner?.data),
+    journalVisibility: normalizeJournalVisibility(profile.journalVisibility, DEFAULT_JOURNAL_VISIBILITY),
+    postsCount: (Array.isArray(profile.posts) ? profile.posts : []).filter((post) => post?.type === "post").length
+  };
+}
+
+// Avatar/banner for a publicly listed profile. Gated the same way, so a private
+// profile's images stay private.
+function getPublicDirectoryImage(targetClientId, kind, options = {}) {
+  const targetId = normalizeClientId(targetClientId);
+  const profile = readProfile(targetId, options);
+  if (!isPublicDirectoryProfile(profile)) {
+    throw new ProfileStorageError("not_in_directory", "That user is not listed in the public directory.");
+  }
+  return getProfileImage(targetId, kind, options);
 }
 
 // --- Friends + directory social actions --------------------------------------
@@ -631,17 +671,48 @@ function areFriends(profile, otherClientId) {
 
 // Names are captured when a request/friendship is created, so listing friends
 // needs no per-friend profile reads.
+// The public username that owns a client id (trial accounts). Never the email.
+function resolveAccountUsername(clientId) {
+  const id = String(clientId || "").trim();
+  if (!id) {
+    return "";
+  }
+  try {
+    const account = require("./account-service").findAccountByClientId(id);
+    return String(account?.username || "").trim();
+  } catch (_error) {
+    return "";
+  }
+}
+
+// Prefer a real display name, then the public username; only fall back to the
+// raw client id when neither exists.
+function resolvePeerName(clientId, storedName = "", options = {}) {
+  const id = String(clientId || "").trim();
+  const stored = String(storedName || "").trim();
+  if (stored && stored !== id && !stored.startsWith("cli_")) {
+    return stored;
+  }
+  try {
+    const displayName = String(readProfile(id, options)?.displayName || "").trim();
+    if (displayName) {
+      return displayName;
+    }
+  } catch (_error) {}
+  return resolveAccountUsername(id) || id;
+}
+
 function getProfileFriends(clientId, options = {}) {
   const profile = readProfile(clientId, options);
   const requests = normalizeFriendRequests(profile.friendRequests);
   const withName = (entry) => ({
     ...entry,
-    name: entry.name || entry.clientId
+    name: resolvePeerName(entry.clientId, entry.name, options)
   });
   return {
     friends: normalizeFriends(profile.friends).map((entry) => ({
       clientId: entry.clientId,
-      name: entry.name || entry.clientId
+      name: resolvePeerName(entry.clientId, entry.name, options)
     })),
     incoming: requests.incoming.map(withName),
     outgoing: requests.outgoing.map(withName)
@@ -4188,6 +4259,8 @@ module.exports = {
   getProfileRevision,
   listProfileClientIds,
   listPublicDirectoryEntries,
+  getPublicDirectoryProfile,
+  getPublicDirectoryImage,
   acceptFriendRequest,
   cancelFriendRequest,
   declineFriendRequest,

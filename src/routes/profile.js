@@ -18,6 +18,8 @@ const {
   getProfilePage,
   getProfileImage,
   getJournalForViewer,
+  getPublicDirectoryImage,
+  getPublicDirectoryProfile,
   listPostsForViewer,
   getProfileFeed,
   getProfileCalendarFeed,
@@ -1126,6 +1128,27 @@ router.post("/profile/directory/users/:clientId/posts/:postId/comments", wrapPro
     storageUsedBytes: result.usage.usedBytes,
     storageQuotaBytes: result.usage.quotaBytes
   });
+}));
+
+// Public profile of another user, when they are listed in the directory.
+router.get("/profile/directory/users/:clientId", wrapProfileHandler((request, response) => {
+  response.apiSuccess(getPublicDirectoryProfile(request.params.clientId, getProfileOptions(request, response)));
+}));
+
+function sendPublicDirectoryImage(request, response, kind) {
+  const image = getPublicDirectoryImage(request.params.clientId, kind, getProfileOptions(request, response));
+  const { type, buffer } = decodeAttachmentPayload(image);
+  response.setHeader("Content-Type", type || "application/octet-stream");
+  response.setHeader("Cache-Control", "public, max-age=300");
+  response.send(buffer);
+}
+
+router.get("/profile/directory/users/:clientId/avatar", wrapProfileHandler((request, response) => {
+  sendPublicDirectoryImage(request, response, "avatar");
+}));
+
+router.get("/profile/directory/users/:clientId/banner", wrapProfileHandler((request, response) => {
+  sendPublicDirectoryImage(request, response, "banner");
 }));
 
 // Read another user's journal when their visibility setting allows it.
