@@ -151,14 +151,17 @@ router.get("/branding", (_request, response) => {
   }
   setNoStore(response);
   let overlayBackgroundUrl = "";
-  try {
-    overlayBackgroundUrl = String(require("../services/runtime-settings").getRuntimeSettings().overlayBackgroundUrl || "").trim();
-  } catch (_error) {}
   let faviconUrl = "";
+  let homeLabel = "";
+  let logoUrl = "";
   try {
-    faviconUrl = String(require("../services/runtime-settings").getRuntimeSettings().faviconUrl || "").trim();
+    const settings = require("../services/runtime-settings").getRuntimeSettings();
+    overlayBackgroundUrl = String(settings.overlayBackgroundUrl || "").trim();
+    faviconUrl = String(settings.faviconUrl || "").trim();
+    homeLabel = String(settings.brandingHomeLabel || "").trim();
+    logoUrl = String(settings.brandingLogoUrl || "").trim();
   } catch (_error) {}
-  response.json({ title, overlayBackgroundUrl, faviconUrl });
+  response.json({ title, homeLabel, logoUrl, overlayBackgroundUrl, faviconUrl });
 });
 
 router.get("/branding/overlay", (_request, response) => {

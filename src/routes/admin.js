@@ -175,19 +175,37 @@ router.get("/admin/api-clients", (_request, response) => {
 // Merged user view: managed clients + registry presence (profile activity).
 router.get("/admin/users", (_request, response) => {
   const allClients = readManagedApiClients();
-  const clients = allClients.filter((client) => client.hidden !== true);
+  // Trial accounts own one hidden client each; show those (with the account's
+  // username/email) while other hidden clients stay out of the panel.
+  const accountsByClientId = new Map();
+  try {
+    require("../services/account-service").listAccounts().forEach((account) => {
+      const clientId = String(account?.trial?.clientId || "").trim();
+      if (clientId) {
+        accountsByClientId.set(clientId, account);
+      }
+    });
+  } catch (_error) {}
+  const clients = allClients.filter((client) => client.hidden !== true || accountsByClientId.has(client.id));
   const hiddenClientIds = new Set(allClients.filter((client) => client.hidden === true).map((client) => client.id));
   const registryUsers = listRegistry({ includeOffline: true });
   const registryById = new Map(registryUsers.map((user) => [String(user.id), user]));
 
   const users = clients.map((client) => {
     const presence = registryById.get(client.id) || {};
+    const account = accountsByClientId.get(client.id) || null;
     return {
       ...toManagedApiClientSummary(client),
       displayName: String(presence.name || client.name || "").trim(),
       status: String(presence.status || "never-seen"),
       lastSeen: String(presence.lastSeen || ""),
-      bio: String(presence.bio || "").slice(0, 400)
+      bio: String(presence.bio || "").slice(0, 400),
+      // Present only for self-serve trial accounts.
+      isTrialAccount: Boolean(account),
+      username: String(account?.username || ""),
+      email: String(account?.email || ""),
+      trialActive: account ? account.trialActive === true : false,
+      trialKeyPresent: account ? account.keyPresent === true : false
     };
   });
 

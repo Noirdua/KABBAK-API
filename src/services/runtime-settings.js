@@ -29,6 +29,8 @@ const EDITABLE_KEYS = new Set([
   "autoMigrateEnabled",
   "profileEncryptionSecret",
   "browserTitle",
+  "brandingHomeLabel",
+  "brandingLogoUrl",
   "overlayBackgroundUrl",
   "faviconUrl",
   "digestEnabled",
@@ -67,6 +69,8 @@ const ENV_VAR_NAMES = Object.freeze({
   autoMigrateEnabled: "KABBAK_AUTO_MIGRATE",
   profileEncryptionSecret: "KABBAK_PROFILE_ENCRYPTION_SECRET",
   browserTitle: "KABBAK_BROWSER_TITLE",
+  brandingHomeLabel: "KABBAK_BRANDING_HOME_LABEL",
+  brandingLogoUrl: "KABBAK_BRANDING_LOGO_URL",
   digestEnabled: "KABBAK_DIGEST_ENABLED",
   digestHour: "KABBAK_DIGEST_HOUR",
   mailTransport: "KABBAK_MAIL_TRANSPORT",
@@ -251,6 +255,10 @@ function envDefault(key) {
       return String(appEnv.profileEncryptionSecret || "");
     case "browserTitle":
       return String(appEnv.browserTitle || "");
+    case "brandingHomeLabel":
+      return normalizeText(process.env.KABBAK_BRANDING_HOME_LABEL, 100);
+    case "brandingLogoUrl":
+      return normalizeText(process.env.KABBAK_BRANDING_LOGO_URL, 500);
     case "overlayBackgroundUrl":
       return "";
     case "faviconUrl":
@@ -316,6 +324,10 @@ function normalizePersistedValue(key, value) {
       return normalizeProfileEncryptionSecret(value);
     case "browserTitle":
       return String(value || "").trim().slice(0, 100);
+    case "brandingHomeLabel":
+      return normalizeText(value, 100);
+    case "brandingLogoUrl":
+      return normalizeText(value, 500);
     case "overlayBackgroundUrl":
       return String(value || "").trim().slice(0, 500);
     case "faviconUrl":
@@ -388,6 +400,8 @@ function getRuntimeSettings() {
     profileEncryptionSecretSet: Boolean(state.profileEncryptionSecret),
     // Browser tab title (empty means "use the frontend default").
     browserTitle: state.browserTitle,
+    brandingHomeLabel: normalizeText(state.brandingHomeLabel, 100),
+    brandingLogoUrl: normalizeText(state.brandingLogoUrl, 500),
     overlayBackgroundUrl: String(state.overlayBackgroundUrl || ""),
     faviconUrl: String(state.faviconUrl || ""),
     digestEnabled: state.digestEnabled === true,
@@ -485,6 +499,14 @@ function updateRuntimeSettings(input = {}) {
     // Empty string clears the override; the frontend falls back to its default.
     changes.browserTitle = String(input.browserTitle || "").trim().slice(0, 100);
     settings.browserTitle = changes.browserTitle;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "brandingHomeLabel")) {
+    changes.brandingHomeLabel = normalizeText(input.brandingHomeLabel, 100);
+    settings.brandingHomeLabel = changes.brandingHomeLabel;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "brandingLogoUrl")) {
+    changes.brandingLogoUrl = normalizeText(input.brandingLogoUrl, 500);
+    settings.brandingLogoUrl = changes.brandingLogoUrl;
   }
   if (Object.prototype.hasOwnProperty.call(input, "overlayBackgroundUrl")) {
     changes.overlayBackgroundUrl = String(input.overlayBackgroundUrl || "").trim().slice(0, 500);
