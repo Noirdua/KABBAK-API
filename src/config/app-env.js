@@ -152,7 +152,7 @@ const appEnv = Object.freeze({
 
 function isPublicCorsPath(pathname) {
   const path = String(pathname || "").split("?")[0];
-  return /\/api\/v1\/(health|auth|branding)(?:\/|$)/.test(path);
+  return /\/api\/v1\/(health|auth|branding|webhooks\/email)(?:\/|$)/.test(path);
 }
 
 function buildCorsOptions({ allowAnyOrigin = false } = {}) {

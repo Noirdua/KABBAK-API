@@ -587,6 +587,15 @@ router.patch("/admin/settings", (request, response) => {
   response.apiSuccess(updated);
 });
 
+// Recent inbound provider webhook events (delivery, bounce, complaint).
+router.get("/admin/email-events", (request, response) => {
+  const requested = Number(request.query.limit);
+  const events = require("../services/email-webhook-service").listEmailEvents(
+    Number.isFinite(requested) ? requested : 50
+  );
+  response.apiSuccess({ events });
+});
+
 // One-click email diagnosis: reports the transport this server resolves to and
 // what the provider said, so "no email arrived" can be pinpointed from the panel.
 router.post("/admin/mail-test", async (request, response, next) => {

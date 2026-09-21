@@ -38,6 +38,7 @@ const pluginsPublicRoutes = require("./routes/plugins-public");
 const calendarFeedRoutes = require("./routes/calendar-feed");
 const shareRoutes = require("./routes/share");
 const directoryRoutes = require("./routes/directory");
+const emailWebhookRoutes = require("./routes/email-webhooks");
 const { createAuthRoutes } = require("./routes/auth");
 const boardRoutes = require("./routes/board");
 const gameRoutes = require("./routes/games");
@@ -101,7 +102,16 @@ function getJsonBodyParser(limit) {
   const key = String(limit || "");
   let parser = jsonBodyParsers.get(key);
   if (!parser) {
-    parser = express.json({ limit: key, strict: true });
+    parser = express.json({
+      limit: key,
+      strict: true,
+      // Keep the raw bytes: provider webhooks are signed over the exact body.
+      verify: (request, _response, buffer) => {
+        if (buffer && buffer.length) {
+          request.rawBody = Buffer.from(buffer);
+        }
+      }
+    });
     jsonBodyParsers.set(key, parser);
   }
   return parser;
@@ -182,6 +192,13 @@ function createApp({ logger = console } = {}) {
   app.use(apiBasePath, shareRoutes);
   // Public directory of opt-in profiles (pre-auth, view-only).
   app.use(apiBasePath, directoryRoutes);
+  // Inbound email provider webhooks (pre-auth, signature/token verified). Own
+  // limiter so provider retries are not throttled by the global one.
+  app.use(
+    `${apiBasePath}/webhooks/email`,
+    createGlobalRateLimiter({ windowMs: 60_000, max: 120, banAfterViolations: 10, banForMs: 10 * 60 * 1000 }),
+    emailWebhookRoutes
+  );
   app.use(apiBasePath, requireApiKey);
   app.use(apiBasePath, createGlobalRateLimiter());
   app.use(apiBasePath, requireApiAccessLevel);

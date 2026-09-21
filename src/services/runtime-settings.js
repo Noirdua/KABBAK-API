@@ -11,7 +11,10 @@ const { appEnv } = require("../config/app-env");
 const { storageConfigRoot } = require("../config/paths");
 const { ACCESS_LEVELS, DEFAULT_CLIENT_ACCESS_LEVEL } = require("../config/api-access");
 
-const RUNTIME_SETTINGS_PATH = path.join(storageConfigRoot, "runtime-settings.json");
+// Overridable so tests (and alternate deployments) can point at their own file.
+const RUNTIME_SETTINGS_PATH = process.env.KABBAK_RUNTIME_SETTINGS_PATH
+  ? path.resolve(String(process.env.KABBAK_RUNTIME_SETTINGS_PATH))
+  : path.join(storageConfigRoot, "runtime-settings.json");
 
 const REQUEST_LOG_MODES = new Set(["errors", "all", "none"]);
 const MAX_PLUGIN_UPLOAD_BYTES = 1024 * 1024 * 1024;
@@ -42,6 +45,8 @@ const EDITABLE_KEYS = new Set([
   "smtpUser",
   "smtpPass",
   "emailDevFallback",
+  "resendWebhookSecret",
+  "emailWebhookToken",
   // Accounts
   "signupEnabled",
   "trialDays",
@@ -51,7 +56,7 @@ const EDITABLE_KEYS = new Set([
 
 // Secrets are persisted but never returned by the API; the panel only sees
 // `<key>Set: true/false` and can clear or replace them.
-const SECRET_KEYS = new Set(["resendApiKey", "smtpPass", "smtpUrl"]);
+const SECRET_KEYS = new Set(["resendApiKey", "smtpPass", "smtpUrl", "resendWebhookSecret", "emailWebhookToken"]);
 
 const ENV_VAR_NAMES = Object.freeze({
   requestLogMode: "KABBAK_REQUEST_LOG",
@@ -75,6 +80,8 @@ const ENV_VAR_NAMES = Object.freeze({
   smtpUser: "KABBAK_SMTP_USER",
   smtpPass: "KABBAK_SMTP_PASS",
   emailDevFallback: "KABBAK_EMAIL_DEV_FALLBACK",
+  resendWebhookSecret: "KABBAK_RESEND_WEBHOOK_SECRET",
+  emailWebhookToken: "KABBAK_EMAIL_WEBHOOK_TOKEN",
   signupEnabled: "KABBAK_SIGNUP_ENABLED",
   trialDays: "KABBAK_TRIAL_DAYS",
   trialAccessLevel: "KABBAK_TRIAL_ACCESS_LEVEL",
@@ -274,6 +281,10 @@ function envDefault(key) {
       return String(process.env.KABBAK_SMTP_PASS || "");
     case "emailDevFallback":
       return coerceBooleanOrNull(process.env.KABBAK_EMAIL_DEV_FALLBACK);
+    case "resendWebhookSecret":
+      return normalizeText(process.env.KABBAK_RESEND_WEBHOOK_SECRET, 300);
+    case "emailWebhookToken":
+      return normalizeText(process.env.KABBAK_EMAIL_WEBHOOK_TOKEN, 300);
     case "signupEnabled":
       return coerceBoolean(process.env.KABBAK_SIGNUP_ENABLED, true);
     case "trialDays":
@@ -318,6 +329,8 @@ function normalizePersistedValue(key, value) {
     case "resendApiKey":
     case "smtpPass":
     case "smtpUrl":
+    case "resendWebhookSecret":
+    case "emailWebhookToken":
       return String(value || "");
     case "resendApiUrl":
       return normalizeText(value, 300) || "https://api.resend.com/emails";
@@ -391,6 +404,8 @@ function getRuntimeSettings() {
     smtpUser: normalizeText(state.smtpUser, 200),
     smtpPassSet: Boolean(state.smtpPass),
     emailDevFallback: coerceBooleanOrNull(state.emailDevFallback),
+    resendWebhookSecretSet: Boolean(state.resendWebhookSecret),
+    emailWebhookTokenSet: Boolean(state.emailWebhookToken),
     // Accounts.
     signupEnabled: state.signupEnabled !== false,
     trialDays: normalizeTrialDays(state.trialDays),
@@ -523,7 +538,7 @@ function updateRuntimeSettings(input = {}) {
     settings.emailDevFallback = changes.emailDevFallback;
   }
   // Secrets: null clears, empty keeps the current value, anything else replaces.
-  ["resendApiKey", "smtpPass", "smtpUrl"].forEach((key) => {
+  ["resendApiKey", "smtpPass", "smtpUrl", "resendWebhookSecret", "emailWebhookToken"].forEach((key) => {
     if (!Object.prototype.hasOwnProperty.call(input, key)) return;
     if (input[key] === null) {
       changes[key] = "";
