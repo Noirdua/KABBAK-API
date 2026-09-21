@@ -9,7 +9,9 @@ const captcha = require("../services/captcha-service");
 const mail = require("../services/mail-service");
 
 function buildVerifyLink(request, token) {
-  const configured = String(process.env.KABBAK_PUBLIC_API_URL || "").trim().replace(/\/+$/, "");
+  // Admin panel value wins so the public base can be fixed without a restart.
+  const runtime = require("../services/runtime-settings").getRuntimeSettingValue("publicApiUrl");
+  const configured = String(runtime || process.env.KABBAK_PUBLIC_API_URL || "").trim().replace(/\/+$/, "");
   // Accept either the host (https://api.example.com) or the full base with
   // /api/v1, so operators do not have to remember which one this expects.
   let base = configured || `${request.protocol}://${request.get("host")}`;

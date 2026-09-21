@@ -30,27 +30,46 @@ function normalizeList(value) {
     .filter(Boolean);
 }
 
+// Admin panel edits are stored in runtime-settings and win over the env vars, so
+// changing email in the GUI applies without a restart.
+function runtimeValue(key) {
+  try {
+    return require("./runtime-settings").getRuntimeSettingValue(key);
+  } catch (_error) {
+    return undefined;
+  }
+}
+
+function pickRuntime(runtimeKey, envVar, fallback = "") {
+  const runtime = runtimeValue(runtimeKey);
+  if (runtime !== undefined && runtime !== null) {
+    return runtime;
+  }
+  return process.env[envVar] !== undefined ? process.env[envVar] : fallback;
+}
+
 function getMailConfig() {
-  const secureRaw = String(process.env.KABBAK_SMTP_SECURE || "").trim().toLowerCase();
-  const portRaw = Number(String(process.env.KABBAK_SMTP_PORT || "").trim());
+  const transportRaw = String(pickRuntime("mailTransport", "KABBAK_MAIL_TRANSPORT", "auto")).trim().toLowerCase();
+  const secureRaw = String(pickRuntime("smtpSecure", "KABBAK_SMTP_SECURE", "")).trim().toLowerCase();
+  const portRaw = Number(String(pickRuntime("smtpPort", "KABBAK_SMTP_PORT", "587")).trim());
   return {
-    smtpUrl: String(process.env.KABBAK_SMTP_URL || "").trim(),
-    host: String(process.env.KABBAK_SMTP_HOST || "").trim(),
+    transport: ["auto", "resend", "smtp"].includes(transportRaw) ? transportRaw : "auto",
+    smtpUrl: String(pickRuntime("smtpUrl", "KABBAK_SMTP_URL")).trim(),
+    host: String(pickRuntime("smtpHost", "KABBAK_SMTP_HOST")).trim(),
     port: Number.isFinite(portRaw) && portRaw > 0 ? portRaw : 587,
-    user: String(process.env.KABBAK_SMTP_USER || "").trim(),
-    pass: String(process.env.KABBAK_SMTP_PASS || ""),
+    user: String(pickRuntime("smtpUser", "KABBAK_SMTP_USER")).trim(),
+    pass: String(pickRuntime("smtpPass", "KABBAK_SMTP_PASS")),
     secure: secureRaw === "1" || secureRaw === "true" || secureRaw === "yes",
-    resendApiKey: String(process.env.KABBAK_RESEND_API_KEY || "").trim(),
-    resendApiUrl: String(process.env.KABBAK_RESEND_API_URL || "").trim() || RESEND_DEFAULT_URL,
-    from: String(process.env.KABBAK_MAIL_FROM || "").trim()
+    resendApiKey: String(pickRuntime("resendApiKey", "KABBAK_RESEND_API_KEY")).trim(),
+    resendApiUrl: String(pickRuntime("resendApiUrl", "KABBAK_RESEND_API_URL")).trim() || RESEND_DEFAULT_URL,
+    from: String(pickRuntime("mailFrom", "KABBAK_MAIL_FROM")).trim()
   };
 }
 
 // auto -> Resend when its key is present, else SMTP.
 function resolveTransport(config = getMailConfig()) {
-  const requested = String(process.env.KABBAK_MAIL_TRANSPORT || "").trim().toLowerCase();
-  if (requested === "resend" || requested === "smtp") {
-    return requested;
+  if (config.transport === "resend" || config.transport === "smtp") {
+    return config.transport;
   }
   if (config.resendApiKey) {
     return "resend";
@@ -77,6 +96,11 @@ function isMailConfigured() {
 }
 
 function isDevFallbackEnabled() {
+  // Admin override (true/false) wins; null/"auto" keeps the built-in default.
+  const explicit = runtimeValue("emailDevFallback");
+  if (typeof explicit === "boolean") {
+    return explicit;
+  }
   const raw = String(process.env.KABBAK_EMAIL_DEV_FALLBACK ?? "").trim().toLowerCase();
   if (raw) {
     return ["1", "true", "yes", "on"].includes(raw);

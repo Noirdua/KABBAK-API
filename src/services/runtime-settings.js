@@ -9,11 +9,13 @@ const path = require("node:path");
 
 const { appEnv } = require("../config/app-env");
 const { storageConfigRoot } = require("../config/paths");
+const { ACCESS_LEVELS, DEFAULT_CLIENT_ACCESS_LEVEL } = require("../config/api-access");
 
 const RUNTIME_SETTINGS_PATH = path.join(storageConfigRoot, "runtime-settings.json");
 
 const REQUEST_LOG_MODES = new Set(["errors", "all", "none"]);
 const MAX_PLUGIN_UPLOAD_BYTES = 1024 * 1024 * 1024;
+const TRIAL_ACCESS_DEFAULT = "premium";
 
 const EDITABLE_KEYS = new Set([
   "requestLogMode",
@@ -27,8 +29,29 @@ const EDITABLE_KEYS = new Set([
   "overlayBackgroundUrl",
   "faviconUrl",
   "digestEnabled",
-  "digestHour"
+  "digestHour",
+  // Email
+  "mailTransport",
+  "resendApiKey",
+  "resendApiUrl",
+  "mailFrom",
+  "smtpUrl",
+  "smtpHost",
+  "smtpPort",
+  "smtpSecure",
+  "smtpUser",
+  "smtpPass",
+  "emailDevFallback",
+  // Accounts
+  "signupEnabled",
+  "trialDays",
+  "trialAccessLevel",
+  "publicApiUrl"
 ]);
+
+// Secrets are persisted but never returned by the API; the panel only sees
+// `<key>Set: true/false` and can clear or replace them.
+const SECRET_KEYS = new Set(["resendApiKey", "smtpPass", "smtpUrl"]);
 
 const ENV_VAR_NAMES = Object.freeze({
   requestLogMode: "KABBAK_REQUEST_LOG",
@@ -41,6 +64,21 @@ const ENV_VAR_NAMES = Object.freeze({
   browserTitle: "KABBAK_BROWSER_TITLE",
   digestEnabled: "KABBAK_DIGEST_ENABLED",
   digestHour: "KABBAK_DIGEST_HOUR",
+  mailTransport: "KABBAK_MAIL_TRANSPORT",
+  resendApiKey: "KABBAK_RESEND_API_KEY",
+  resendApiUrl: "KABBAK_RESEND_API_URL",
+  mailFrom: "KABBAK_MAIL_FROM",
+  smtpUrl: "KABBAK_SMTP_URL",
+  smtpHost: "KABBAK_SMTP_HOST",
+  smtpPort: "KABBAK_SMTP_PORT",
+  smtpSecure: "KABBAK_SMTP_SECURE",
+  smtpUser: "KABBAK_SMTP_USER",
+  smtpPass: "KABBAK_SMTP_PASS",
+  emailDevFallback: "KABBAK_EMAIL_DEV_FALLBACK",
+  signupEnabled: "KABBAK_SIGNUP_ENABLED",
+  trialDays: "KABBAK_TRIAL_DAYS",
+  trialAccessLevel: "KABBAK_TRIAL_ACCESS_LEVEL",
+  publicApiUrl: "KABBAK_PUBLIC_API_URL",
   port: "PORT",
   host: "HOST"
 });
@@ -54,6 +92,9 @@ function normalizeDigestHour(value) {
 }
 
 let state = null;
+// Keys explicitly stored in runtime-settings.json. Everything else is a live
+// environment default, so an env change (or a test) is still picked up.
+let persistedKeys = new Set();
 
 function readPersistedSettings() {
   try {
@@ -116,6 +157,59 @@ function normalizeProfileEncryptionSecret(value) {
   return String(value || "").trim();
 }
 
+function coerceBoolean(value, fallback = false) {
+  if (typeof value === "boolean") return value;
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return fallback;
+}
+
+// Tri-state for settings whose default depends on other configuration
+// (e.g. the dev email fallback): null means "auto".
+function coerceBooleanOrNull(value) {
+  if (typeof value === "boolean") return value;
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return null;
+}
+
+const MAIL_TRANSPORTS = new Set(["auto", "smtp", "resend"]);
+
+function normalizeMailTransport(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return MAIL_TRANSPORTS.has(normalized) ? normalized : "auto";
+}
+
+function normalizeText(value, max = 300) {
+  return String(value || "").trim().slice(0, max);
+}
+
+function normalizeSmtpPort(value) {
+  const numeric = Number(value);
+  if (!Number.isInteger(numeric) || numeric < 1 || numeric > 65535) {
+    return 587;
+  }
+  return numeric;
+}
+
+function normalizeTrialDays(value) {
+  const numeric = Number(value);
+  if (!Number.isInteger(numeric) || numeric < 1 || numeric > 365) {
+    return 30;
+  }
+  return numeric;
+}
+
+function normalizeTrialAccessLevel(value) {
+  const normalized = String(value || "").trim();
+  if (ACCESS_LEVELS.includes(normalized)) {
+    return normalized;
+  }
+  return ACCESS_LEVELS.includes(TRIAL_ACCESS_DEFAULT) ? TRIAL_ACCESS_DEFAULT : DEFAULT_CLIENT_ACCESS_LEVEL;
+}
+
 function envDefault(key) {
   switch (key) {
     case "requestLogMode":
@@ -142,6 +236,36 @@ function envDefault(key) {
       return ["1", "true", "yes", "on"].includes(String(process.env.KABBAK_DIGEST_ENABLED || "").toLowerCase());
     case "digestHour":
       return normalizeDigestHour(process.env.KABBAK_DIGEST_HOUR);
+    case "mailTransport":
+      return normalizeMailTransport(process.env.KABBAK_MAIL_TRANSPORT);
+    case "resendApiKey":
+      return normalizeText(process.env.KABBAK_RESEND_API_KEY, 300);
+    case "resendApiUrl":
+      return normalizeText(process.env.KABBAK_RESEND_API_URL, 300) || "https://api.resend.com/emails";
+    case "mailFrom":
+      return normalizeText(process.env.KABBAK_MAIL_FROM, 200);
+    case "smtpUrl":
+      return normalizeText(process.env.KABBAK_SMTP_URL, 300);
+    case "smtpHost":
+      return normalizeText(process.env.KABBAK_SMTP_HOST, 200);
+    case "smtpPort":
+      return normalizeSmtpPort(process.env.KABBAK_SMTP_PORT || 587);
+    case "smtpSecure":
+      return coerceBoolean(process.env.KABBAK_SMTP_SECURE, false);
+    case "smtpUser":
+      return normalizeText(process.env.KABBAK_SMTP_USER, 200);
+    case "smtpPass":
+      return String(process.env.KABBAK_SMTP_PASS || "");
+    case "emailDevFallback":
+      return coerceBooleanOrNull(process.env.KABBAK_EMAIL_DEV_FALLBACK);
+    case "signupEnabled":
+      return coerceBoolean(process.env.KABBAK_SIGNUP_ENABLED, true);
+    case "trialDays":
+      return normalizeTrialDays(process.env.KABBAK_TRIAL_DAYS || 30);
+    case "trialAccessLevel":
+      return normalizeTrialAccessLevel(process.env.KABBAK_TRIAL_ACCESS_LEVEL || TRIAL_ACCESS_DEFAULT);
+    case "publicApiUrl":
+      return normalizeText(process.env.KABBAK_PUBLIC_API_URL, 300).replace(/\/+$/, "");
     default:
       return undefined;
   }
@@ -173,6 +297,33 @@ function normalizePersistedValue(key, value) {
       return Boolean(value);
     case "digestHour":
       return normalizeDigestHour(value);
+    case "mailTransport":
+      return normalizeMailTransport(value);
+    case "resendApiKey":
+    case "smtpPass":
+    case "smtpUrl":
+      return String(value || "");
+    case "resendApiUrl":
+      return normalizeText(value, 300) || "https://api.resend.com/emails";
+    case "mailFrom":
+      return normalizeText(value, 200);
+    case "smtpHost":
+    case "smtpUser":
+      return normalizeText(value, 200);
+    case "smtpPort":
+      return normalizeSmtpPort(value);
+    case "smtpSecure":
+      return coerceBoolean(value, false);
+    case "emailDevFallback":
+      return coerceBooleanOrNull(value);
+    case "signupEnabled":
+      return coerceBoolean(value, true);
+    case "trialDays":
+      return normalizeTrialDays(value);
+    case "trialAccessLevel":
+      return normalizeTrialAccessLevel(value);
+    case "publicApiUrl":
+      return normalizeText(value, 300).replace(/\/+$/, "");
     default:
       return value;
   }
@@ -181,6 +332,7 @@ function normalizePersistedValue(key, value) {
 function loadRuntimeSettings() {
   if (state) return state;
   const persisted = readPersistedSettings();
+  persistedKeys = new Set(Object.keys(persisted || {}));
   state = {};
   for (const key of EDITABLE_KEYS) {
     state[key] = Object.prototype.hasOwnProperty.call(persisted, key)
@@ -211,6 +363,23 @@ function getRuntimeSettings() {
     faviconUrl: String(state.faviconUrl || ""),
     digestEnabled: state.digestEnabled === true,
     digestHour: normalizeDigestHour(state.digestHour),
+    // Email (secrets are reported as "set" only, never returned).
+    mailTransport: normalizeMailTransport(state.mailTransport),
+    resendApiKeySet: Boolean(state.resendApiKey),
+    resendApiUrl: normalizeText(state.resendApiUrl, 300) || "https://api.resend.com/emails",
+    mailFrom: normalizeText(state.mailFrom, 200),
+    smtpUrlSet: Boolean(state.smtpUrl),
+    smtpHost: normalizeText(state.smtpHost, 200),
+    smtpPort: normalizeSmtpPort(state.smtpPort),
+    smtpSecure: state.smtpSecure === true,
+    smtpUser: normalizeText(state.smtpUser, 200),
+    smtpPassSet: Boolean(state.smtpPass),
+    emailDevFallback: coerceBooleanOrNull(state.emailDevFallback),
+    // Accounts.
+    signupEnabled: state.signupEnabled !== false,
+    trialDays: normalizeTrialDays(state.trialDays),
+    trialAccessLevel: normalizeTrialAccessLevel(state.trialAccessLevel),
+    publicApiUrl: normalizeText(state.publicApiUrl, 300).replace(/\/+$/, ""),
     // Restart-only values (shown for reference; changing them needs a restart).
     envOnly: {
       port: appEnv.port,
@@ -223,6 +392,16 @@ function getRuntimeSettings() {
 // Internal-only accessor: the encryption secret is never sent to the client.
 function getProfileEncryptionSecret() {
   return String(loadRuntimeSettings().profileEncryptionSecret || "");
+}
+
+// Internal-only accessor: raw current value, including secrets. Server-side
+// consumers read this so an Admin panel edit applies without a restart. A key
+// the admin never saved falls through to the environment (live), so unset
+// values keep following the env/`.env` file.
+function getRuntimeSettingValue(key) {
+  const name = String(key || "");
+  loadRuntimeSettings();
+  return persistedKeys.has(name) ? state[name] : envDefault(name);
 }
 
 function updateRuntimeSettings(input = {}) {
@@ -293,21 +472,79 @@ function updateRuntimeSettings(input = {}) {
     settings.digestHour = changes.digestHour;
   }
 
+  // Email
+  if (Object.prototype.hasOwnProperty.call(input, "mailTransport")) {
+    changes.mailTransport = normalizeMailTransport(input.mailTransport);
+    settings.mailTransport = changes.mailTransport;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "resendApiUrl")) {
+    changes.resendApiUrl = normalizeText(input.resendApiUrl, 300) || "https://api.resend.com/emails";
+    settings.resendApiUrl = changes.resendApiUrl;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "mailFrom")) {
+    changes.mailFrom = normalizeText(input.mailFrom, 200);
+    settings.mailFrom = changes.mailFrom;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "smtpHost")) {
+    changes.smtpHost = normalizeText(input.smtpHost, 200);
+    settings.smtpHost = changes.smtpHost;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "smtpPort")) {
+    changes.smtpPort = normalizeSmtpPort(input.smtpPort);
+    settings.smtpPort = changes.smtpPort;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "smtpSecure")) {
+    changes.smtpSecure = coerceBoolean(input.smtpSecure, false);
+    settings.smtpSecure = changes.smtpSecure;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "smtpUser")) {
+    changes.smtpUser = normalizeText(input.smtpUser, 200);
+    settings.smtpUser = changes.smtpUser;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "emailDevFallback")) {
+    // "auto"/null keeps the built-in behaviour (on only when unconfigured).
+    changes.emailDevFallback = coerceBooleanOrNull(input.emailDevFallback);
+    settings.emailDevFallback = changes.emailDevFallback;
+  }
+  // Secrets: null clears, empty keeps the current value, anything else replaces.
+  ["resendApiKey", "smtpPass", "smtpUrl"].forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(input, key)) return;
+    if (input[key] === null) {
+      changes[key] = "";
+      settings[key] = "";
+      return;
+    }
+    const normalized = String(input[key] || "").trim();
+    if (normalized) {
+      changes[key] = normalized;
+      settings[key] = normalized;
+    }
+  });
+
+  // Accounts
+  if (Object.prototype.hasOwnProperty.call(input, "signupEnabled")) {
+    changes.signupEnabled = coerceBoolean(input.signupEnabled, true);
+    settings.signupEnabled = changes.signupEnabled;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "trialDays")) {
+    changes.trialDays = normalizeTrialDays(input.trialDays);
+    settings.trialDays = changes.trialDays;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "trialAccessLevel")) {
+    changes.trialAccessLevel = normalizeTrialAccessLevel(input.trialAccessLevel);
+    settings.trialAccessLevel = changes.trialAccessLevel;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "publicApiUrl")) {
+    changes.publicApiUrl = normalizeText(input.publicApiUrl, 300).replace(/\/+$/, "");
+    settings.publicApiUrl = changes.publicApiUrl;
+  }
+
   if (Object.keys(changes).length) {
-    persistSettings({
-      requestLogMode: settings.requestLogMode,
-      allowedOrigins: settings.allowedOrigins,
-      allowNullOrigin: settings.allowNullOrigin,
-      jsonBodyLimit: settings.jsonBodyLimit,
-      pluginUploadLimitBytes: settings.pluginUploadLimitBytes,
-      autoMigrateEnabled: settings.autoMigrateEnabled,
-      profileEncryptionSecret: settings.profileEncryptionSecret,
-      browserTitle: settings.browserTitle,
-      overlayBackgroundUrl: settings.overlayBackgroundUrl,
-      faviconUrl: settings.faviconUrl,
-      digestEnabled: settings.digestEnabled,
-      digestHour: settings.digestHour
-    });
+    // Persist the whole set (editable keys only) so new keys survive without a
+    // matching update to this list. Everything we write now counts as an
+    // explicit admin value, so it takes precedence over the environment.
+    persistSettings({ ...settings });
+    persistedKeys = new Set(Object.keys(settings));
   }
 
   return getRuntimeSettings();
@@ -320,6 +557,7 @@ function isRuntimeSettingEditable(key) {
 module.exports = {
   getRuntimeSettings,
   getProfileEncryptionSecret,
+  getRuntimeSettingValue,
   isRuntimeSettingEditable,
   updateRuntimeSettings
 };

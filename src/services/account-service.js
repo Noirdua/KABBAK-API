@@ -49,21 +49,39 @@ const VERIFICATION_TTL_MS = 30 * 60 * 1000;
 const VERIFICATION_MAX_ATTEMPTS = 5;
 const VERIFICATION_LINK_TTL_MS = 24 * 60 * 60 * 1000;
 
+// Admin panel edits are stored in runtime-settings and win over the env vars.
+function runtimeValue(key) {
+  try {
+    return require("./runtime-settings").getRuntimeSettingValue(key);
+  } catch (_error) {
+    return undefined;
+  }
+}
+
 function isSignupEnabled() {
+  const runtime = runtimeValue("signupEnabled");
+  if (typeof runtime === "boolean") {
+    return runtime;
+  }
   const raw = String(process.env.KABBAK_SIGNUP_ENABLED ?? "").trim().toLowerCase();
   if (!raw) return true;
   return !["0", "false", "off", "no"].includes(raw);
 }
 
 function getTrialPolicy() {
-  const daysRaw = Number(String(process.env.KABBAK_TRIAL_DAYS ?? "").trim());
+  const runtimeDays = Number(runtimeValue("trialDays"));
+  const daysRaw = Number.isFinite(runtimeDays) && runtimeDays > 0
+    ? runtimeDays
+    : Number(String(process.env.KABBAK_TRIAL_DAYS ?? "").trim());
   const days = Number.isFinite(daysRaw) && daysRaw > 0
     ? Math.min(365, Math.floor(daysRaw))
     : TRIAL_DEFAULTS.days;
 
   let accessLevel = TRIAL_DEFAULTS.accessLevel;
   try {
-    accessLevel = normalizeAccessLevel(process.env.KABBAK_TRIAL_ACCESS_LEVEL || TRIAL_DEFAULTS.accessLevel);
+    accessLevel = normalizeAccessLevel(
+      runtimeValue("trialAccessLevel") || process.env.KABBAK_TRIAL_ACCESS_LEVEL || TRIAL_DEFAULTS.accessLevel
+    );
   } catch (_error) {}
 
   return { days, accessLevel };
