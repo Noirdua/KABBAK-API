@@ -194,6 +194,22 @@ function normalizeSmtpPort(value) {
   return numeric;
 }
 
+// Accepts "email@domain" or "Display Name <email@domain>". A space before "<"
+// is required: Resend rejects "Name<email@domain>" (it parses the name as part
+// of the address).
+const MAIL_FROM_PATTERN = /^(?:[^<>]{1,80}\s+<\s*[^<>@\s]+@[^<>\s]+\.[^<>\s]+\s*>|[^<>@\s]+@[^<>\s]+\.[^<>\s]+)$/;
+
+function assertMailFrom(value) {
+  const raw = normalizeText(value, 200);
+  if (!raw) {
+    return "";
+  }
+  if (!MAIL_FROM_PATTERN.test(raw)) {
+    throw new Error("Sender must look like 'no-reply@example.com' or 'Name <no-reply@example.com>'.");
+  }
+  return raw;
+}
+
 function normalizeTrialDays(value) {
   const numeric = Number(value);
   if (!Number.isInteger(numeric) || numeric < 1 || numeric > 365) {
@@ -482,7 +498,7 @@ function updateRuntimeSettings(input = {}) {
     settings.resendApiUrl = changes.resendApiUrl;
   }
   if (Object.prototype.hasOwnProperty.call(input, "mailFrom")) {
-    changes.mailFrom = normalizeText(input.mailFrom, 200);
+    changes.mailFrom = assertMailFrom(input.mailFrom);
     settings.mailFrom = changes.mailFrom;
   }
   if (Object.prototype.hasOwnProperty.call(input, "smtpHost")) {
