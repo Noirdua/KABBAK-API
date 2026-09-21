@@ -151,7 +151,12 @@ async function sendViaResend(config, { recipients, subject, text, html }) {
     try {
       detail = String(await response.text()).slice(0, 500);
     } catch (_error) {}
-    const error = new Error(`Resend responded ${response.status}${detail ? `: ${detail}` : ""}`);
+    // 403/422 here usually means the sender/recipient is not allowed yet: Resend
+    // only delivers to the account owner's own address until a domain is verified.
+    const hint = response.status === 403 || response.status === 422
+      ? " (verify a domain in Resend and set that sender in Admin → Server → Email)"
+      : "";
+    const error = new Error(`Resend responded ${response.status}${detail ? `: ${detail}` : ""}${hint}`);
     error.status = response.status;
     throw error;
   }
@@ -186,7 +191,12 @@ async function sendMail({ to, subject, text, html } = {}) {
     return { delivered: true, transport };
   } catch (error) {
     console.error(`[mail] Failed to send "${subject}" via ${transport}: ${error?.message || error}`);
-    return { delivered: false, reason: "send_failed", transport };
+    return {
+      delivered: false,
+      reason: "send_failed",
+      transport,
+      ...(Number.isFinite(error?.status) ? { status: error.status } : {})
+    };
   }
 }
 

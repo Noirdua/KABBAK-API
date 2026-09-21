@@ -115,7 +115,13 @@ function createAuthRoutes() {
         verificationRequired: true,
         expiresAt: result.expiresAt,
         emailDelivered: delivered.delivered,
-        ...(delivered.delivered ? {} : { emailConfigured: mail.isMailConfigured() }),
+        ...(delivered.delivered
+          ? {}
+          : {
+              emailConfigured: mail.isMailConfigured(),
+              emailReason: delivered.reason || "send_failed",
+              ...(Number.isFinite(delivered.status) ? { emailStatus: delivered.status } : {})
+            }),
         ...(devFallback ? { devCode: result.code } : {})
       });
     } catch (error) {
@@ -149,7 +155,13 @@ function createAuthRoutes() {
         account: result.account,
         expiresAt: result.expiresAt,
         emailDelivered: delivered.delivered,
-        ...(delivered.delivered ? {} : { emailConfigured: mail.isMailConfigured() }),
+        ...(delivered.delivered
+          ? {}
+          : {
+              emailConfigured: mail.isMailConfigured(),
+              emailReason: delivered.reason || "send_failed",
+              ...(Number.isFinite(delivered.status) ? { emailStatus: delivered.status } : {})
+            }),
         ...(devFallback ? { devCode: result.code } : {})
       });
     } catch (error) {
