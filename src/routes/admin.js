@@ -561,7 +561,13 @@ router.delete("/admin/roles/:roleId", (request, response) => {
 // --- Server settings (runtime-adjustable) ------------------------------------
 
 router.get("/admin/settings", (_request, response) => {
-  response.apiSuccess(getRuntimeSettings());
+  const mail = require("../services/mail-service");
+  response.apiSuccess({
+    ...getRuntimeSettings(),
+    // What this server actually resolves to right now (read-only diagnostics).
+    mailConfigured: mail.isMailConfigured(),
+    mailTransportEffective: mail.resolveTransport()
+  });
 });
 
 router.patch("/admin/settings", (request, response) => {
@@ -579,6 +585,39 @@ router.patch("/admin/settings", (request, response) => {
   });
 
   response.apiSuccess(updated);
+});
+
+// One-click email diagnosis: reports the transport this server resolves to and
+// what the provider said, so "no email arrived" can be pinpointed from the panel.
+router.post("/admin/mail-test", async (request, response, next) => {
+  try {
+    const body = getPatchBody(request);
+    const to = String(body?.to || "").trim();
+    if (!to || !to.includes("@")) {
+      throw createHttpError(400, "invalid_recipient", "Provide a recipient email address.");
+    }
+
+    const mail = require("../services/mail-service");
+    const result = await mail.sendMail({
+      to,
+      subject: "KABBAK email test",
+      text: "If you received this, KABBAK can send account email from this server."
+    });
+
+    emitAdminMutationAuditEvent(request, response, { action: "send_test_email" });
+
+    response.apiSuccess({
+      to,
+      configured: mail.isMailConfigured(),
+      transport: mail.resolveTransport(),
+      from: mail.getMailConfig().from,
+      delivered: result.delivered === true,
+      reason: result.reason || "",
+      status: Number.isFinite(result.status) ? result.status : null
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.post("/admin/overlay-background", (request, response) => {
