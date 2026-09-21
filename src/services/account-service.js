@@ -267,6 +267,16 @@ function findAccountByEmail(email, { filePath = accountsPath } = {}) {
   return readAccounts({ filePath }).find((account) => account.emailNormalized === normalizedEmail) || null;
 }
 
+// The trial client id is the public clientId, so this maps a caller back to the
+// account that owns it (used to show the owner their own username/email).
+function findAccountByClientId(clientId, { filePath = accountsPath } = {}) {
+  const id = String(clientId || "").trim();
+  if (!id) {
+    return null;
+  }
+  return readAccounts({ filePath }).find((account) => account.trial?.clientId === id) || null;
+}
+
 function findAccountByIdentifier(identifier, { filePath = accountsPath } = {}) {
   const value = String(identifier || "").trim();
   if (!value) {
@@ -675,6 +685,7 @@ module.exports = {
   issueTrial,
   findAccountByUsername,
   findAccountByEmail,
+  findAccountByClientId,
   findAccountByIdentifier,
   getAccountById,
   listAccounts,

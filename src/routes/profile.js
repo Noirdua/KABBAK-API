@@ -296,9 +296,13 @@ router.get("/profile", wrapProfileHandler((request, response) => {
     return;
   }
   const summary = getProfileSummary(clientId, getProfileOptions(request, response));
+  // The owner's own username/email (never returned for another user's profile).
+  const account = require("../services/account-service").findAccountByClientId(clientId);
   response.apiSuccess({
     ...summary,
     authName,
+    username: String(account?.username || ""),
+    email: String(account?.email || ""),
     demo: false,
     personalFeatures: true
   });
