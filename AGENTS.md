@@ -76,7 +76,7 @@ Env: `KABBAK_SIGNUP_ENABLED`, `KABBAK_TRIAL_DAYS` (default 30), `KABBAK_TRIAL_AC
 
 Catalog + install: `src/services/dlc-catalog.js` + `src/routes/dlc.js`. Installed plugins live under `imports/dlc/plugins/<name>/` (or extra sources).
 
-Plugin list: `GET /api/v1/plugins` → `{ plugins[], uploadLimitBytes }`. Fields the GUI host needs: `name`, `kind`, `id`, `title`, `entry`, `css`, `section`, `role`, `preserveChrome`.
+Plugin list: `GET /api/v1/plugins` → `{ plugins[], uploadLimitBytes }`. Fields the GUI host needs: `name`, `kind`, `id`, `title`, `entry`, `css`, `section`, `role`, `preserveChrome`. A plugin needs a browser `entry` or a `server.entry`; **server-only** plugins (a billing/webhook integration) are valid and validate their server entry too.
 
 `role`: `widget` (top bar), `section` / `kind: "api"` (extra page), `skin` (layout overhaul). `preserveChrome: true` = official default layout (do not hide the top bar).
 

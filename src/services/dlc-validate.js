@@ -433,10 +433,15 @@ function validatePlugin(dir, kind, errors, warnings) {
   if (manifest.role != null && !PLUGIN_ROLES.has(String(manifest.role).trim())) {
     errors.push(`manifest.json role '${label(manifest.role)}' is invalid (use widget, section, skin).`);
   }
+  // A plugin needs a browser entry or a server entry; server-only plugins (a
+  // billing/webhook integration, for example) have no UI script.
   const entry = String(manifest.entry || "").trim();
-  if (!entry) {
-    errors.push("manifest.json is missing an `entry` script.");
-  } else {
+  const serverEntry = typeof manifest.server === "string"
+    ? manifest.server.trim()
+    : String(manifest.server?.entry || "").trim();
+  if (!entry && !serverEntry) {
+    errors.push("manifest.json is missing an `entry` script (or `server.entry` for a server-only plugin).");
+  } else if (entry) {
     const resolved = resolveInsideFile(dir, entry);
     if (!resolved.ok) {
       errors.push(`Entry script '${entry}': ${resolved.reason}.`);
@@ -447,6 +452,18 @@ function validatePlugin(dir, kind, errors, warnings) {
         new vm.Script(source, { filename: entry });
       } catch (error) {
         errors.push(`Entry script '${entry}' has a syntax error: ${label(error.message)}`);
+      }
+    }
+  }
+  if (serverEntry) {
+    const resolvedServer = resolveInsideFile(dir, serverEntry);
+    if (!resolvedServer.ok) {
+      errors.push(`Server entry '${serverEntry}': ${resolvedServer.reason}.`);
+    } else {
+      try {
+        new vm.Script(fs.readFileSync(resolvedServer.target, "utf8"), { filename: serverEntry });
+      } catch (error) {
+        errors.push(`Server entry '${serverEntry}' has a syntax error: ${label(error.message)}`);
       }
     }
   }
