@@ -662,16 +662,6 @@ router.post("/admin/accounts/:accountId/verify", (request, response) => {
   });
 });
 
-// Recent Stripe webhook events (subscription/payment changes and the
-// entitlements they granted or revoked).
-router.get("/admin/payments/events", (request, response) => {
-  const requested = Number(request.query.limit);
-  const events = require("../services/stripe-webhook-service").listStripeEvents(
-    Number.isFinite(requested) ? requested : 50
-  );
-  response.apiSuccess({ events });
-});
-
 // Recent inbound provider webhook events (delivery, bounce, complaint).
 router.get("/admin/email-events", (request, response) => {
   const requested = Number(request.query.limit);

@@ -49,7 +49,6 @@ const EDITABLE_KEYS = new Set([
   "emailDevFallback",
   "resendWebhookSecret",
   "emailWebhookToken",
-  "stripeWebhookSecret",
   // Accounts
   "signupEnabled",
   "trialDays",
@@ -59,7 +58,7 @@ const EDITABLE_KEYS = new Set([
 
 // Secrets are persisted but never returned by the API; the panel only sees
 // `<key>Set: true/false` and can clear or replace them.
-const SECRET_KEYS = new Set(["resendApiKey", "smtpPass", "smtpUrl", "resendWebhookSecret", "emailWebhookToken", "stripeWebhookSecret"]);
+const SECRET_KEYS = new Set(["resendApiKey", "smtpPass", "smtpUrl", "resendWebhookSecret", "emailWebhookToken"]);
 
 const ENV_VAR_NAMES = Object.freeze({
   requestLogMode: "KABBAK_REQUEST_LOG",
@@ -87,7 +86,6 @@ const ENV_VAR_NAMES = Object.freeze({
   emailDevFallback: "KABBAK_EMAIL_DEV_FALLBACK",
   resendWebhookSecret: "KABBAK_RESEND_WEBHOOK_SECRET",
   emailWebhookToken: "KABBAK_EMAIL_WEBHOOK_TOKEN",
-  stripeWebhookSecret: "KABBAK_STRIPE_WEBHOOK_SECRET",
   signupEnabled: "KABBAK_SIGNUP_ENABLED",
   trialDays: "KABBAK_TRIAL_DAYS",
   trialAccessLevel: "KABBAK_TRIAL_ACCESS_LEVEL",
@@ -295,8 +293,6 @@ function envDefault(key) {
       return normalizeText(process.env.KABBAK_RESEND_WEBHOOK_SECRET, 300);
     case "emailWebhookToken":
       return normalizeText(process.env.KABBAK_EMAIL_WEBHOOK_TOKEN, 300);
-    case "stripeWebhookSecret":
-      return normalizeText(process.env.KABBAK_STRIPE_WEBHOOK_SECRET, 300);
     case "signupEnabled":
       return coerceBoolean(process.env.KABBAK_SIGNUP_ENABLED, true);
     case "trialDays":
@@ -347,7 +343,6 @@ function normalizePersistedValue(key, value) {
     case "smtpUrl":
     case "resendWebhookSecret":
     case "emailWebhookToken":
-    case "stripeWebhookSecret":
       return String(value || "");
     case "resendApiUrl":
       return normalizeText(value, 300) || "https://api.resend.com/emails";
@@ -425,7 +420,6 @@ function getRuntimeSettings() {
     emailDevFallback: coerceBooleanOrNull(state.emailDevFallback),
     resendWebhookSecretSet: Boolean(state.resendWebhookSecret),
     emailWebhookTokenSet: Boolean(state.emailWebhookToken),
-    stripeWebhookSecretSet: Boolean(state.stripeWebhookSecret),
     // Accounts.
     signupEnabled: state.signupEnabled !== false,
     trialDays: normalizeTrialDays(state.trialDays),
@@ -566,7 +560,7 @@ function updateRuntimeSettings(input = {}) {
     settings.emailDevFallback = changes.emailDevFallback;
   }
   // Secrets: null clears, empty keeps the current value, anything else replaces.
-  ["resendApiKey", "smtpPass", "smtpUrl", "resendWebhookSecret", "emailWebhookToken", "stripeWebhookSecret"].forEach((key) => {
+  ["resendApiKey", "smtpPass", "smtpUrl", "resendWebhookSecret", "emailWebhookToken"].forEach((key) => {
     if (!Object.prototype.hasOwnProperty.call(input, key)) return;
     if (input[key] === null) {
       changes[key] = "";

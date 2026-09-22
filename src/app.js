@@ -39,7 +39,6 @@ const calendarFeedRoutes = require("./routes/calendar-feed");
 const shareRoutes = require("./routes/share");
 const directoryRoutes = require("./routes/directory");
 const emailWebhookRoutes = require("./routes/email-webhooks");
-const stripeWebhookRoutes = require("./routes/stripe-webhook");
 const { createAuthRoutes } = require("./routes/auth");
 const boardRoutes = require("./routes/board");
 const gameRoutes = require("./routes/games");
@@ -200,12 +199,7 @@ function createApp({ logger = console } = {}) {
     createGlobalRateLimiter({ windowMs: 60_000, max: 120, banAfterViolations: 10, banForMs: 10 * 60 * 1000 }),
     emailWebhookRoutes
   );
-  // Stripe subscription webhooks (pre-auth, signature verified).
-  app.use(
-    `${apiBasePath}/webhooks/stripe`,
-    createGlobalRateLimiter({ windowMs: 60_000, max: 120, banAfterViolations: 10, banForMs: 10 * 60 * 1000 }),
-    stripeWebhookRoutes
-  );
+
   app.use(apiBasePath, requireApiKey);
   app.use(apiBasePath, createGlobalRateLimiter());
   app.use(apiBasePath, requireApiAccessLevel);
