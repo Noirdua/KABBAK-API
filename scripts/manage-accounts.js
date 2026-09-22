@@ -61,7 +61,11 @@ const FLAG_ALIASES = new Map([
   ["--account", "account"],
   ["-account", "account"],
   ["--client", "client"],
-  ["-client", "client"]
+  ["-client", "client"],
+  ["--username", "username"],
+  ["-username", "username"],
+  ["--user", "username"],
+  ["-user", "username"]
 ]);
 
 function parseFlags(argv) {
@@ -136,7 +140,7 @@ function resolveTarget({ values, provided, positionals }, paths) {
     ? values.account
     : provided.has("client")
       ? values.client
-      : (positionals[0] || values.id || values.name || "");
+      : (positionals[0] || values.id || values.username || values.name || "");
   const forced = provided.has("account") ? "account" : provided.has("client") ? "client" : "";
 
   if (!selector) {
@@ -174,12 +178,13 @@ function printAccounts({ accountsFile, clientsFile }) {
   rows.forEach((entry) => {
     const trial = entry.trial || null;
     const trialState = entry.trialActive ? "active" : entry.keyPresent ? "expired" : "no key";
+    // Labelled fields so an id/username can be copied straight into a command.
     console.log([
-      `  ${entry.id}`,
-      `@${entry.username}`,
-      entry.email,
-      entry.emailVerified ? "verified" : "unverified",
-      entry.status || "active",
+      `id=${entry.id}`,
+      `username=@${entry.username}`,
+      `email=${entry.email}`,
+      `verified=${entry.emailVerified ? "yes" : "no"}`,
+      `status=${entry.status || "active"}`,
       `trial=${trialState}`,
       `expires=${trial?.expiresAt || "-"}`,
       `client=${trial?.clientId || "-"}`
@@ -267,6 +272,30 @@ function runRekey(rest) {
   }
 
   return clientsCli.run(["rekey", "-File", paths.clientsFile, "-Id", target.client.id]);
+}
+
+function runVerify(rest) {
+  const parsed = parseFlags(rest);
+  const paths = pathsFor(parsed.values);
+  const target = resolveTarget(parsed, paths);
+  if (target.kind !== "account") {
+    throw new Error("verify applies to trial accounts only.");
+  }
+
+  const result = accounts.verifyAccountManually(target.account.id, {
+    filePath: paths.accountsFile,
+    clientsFilePath: paths.clientsFile
+  });
+
+  console.log(`Verified account @${target.account.username} (${target.account.id}).`);
+  if (result.trial?.apiKey) {
+    console.log(`  Trial:     ${result.trial.accessLevel || "-"} until ${result.trial.expiresAt || "-"}`);
+    console.log(`  Client:    ${result.trial.clientId || "-"}`);
+    console.log(`  API key:   ${result.trial.apiKey}`);
+    console.log("");
+    console.log("Copy the key now — it is shown in full only once.");
+  }
+  return 0;
 }
 
 function generatePassword() {
@@ -358,6 +387,7 @@ function printHelp() {
     "    list accounts                List trial accounts",
     "    show <id|@username|email>    Show one account and its trial key",
     "    passwd <id|@username>        Set a new password and rotate the trial key",
+    "    verify <id|@username>        Verify by hand and issue the trial key (no email needed)",
     "    rekey <id|@username>         Rotate the trial API key",
     "    remove <id|@username>        Delete the account and revoke its key",
     "",
@@ -373,12 +403,19 @@ function printHelp() {
     "    show <name>                  A bare name resolves to an account, then a client",
     "    help [command|tiers]         This help, one command, or tiers/roles",
     "",
+    "  Selectors",
+    "    Accounts: an id (acc_…), @username, or email — e.g. `verify @mark`.",
+    "    Clients:  an id (cli_…) or a unique name.",
+    "    Long form: --account <x> / --client <x> / --username <x> force the kind.",
+    "    In PowerShell quote the handle, or it is read as a splat: verify \"@mark\".",
+    "",
     "  Options",
     "    --file <path>                Managed clients file (default storage/config/api-clients.json)",
     "    --accounts-file <path>       Accounts file (default storage/config/accounts.json)",
     "    --password <value>           passwd: set this password instead of generating one",
     "    --account <selector>         Force account resolution",
     "    --client <selector>          Force client resolution",
+    "    --username <name>            Account selector (same as @name)",
     "",
     `  Access levels: ${ACCESS_LEVELS.join(", ")} (default ${DEFAULT_CLIENT_ACCESS_LEVEL}).`,
     "  Tiers and roles: " + `${CLI_NAME} help tiers`,
@@ -415,6 +452,8 @@ function main(argv) {
     case "reset-password":
     case "reset":
       return runPasswd(rest);
+    case "verify":
+      return runVerify(rest);
     case "add":
       return runClientCommand("add", rest);
     case "set":

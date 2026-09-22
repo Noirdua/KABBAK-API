@@ -119,11 +119,27 @@ function normalizeStoredTopic(topic) {
   };
 }
 
+// Board snapshots can predate a user setting a display name; resolve at read
+// time so views never fall back to a raw client id.
+function withResolvedNames(topic) {
+  if (!topic) {
+    return topic;
+  }
+  return {
+    ...topic,
+    authorName: resolveContributorName(topic.authorClientId, topic.authorName),
+    replies: (Array.isArray(topic.replies) ? topic.replies : []).map((reply) => ({
+      ...reply,
+      authorName: resolveContributorName(reply.authorClientId, reply.authorName)
+    }))
+  };
+}
+
 function summarizeTopic(topic) {
   return {
     id: topic.id,
     title: topic.title,
-    authorName: topic.authorName,
+    authorName: resolveContributorName(topic.authorClientId, topic.authorName),
     authorClientId: topic.authorClientId,
     createdAt: topic.createdAt,
     updatedAt: topic.updatedAt,
@@ -149,7 +165,7 @@ function getTopic(topicId, options = {}) {
     .map((entry) => normalizeStoredTopic(entry))
     .filter(Boolean)
     .find((entry) => entry.id === wanted) || null;
-  return topic;
+  return withResolvedNames(topic);
 }
 
 function findTopicIndex(topics, topicId) {
@@ -260,6 +276,32 @@ function setPinned(topicId, pinned, options = {}) {
   return topic;
 }
 
+// Board snapshots store the display name at post time; for accounts that never
+// set one, fall back to their public username so a raw cli_* id is never shown.
+function resolveContributorName(clientId, storedName = "") {
+  const id = String(clientId || "").trim();
+  const stored = String(storedName || "").trim();
+  if (stored && !stored.startsWith("cli_") && stored !== id) {
+    return stored;
+  }
+  if (id) {
+    try {
+      const displayName = String(require("./profile-service").readProfile(id)?.displayName || "").trim();
+      if (displayName) {
+        return displayName;
+      }
+    } catch (_error) {}
+    try {
+      const account = require("./account-service").findAccountByClientId(id);
+      const username = String(account?.username || "").trim();
+      if (username) {
+        return `@${username}`;
+      }
+    } catch (_error) {}
+  }
+  return stored || id;
+}
+
 // Top posters by topics + replies, derived from the board itself.
 function getContributors(options = {}) {
   const limitRaw = Number(options.limit);
@@ -296,6 +338,7 @@ function getContributors(options = {}) {
     });
 
   return [...counts.values()]
+    .map((entry) => ({ ...entry, name: resolveContributorName(entry.clientId, entry.name) }))
     .sort((left, right) => (right.posts - left.posts) || String(left.name).localeCompare(String(right.name)))
     .slice(0, limit);
 }

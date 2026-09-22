@@ -548,6 +548,17 @@ function completeVerification(account, { filePath, clientsFilePath } = {}) {
   };
 }
 
+// Operator-only: verify an account without the emailed code (delivery may not
+// be configured yet) and issue its trial key.
+function verifyAccountManually(accountId, { filePath = accountsPath, clientsFilePath } = {}) {
+  const id = String(accountId || "").trim();
+  const account = id ? getAccountById(id, { filePath }) : null;
+  if (!account) {
+    throw createHttpError(404, "account_not_found", "No account with that id.");
+  }
+  return completeVerification(account, { filePath, clientsFilePath });
+}
+
 function verifyEmail({ username, code, filePath = accountsPath, clientsFilePath } = {}) {
   const account = findAccountByUsername(username, { filePath });
   if (!account) {
@@ -685,6 +696,7 @@ module.exports = {
   issueTrial,
   findAccountByUsername,
   findAccountByEmail,
+  verifyAccountManually,
   findAccountByClientId,
   findAccountByIdentifier,
   getAccountById,

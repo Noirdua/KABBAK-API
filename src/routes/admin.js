@@ -208,9 +208,47 @@ router.get("/admin/users", (_request, response) => {
       username: String(account?.username || ""),
       email: String(account?.email || ""),
       trialActive: account ? account.trialActive === true : false,
-      trialKeyPresent: account ? account.keyPresent === true : false
+      trialKeyPresent: account ? account.keyPresent === true : false,
+      emailVerified: account ? account.emailVerified === true : null,
+      accountStatus: account ? String(account.status || "") : ""
     };
   });
+
+  // Accounts still awaiting verification have no managed client yet, so add
+  // them explicitly — they are exactly the ones an operator needs to verify.
+  const managedClientIds = new Set(allClients.map((client) => client.id));
+  try {
+    require("../services/account-service").listAccounts().forEach((account) => {
+      const clientId = String(account?.trial?.clientId || "").trim();
+      if (clientId && managedClientIds.has(clientId)) {
+        return;
+      }
+      users.push({
+        id: String(account.id || ""),
+        name: String(account.username || ""),
+        displayName: String(account.username || ""),
+        accountId: String(account.id || ""),
+        accessLevel: "",
+        roles: [],
+        scopes: [],
+        hasKey: false,
+        keyPreview: "",
+        hidden: false,
+        expiresAt: "",
+        subscription: null,
+        status: "never-seen",
+        lastSeen: "",
+        bio: "",
+        isTrialAccount: true,
+        username: String(account.username || ""),
+        email: String(account.email || ""),
+        trialActive: false,
+        trialKeyPresent: false,
+        emailVerified: account.emailVerified === true,
+        accountStatus: String(account.status || "")
+      });
+    });
+  } catch (_error) {}
 
   // Registry entries without a managed client entry (legacy) still show up.
   const seenIds = new Set(users.map((user) => user.id));
@@ -606,6 +644,22 @@ router.patch("/admin/settings", (request, response) => {
   });
 
   response.apiSuccess(updated);
+});
+
+// Operator verification for a trial account whose code email could not be
+// delivered. Issues (or returns) the trial key; shown once in the panel.
+router.post("/admin/accounts/:accountId/verify", (request, response) => {
+  const result = require("../services/account-service").verifyAccountManually(
+    String(request.params.accountId || "").trim()
+  );
+  emitAdminMutationAuditEvent(request, response, { action: "verify_account" });
+  response.apiSuccess({
+    account: result.account,
+    apiKey: result.trial?.apiKey || "",
+    clientId: result.trial?.clientId || "",
+    expiresAt: result.trial?.expiresAt || "",
+    accessLevel: result.trial?.accessLevel || ""
+  });
 });
 
 // Recent Stripe webhook events (subscription/payment changes and the

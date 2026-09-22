@@ -299,7 +299,7 @@ function printClientLines(clients) {
 
   clients.forEach((client) => {
     console.log([
-      client.id,
+      `id=${client.id}`,
       `name=${toDisplayValue(client.name)}`,
       `access=${client.accessLevel}`,
       `account=${toDisplayValue(client.accountId)}`,

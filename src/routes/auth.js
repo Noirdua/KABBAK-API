@@ -43,18 +43,26 @@ function createAuthRoutes() {
 
   router.get("/providers", (request, response) => {
     const policy = accounts.getTrialPolicy();
+    const emailConfigured = mail.isMailConfigured();
+    const devFallback = mail.isDevFallbackEnabled();
+    // Signup, verify, and forgot-password all need a way to deliver a code, so
+    // they are only offered when email works (or the dev fallback returns it).
+    const emailAvailable = emailConfigured || devFallback;
     response.apiSuccess({
       providers: { password: true, google: false, apple: false },
-      signupEnabled: accounts.isSignupEnabled(),
+      signupEnabled: accounts.isSignupEnabled() && emailAvailable,
+      signupPolicyEnabled: accounts.isSignupEnabled(),
+      emailConfigured,
+      emailAvailable,
       trialDays: policy.days,
       trialAccessLevel: policy.accessLevel,
       captcha: { enabled: true, choices: 4, ttlSeconds: Math.round(captcha.CHALLENGE_TTL_MS / 1000) },
       emailVerification: {
-        required: true,
-        configured: mail.isMailConfigured(),
-        devFallback: mail.isDevFallbackEnabled()
+        required: emailAvailable,
+        configured: emailConfigured,
+        devFallback
       },
-      passwordReset: true
+      passwordReset: emailAvailable
     });
   });
 
@@ -73,6 +81,13 @@ function createAuthRoutes() {
     try {
       if (!accounts.isSignupEnabled()) {
         throw createHttpError(403, "signup_disabled", "New trial accounts are not available right now.");
+      }
+      if (!mail.isMailConfigured() && !mail.isDevFallbackEnabled()) {
+        throw createHttpError(
+          403,
+          "email_not_configured",
+          "Email is not configured on this server, so trial signup is unavailable. Ask the operator to set it up in Admin → Server."
+        );
       }
 
       const captchaOk = captcha.verifyChallenge({
@@ -143,6 +158,9 @@ function createAuthRoutes() {
 
   router.post("/resend", async (request, response, next) => {
     try {
+      if (!mail.isMailConfigured() && !mail.isDevFallbackEnabled()) {
+        throw createHttpError(403, "email_not_configured", "Email is not configured on this server, so codes cannot be sent.");
+      }
       const result = accounts.resendVerification({ username: request.body?.username });
       const delivered = await mail.sendMail({
         to: result.account.email || "",
@@ -171,6 +189,9 @@ function createAuthRoutes() {
 
   router.post("/forgot", async (request, response, next) => {
     try {
+      if (!mail.isMailConfigured() && !mail.isDevFallbackEnabled()) {
+        throw createHttpError(403, "email_not_configured", "Email is not configured on this server, so reset codes cannot be sent.");
+      }
       const captchaOk = captcha.verifyChallenge({
         token: request.body?.captchaToken,
         answer: request.body?.captchaAnswer
