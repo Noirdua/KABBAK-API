@@ -7,6 +7,7 @@
  * stores overrides.
  */
 const fs = require("node:fs");
+const { writeFileAtomicSync } = require("../lib/atomic-file");
 const path = require("node:path");
 
 const { apiAccessLevelsPath } = require("../config/paths");
@@ -167,7 +168,7 @@ function writeAccessLevelOverrides(overrides, options = {}) {
     throw new Error("No access levels file path configured.");
   }
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify({ levels: overrides }, null, 2)}\n`, "utf8");
+  writeFileAtomicSync(filePath, `${JSON.stringify({ levels: overrides }, null, 2)}\n`);
   return filePath;
 }
 

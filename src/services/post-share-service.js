@@ -117,7 +117,9 @@ function renderPostShareBlocks(post) {
         const item = evidence.find((candidate) => candidate.id === entry.evidenceId);
         return item ? renderPostEvidenceMarker(item) : "";
       }
-      return entry.text ? `<div class="block">${entry.text}</div>` : "";
+      if (!entry.text) return "";
+      const text = post.type === "journal" ? escapeShareText(entry.text) : entry.text;
+      return `<div class="block">${text}</div>`;
     })
     .join("");
 }
@@ -159,7 +161,9 @@ function renderPostShareHtml(profile, post, { token = "", inlineAssets = false }
     kind: String(post.kind || "").trim() || "Theory",
     author,
     dateLine: post.occurredOn || post.createdAt || "",
-    bodyHtml: post.body || "",
+    bodyHtml: post.type === "journal"
+      ? escapeShareText(post.body || "").replace(/\n/g, "<br>")
+      : (post.body || ""),
     blocksHtml: renderPostShareBlocks(post),
     items,
     ogImageUrl: (items.find((item) => item.isImage) || {}).url || "",

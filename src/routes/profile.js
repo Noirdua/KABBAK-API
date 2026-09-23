@@ -12,7 +12,7 @@ const {
   deleteProfileQuickNote,
   buildSharePath,
   createProfileLink,
-  decodeAttachmentPayload,
+  sendStoredAttachment,
   deleteProfileLink,
   getProfileBio,
   getProfilePage,
@@ -549,14 +549,7 @@ router.get("/profile/events/:eventId/attachments/:attachmentId", wrapProfileHand
     request.params.attachmentId,
     getProfileOptions(request, response)
   );
-  const { type, buffer } = decodeAttachmentPayload(attachment);
-  response.setHeader("Content-Type", type || "application/octet-stream");
-  response.setHeader(
-    "Content-Disposition",
-    `inline; filename="${encodeURIComponent(attachment.name || "attachment")}"`
-  );
-  response.setHeader("Cache-Control", "private, max-age=300");
-  response.send(buffer);
+  sendStoredAttachment(response, attachment);
 }));
 
 router.post("/profile/events", wrapProfileHandler((request, response) => {
@@ -736,14 +729,7 @@ router.get("/profile/inbox/:scope/:messageId/attachments/:attachmentId", wrapPro
   if (!attachment || !attachment.data) {
     throw createNotFoundError("attachment_not_found", "Attachment not found.");
   }
-  const { type, buffer } = decodeAttachmentPayload(attachment);
-  response.setHeader("Content-Type", type || "application/octet-stream");
-  response.setHeader(
-    "Content-Disposition",
-    `inline; filename="${encodeURIComponent(attachment.name || "attachment")}"`
-  );
-  response.setHeader("Cache-Control", "private, max-age=300");
-  response.send(buffer);
+  sendStoredAttachment(response, attachment);
 }));
 
 router.post("/profile/inbox/:scope/:messageId/reply", wrapProfileHandler((request, response) => {
@@ -1137,10 +1123,7 @@ router.get("/profile/directory/users/:clientId", wrapProfileHandler((request, re
 
 function sendPublicDirectoryImage(request, response, kind) {
   const image = getPublicDirectoryImage(request.params.clientId, kind, getProfileOptions(request, response));
-  const { type, buffer } = decodeAttachmentPayload(image);
-  response.setHeader("Content-Type", type || "application/octet-stream");
-  response.setHeader("Cache-Control", "public, max-age=300");
-  response.send(buffer);
+  sendStoredAttachment(response, image, { imagesOnly: true, cacheControl: "public, max-age=300" });
 }
 
 router.get("/profile/directory/users/:clientId/avatar", wrapProfileHandler((request, response) => {
@@ -1222,10 +1205,7 @@ router.patch("/profile/bio", wrapProfileHandler((request, response) => {
 
 function sendProfileImage(request, response, kind) {
   const image = getProfileImage(getProfileClientId(request, response), kind, getProfileOptions(request, response));
-  const { type, buffer } = decodeAttachmentPayload(image);
-  response.setHeader("Content-Type", type || "application/octet-stream");
-  response.setHeader("Cache-Control", "private, max-age=60");
-  response.send(buffer);
+  sendStoredAttachment(response, image, { imagesOnly: true, cacheControl: "private, max-age=60" });
 }
 
 router.get("/profile/avatar", wrapProfileHandler((request, response) => {

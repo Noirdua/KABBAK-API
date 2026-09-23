@@ -2,7 +2,7 @@ const rateLimit = require("express-rate-limit");
 
 const { createApiRouter } = require("../lib/create-api-router");
 const { apiBasePath } = require("../config/service");
-const { decodeAttachmentPayload } = require("../services/profile-service");
+const { sendStoredAttachment } = require("../services/profile-service");
 const {
   buildCalendarFeed,
   resolveFeedAttachment,
@@ -78,15 +78,7 @@ router.get(
       return;
     }
 
-    const { type, buffer } = decodeAttachmentPayload(attachment);
-    response.setHeader("Content-Type", type || "application/octet-stream");
-    response.setHeader(
-      "Content-Disposition",
-      `inline; filename="${encodeURIComponent(attachment.name || "attachment")}"`
-    );
-    response.setHeader("Cache-Control", "private, max-age=300");
-    response.setHeader("X-Robots-Tag", "noindex, nofollow");
-    response.send(buffer);
+    sendStoredAttachment(response, attachment);
   }
 );
 
@@ -109,15 +101,7 @@ router.get(
       return;
     }
 
-    const { type, buffer } = decodeAttachmentPayload(attachment);
-    response.setHeader("Content-Type", type || "application/octet-stream");
-    response.setHeader(
-      "Content-Disposition",
-      `inline; filename="${encodeURIComponent(attachment.name || "attachment")}"`
-    );
-    response.setHeader("Cache-Control", "private, max-age=300");
-    response.setHeader("X-Robots-Tag", "noindex, nofollow");
-    response.send(buffer);
+    sendStoredAttachment(response, attachment);
   }
 );
 

@@ -4,7 +4,7 @@ const { createApiRouter } = require("../lib/create-api-router");
 const { DEFAULT_JOURNAL_VISIBILITY } = require("../config/profile-storage");
 const {
   buildSharePath,
-  decodeAttachmentPayload,
+  sendStoredAttachment,
   normalizeJournalVisibility,
   resolveDirectMessageToken,
   resolveProfileLinkToken,
@@ -197,15 +197,7 @@ router.get("/share/:token/asset/:attachmentId", shareRateLimiter, (request, resp
     return;
   }
 
-  const { type, buffer } = decodeAttachmentPayload(attachment);
-  response.setHeader("Content-Type", type || "application/octet-stream");
-  response.setHeader(
-    "Content-Disposition",
-    `inline; filename="${encodeURIComponent(attachment.name || "attachment")}"`
-  );
-  response.setHeader("Cache-Control", "private, max-age=300");
-  response.setHeader("X-Robots-Tag", "noindex, nofollow");
-  response.send(buffer);
+  sendStoredAttachment(response, attachment);
 });
 
 module.exports = router;

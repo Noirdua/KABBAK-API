@@ -1,6 +1,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const { writeFileAtomicSync } = require("../lib/atomic-file");
 
 const { storageConfigRoot } = require("../config/paths");
 const {
@@ -38,8 +39,7 @@ function readStore(filePath) {
 }
 
 function writeStore(filePath, store) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+  writeFileAtomicSync(filePath, `${JSON.stringify(store, null, 2)}\n`);
 }
 
 function generateBroadcastToken() {

@@ -6,6 +6,7 @@
  */
 const fs = require("node:fs");
 const path = require("node:path");
+const { writeFileAtomicSync } = require("../lib/atomic-file");
 
 const { appEnv } = require("../config/app-env");
 const { storageConfigRoot } = require("../config/paths");
@@ -119,7 +120,7 @@ function readPersistedSettings() {
 
 function persistSettings(settings) {
   fs.mkdirSync(path.dirname(RUNTIME_SETTINGS_PATH), { recursive: true });
-  fs.writeFileSync(RUNTIME_SETTINGS_PATH, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
+  writeFileAtomicSync(RUNTIME_SETTINGS_PATH, `${JSON.stringify(settings, null, 2)}\n`);
 }
 
 function normalizeRequestLogMode(value) {

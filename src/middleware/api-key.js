@@ -292,15 +292,17 @@ function createRequestAuthState(client) {
     };
   }
 
+  const grants = require("../services/api-roles").resolveClientGrants(client);
   return {
     authenticated: true,
     type: "api-key",
     clientId: client.id,
     accountId: client.accountId,
     name: String(client?.name || "").trim(),
-    accessLevel: client.accessLevel,
+    accessLevel: grants.accessLevel || client.accessLevel,
     roles: [...client.roles],
-    scopes: [...client.scopes]
+    scopes: [...client.scopes],
+    capabilities: grants.capabilities
   };
 }
 

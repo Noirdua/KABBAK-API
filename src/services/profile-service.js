@@ -1,6 +1,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const { writeFileAtomicSync } = require("../lib/atomic-file");
 
 const {
   profilesRoot,
@@ -386,6 +387,7 @@ function encryptData(plainText, clientId, secret) {
   const tag = cipher.getAuthTag().toString("base64");
   return JSON.stringify({
     v: 1,
+    clientId,
     iv: iv.toString("base64"),
     tag,
     data: encrypted
@@ -454,29 +456,82 @@ const profileWriteRevisions = new Map();
 // Generic helper: every profile that exists on disk. Plugins use this to fan
 // out daily reports without knowing the storage layout. Encrypted/unreadable
 // profiles are skipped.
-function listProfileClientIds(options = {}) {
+const storedProfileCache = new Map();
+const STORED_PROFILE_CACHE_MAX = 200;
+
+function clientIdFromProfileFileName(fileName) {
+  const match = /^profile-(.+)-([0-9a-f]{8})\.json$/i.exec(fileName);
+  if (!match) return "";
+  const safePart = match[1];
+  const hashPart = match[2].toLowerCase();
+  const expected = crypto.createHash("sha1").update(safePart, "utf8").digest("hex").slice(0, 8);
+  return expected === hashPart ? safePart : "";
+}
+
+function dropStoredProfileCache(filePath) {
+  const prefix = `${filePath}\0`;
+  for (const key of storedProfileCache.keys()) {
+    if (key.startsWith(prefix)) storedProfileCache.delete(key);
+  }
+}
+
+function readStoredProfileFile(fileName, options = {}) {
+  if (!String(fileName).startsWith("profile-") || !String(fileName).endsWith(".json")) return null;
+  const filePath = path.join(resolveRootPath(options), fileName);
+  let stat;
+  try {
+    stat = fs.statSync(filePath);
+  } catch (_error) {
+    return null;
+  }
+  const cacheKey = `${filePath}\0${stat.mtimeMs}\0${stat.size}`;
+  if (storedProfileCache.has(cacheKey)) return storedProfileCache.get(cacheKey);
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch (_error) {
+    return null;
+  }
+  const encrypted = parsed && parsed.v === 1 && typeof parsed.data === "string";
+  const clientId = String(parsed?.clientId || "").trim() || clientIdFromProfileFileName(fileName);
+  if (!clientId) return null;
+  let profile = null;
+  try {
+    profile = encrypted
+      ? readProfile(clientId, options)
+      : normalizeProfile(parsed, clientId, options);
+  } catch (_error) {
+    profile = null;
+  }
+  if (!profile) return null;
+  storedProfileCache.set(cacheKey, profile);
+  if (storedProfileCache.size > STORED_PROFILE_CACHE_MAX) {
+    const oldest = storedProfileCache.keys().next().value;
+    storedProfileCache.delete(oldest);
+  }
+  return profile;
+}
+
+function forEachStoredProfile(visitor, options = {}) {
   const root = resolveRootPath(options);
   let files = [];
   try {
     files = fs.readdirSync(root);
   } catch (_error) {
-    return [];
+    return;
   }
-  const ids = [];
   for (const file of files) {
-    if (!file.startsWith("profile-") || !file.endsWith(".json")) {
-      continue;
-    }
-    try {
-      const parsed = JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
-      const clientId = String(parsed?.clientId || "").trim();
-      if (clientId) {
-        ids.push(clientId);
-      }
-    } catch (_error) {
-      // skip unreadable profiles
-    }
+    const profile = readStoredProfileFile(file, options);
+    if (profile?.clientId) visitor(profile);
   }
+}
+
+function listProfileClientIds(options = {}) {
+  const ids = [];
+  forEachStoredProfile((profile) => {
+    const clientId = String(profile.clientId || "").trim();
+    if (clientId) ids.push(clientId);
+  }, options);
   return ids.sort();
 }
 
@@ -499,30 +554,14 @@ function updateProfileDirectory(clientId, input, options = {}) {
 }
 
 function listPublicDirectoryEntries(options = {}) {
-  const root = resolveRootPath(options);
-  let files = [];
-  try {
-    files = fs.readdirSync(root);
-  } catch (_error) {
-    return [];
-  }
   const entries = [];
-  for (const file of files) {
-    if (!file.startsWith("profile-") || !file.endsWith(".json")) {
-      continue;
-    }
-    let profile;
-    try {
-      profile = JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
-    } catch (_error) {
-      continue;
-    }
+  forEachStoredProfile((profile) => {
     const clientId = String(profile?.clientId || "").trim();
     if (!clientId || isSharedDemoClientId(clientId)) {
-      continue;
+      return;
     }
     if (normalizeDirectoryVisibility(profile.directoryVisibility, "private") !== "public") {
-      continue;
+      return;
     }
     const username = resolveAccountUsername(clientId);
     const displayName = String(profile.displayName || "").trim().slice(0, 80);
@@ -535,7 +574,7 @@ function listPublicDirectoryEntries(options = {}) {
       memberSince: String(profile.createdAt || ""),
       hasAvatar: Boolean(profile.avatar?.data)
     });
-  }
+  }, options);
   entries.sort((left, right) => left.displayName.localeCompare(right.displayName));
   return entries;
 }
@@ -904,38 +943,20 @@ function sendDirectoryMessage(fromClientId, targetClientId, input = {}, options 
 // Internal quiz leaderboard. Only profiles that opted into the public directory
 // (and have actually played) are ranked, so private players stay invisible.
 function getQuizLeaderboard(options = {}) {
-  const root = resolveRootPath(options);
   const limitRaw = Number(options.limit);
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.trunc(limitRaw))) : 50;
-
-  let files = [];
-  try {
-    files = fs.readdirSync(root);
-  } catch (_error) {
-    return [];
-  }
-
   const entries = [];
-  for (const file of files) {
-    if (!file.startsWith("profile-") || !file.endsWith(".json")) {
-      continue;
-    }
-    let profile;
-    try {
-      profile = JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
-    } catch (_error) {
-      continue;
-    }
+  forEachStoredProfile((profile) => {
     const clientId = String(profile?.clientId || "").trim();
     if (!clientId) {
-      continue;
+      return;
     }
     if (normalizeDirectoryVisibility(profile.directoryVisibility, "private") !== "public") {
-      continue;
+      return;
     }
     const attempts = Array.isArray(profile.quiz?.attempts) ? profile.quiz.attempts : [];
     if (!attempts.length) {
-      continue;
+      return;
     }
 
     const stats = computeQuizStats(attempts);
@@ -958,7 +979,7 @@ function getQuizLeaderboard(options = {}) {
       bestAccuracy,
       bestByDifficulty
     });
-  }
+  }, options);
 
   return entries
     .sort((left, right) => (
@@ -1014,32 +1035,13 @@ function listTopicWatchers(topicId, options = {}) {
   if (!wanted) {
     return [];
   }
-  const root = resolveRootPath(options);
-  let files = [];
-  try {
-    files = fs.readdirSync(root);
-  } catch (_error) {
-    return [];
-  }
   const watchers = [];
-  for (const file of files) {
-    if (!file.startsWith("profile-") || !file.endsWith(".json")) {
-      continue;
-    }
-    let profile;
-    try {
-      profile = JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
-    } catch (_error) {
-      continue;
-    }
+  forEachStoredProfile((profile) => {
     const clientId = String(profile?.clientId || "").trim();
-    if (!clientId) {
-      continue;
-    }
-    if (normalizeBoardWatch(profile.boardWatch).includes(wanted)) {
+    if (clientId && normalizeBoardWatch(profile.boardWatch).includes(wanted)) {
       watchers.push(clientId);
     }
-  }
+  }, options);
   return watchers;
 }
 
@@ -1076,8 +1078,8 @@ function writeProfile(clientId, profile, options = {}) {
     );
   }
 
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, toStore + "\n", "utf8");
+  writeFileAtomicSync(filePath, `${toStore}\n`);
+  dropStoredProfileCache(filePath);
   const revisionKey = normalizeClientId(clientId);
   profileWriteRevisions.set(revisionKey, (profileWriteRevisions.get(revisionKey) || 0) + 1);
   // Return usage (attachments are embedded in the JSON)
@@ -2134,6 +2136,41 @@ function decodeAttachmentPayload(attachment) {
   };
 }
 
+const INLINE_ATTACHMENT_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/mp4",
+  "audio/aac",
+  "audio/ogg",
+  "audio/wav",
+  "audio/webm",
+  "audio/x-wav"
+]);
+
+function sendStoredAttachment(response, attachment, options = {}) {
+  const decoded = decodeAttachmentPayload(attachment);
+  const type = String(decoded.type || "application/octet-stream").split(";")[0].trim().toLowerCase();
+  const imageOnly = options.imagesOnly === true;
+  const safeType = INLINE_ATTACHMENT_TYPES.has(type) || type === "application/pdf";
+  const inline = imageOnly
+    ? type === "image/jpeg" || type === "image/png" || type === "image/gif" || type === "image/webp"
+    : INLINE_ATTACHMENT_TYPES.has(type);
+  response.setHeader("X-Content-Type-Options", "nosniff");
+  response.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+  response.setHeader("Content-Type", safeType ? type : "application/octet-stream");
+  response.setHeader(
+    "Content-Disposition",
+    `${inline ? "inline" : "attachment"}; filename="${encodeURIComponent(attachment?.name || "file")}"`
+  );
+  response.setHeader("Cache-Control", options.cacheControl || "private, max-age=300");
+  response.setHeader("X-Robots-Tag", "noindex, nofollow");
+  response.send(decoded.buffer);
+}
+
 function createProfileEvent(clientId, input, options = {}) {
   const profile = readProfile(clientId, options);
   const limit = resolveEventsLimit(options);
@@ -2419,14 +2456,24 @@ const CALENDAR_FEED_LAYER_ALIASES = Object.freeze({
   "planetary-hours": "planetary"
 });
 
+function aliasCalendarFeedLayer(layer) {
+  const name = String(layer || "").trim().toLowerCase();
+  return CALENDAR_FEED_LAYER_ALIASES[name] || name;
+}
+
+function profileFeedHasLayer(profile, layer) {
+  const stored = profile?.calendarFeed && typeof profile.calendarFeed === "object" ? profile.calendarFeed : {};
+  // No saved selection yet: a legacy feed still honors its URL, so do not revoke.
+  if (!Array.isArray(stored.layers)) return true;
+  const layers = normalizeCalendarFeedLayers(stored.layers);
+  return layers.includes(aliasCalendarFeedLayer(layer));
+}
+
 function normalizeCalendarFeedLayers(value) {
   const known = new Set(CALENDAR_FEED_LAYERS);
   const explicit = Array.isArray(value) || (typeof value === "string" && value.trim() !== "");
   const requested = (Array.isArray(value) ? value : String(value || "").split(","))
-    .map((entry) => {
-      const layer = String(entry || "").trim().toLowerCase();
-      return CALENDAR_FEED_LAYER_ALIASES[layer] || layer;
-    })
+    .map((entry) => aliasCalendarFeedLayer(entry))
     .filter((entry) => known.has(entry));
   const unique = [...new Set(requested)];
   if (unique.length) {
@@ -2455,6 +2502,7 @@ function getProfileCalendarFeed(clientId, options = {}) {
     token: feed.token,
     path: feed.token ? buildCalendarFeedPath(feed.token) : "",
     layers: feed.layers || [...DEFAULT_CALENDAR_FEED_LAYERS],
+    layersSaved: Array.isArray(feed.layers),
     notesFormat: feed.notesFormat || "events",
     options: feed.options || normalizeCalendarFeedOptions(null),
     createdAt: feed.createdAt,
@@ -2511,7 +2559,8 @@ function updateProfileCalendarFeed(clientId, input, options = {}) {
       enabled: feed.enabled,
       token: feed.token,
       path: buildCalendarFeedPath(feed.token),
-      layers: feed.layers || [...DEFAULT_CALENDAR_FEED_LAYERS],
+    layers: feed.layers || [...DEFAULT_CALENDAR_FEED_LAYERS],
+    layersSaved: Array.isArray(feed.layers),
       notesFormat: feed.notesFormat || "events",
       options: feed.options || normalizeCalendarFeedOptions(null),
       createdAt: feed.createdAt,
@@ -2809,6 +2858,9 @@ function resolveSignedShareAttachment(token, options = {}) {
   const { clientId, profile, verified } = context;
 
   if (verified.t === "e") {
+    if (!profileFeedHasLayer(profile, "user")) {
+      return null;
+    }
     const event = (profile.events || []).find((entry) => entry.id === verified.e) || null;
     if (!event) {
       return null;
@@ -2830,6 +2882,9 @@ function resolveSignedShareAttachment(token, options = {}) {
   }
 
   if (verified.t === "n") {
+    if (!profileFeedHasLayer(profile, "notes") || normalizeJournalVisibility(profile.journalVisibility, DEFAULT_JOURNAL_VISIBILITY) !== "public") {
+      return null;
+    }
     const note = (profile.notes || []).find((entry) => entry.id === verified.n) || null;
     if (!note) {
       return null;
@@ -3686,7 +3741,8 @@ function updateProfilePost(clientId, postId, input, options = {}) {
   }
   if (input?.body !== undefined) {
     const limit = post.type === "journal" ? MAX_POST_BODY_LENGTH : MAX_POST_TEXT_LENGTH;
-    post.body = sanitizeMessageHtml(String(input.body || "")).slice(0, limit);
+    const raw = String(input.body || "").slice(0, limit);
+    post.body = post.type === "journal" ? raw : sanitizeMessageHtml(raw);
   }
   if (input?.attachments !== undefined) {
     post.attachments = normalizePostAttachments(input.attachments);
@@ -4223,6 +4279,10 @@ module.exports = {
   buildSharePath,
   createProfileLink,
   decodeAttachmentPayload,
+  sendStoredAttachment,
+  aliasCalendarFeedLayer,
+  profileFeedHasLayer,
+  forEachStoredProfile,
   deleteProfileLink,
   deleteProfileMessage,
   getProfileInboxReadMap,

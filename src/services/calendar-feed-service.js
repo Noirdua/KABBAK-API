@@ -7,7 +7,10 @@ const {
   findEventAttachment,
   findNoteAttachment,
   getProfileRevision,
+  aliasCalendarFeedLayer,
   normalizeCalendarFeedOptions,
+  normalizeJournalVisibility,
+  profileFeedHasLayer,
   readProfile,
   resolveCalendarFeedToken,
   resolveEventOccurrenceAttachments
@@ -41,10 +44,12 @@ const PLANETARY_FUTURE_DAYS = 60;
 
 const feedCache = new Map();
 
-function localIsoDate(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+function localIsoDate(date, utcOffsetMinutes) {
+  const offset = Number(utcOffsetMinutes);
+  const shifted = Number.isFinite(offset) ? new Date(date.getTime() + offset * 60_000) : date;
+  const year = Number.isFinite(offset) ? shifted.getUTCFullYear() : date.getFullYear();
+  const month = String((Number.isFinite(offset) ? shifted.getUTCMonth() : date.getMonth()) + 1).padStart(2, "0");
+  const day = String(Number.isFinite(offset) ? shifted.getUTCDate() : date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -268,7 +273,7 @@ function renderIcs(calendarName, events, offsetMinutes = 0) {
 function normalizeLayers(rawLayers) {
   const explicit = Array.isArray(rawLayers) || (typeof rawLayers === "string" && rawLayers.trim() !== "");
   const requested = (Array.isArray(rawLayers) ? rawLayers : String(rawLayers || "").split(","))
-    .map((entry) => String(entry || "").trim().toLowerCase())
+    .map((entry) => aliasCalendarFeedLayer(entry))
     .filter((entry) => KNOWN_LAYERS.has(entry));
   if (requested.length) {
     return new Set(requested);
@@ -532,12 +537,13 @@ function collectNotes(notes, fromIso, toIso, target, context = {}, format = "eve
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < fromIso || date > toIso) {
       return;
     }
-    const attachmentItems = (linkBase && token)
+    const journalPublic = normalizeJournalVisibility(context.profile?.journalVisibility) === "public";
+    const attachmentItems = (linkBase && token && journalPublic)
       ? (note.scenes || []).flatMap((scene) => (scene.attachments || [])
           .filter((att) => att && att.id)
           .map((att) => {
             const fileUrl = `${linkBase}/calendar/feed/note-attachment/${encodeURIComponent(note.id)}/${encodeURIComponent(scene.id)}/${encodeURIComponent(att.id)}?token=${encodeURIComponent(token)}`;
-            const pageUrl = (shareOrigin && context.profile)
+            const pageUrl = (shareOrigin && context.profile && journalPublic)
               ? `${shareOrigin}${buildAttachmentShareUrl(context.profile, { c: context.clientId, t: "n", n: note.id, s: scene.id, a: att.id })}`
               : "";
             return { name: att.name || "attachment", fileUrl, pageUrl: pageUrl || fileUrl };
@@ -681,8 +687,8 @@ function collectPlanetaryHours(profile, fromIso, toIso, target, { offsetMinutes 
     return;
   }
   const planets = referenceData?.planets || {};
-  const windowFrom = localIsoDate(new Date(Date.now() - PLANETARY_PAST_DAYS * DAY_IN_MS));
-  const windowTo = localIsoDate(new Date(Date.now() + PLANETARY_FUTURE_DAYS * DAY_IN_MS));
+  const windowFrom = localIsoDate(new Date(Date.now() - PLANETARY_PAST_DAYS * DAY_IN_MS), offsetMinutes);
+  const windowTo = localIsoDate(new Date(Date.now() + PLANETARY_FUTURE_DAYS * DAY_IN_MS), offsetMinutes);
   const startIso = fromIso > windowFrom ? fromIso : windowFrom;
   const endIso = toIso < windowTo ? toIso : windowTo;
   if (endIso < startIso) {
@@ -692,7 +698,7 @@ function collectPlanetaryHours(profile, fromIso, toIso, target, { offsetMinutes 
   let cursor = new Date(`${startIso}T12:00:00Z`);
   const end = new Date(`${endIso}T12:00:00Z`);
   for (; cursor <= end; cursor = new Date(cursor.getTime() + DAY_IN_MS)) {
-    const hours = calcPlanetaryHoursForDayAndLocation(cursor, geo);
+    const hours = calcPlanetaryHoursForDayAndLocation(cursor, geo, offsetMinutes, cursor.getUTCDay());
     hours.forEach((hour, index) => {
       const start = hour?.start;
       const finish = hour?.end;
@@ -795,8 +801,8 @@ async function buildCalendarFeed({ token, layers, notesFormat = "", now = new Da
     return cached;
   }
 
-  const fromIso = localIsoDate(new Date(now.getTime() - FEED_PAST_DAYS * DAY_IN_MS));
-  const toIso = localIsoDate(new Date(now.getTime() + FEED_FUTURE_DAYS * DAY_IN_MS));
+  const fromIso = localIsoDate(new Date(now.getTime() - FEED_PAST_DAYS * DAY_IN_MS), offsetMinutes);
+  const toIso = localIsoDate(new Date(now.getTime() + FEED_FUTURE_DAYS * DAY_IN_MS), offsetMinutes);
   const feedEvents = await collectSubscriptionEvents({
     profile: resolved.profile,
     layers: layerSet,
@@ -896,7 +902,7 @@ async function buildProfileCalendarEvents(clientId, { fromIso, toIso, utcOffsetM
 // token is invalid/disabled or the attachment does not exist.
 function resolveFeedAttachment({ token, eventId, attachmentId, options = {} } = {}) {
   const resolved = resolveCalendarFeedToken(token, options);
-  if (!resolved) {
+  if (!resolved || !profileFeedHasLayer(resolved.profile, "user")) {
     return null;
   }
   return findEventAttachment(resolved.profile, eventId, attachmentId);
@@ -904,7 +910,10 @@ function resolveFeedAttachment({ token, eventId, attachmentId, options = {} } = 
 
 function resolveFeedNoteAttachment({ token, noteId, sceneId, attachmentId, options = {} } = {}) {
   const resolved = resolveCalendarFeedToken(token, options);
-  if (!resolved) {
+  if (!resolved || !profileFeedHasLayer(resolved.profile, "notes")) {
+    return null;
+  }
+  if (normalizeJournalVisibility(resolved.profile.journalVisibility) !== "public") {
     return null;
   }
   return findNoteAttachment(resolved.profile, noteId, sceneId, attachmentId);

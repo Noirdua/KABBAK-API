@@ -3,6 +3,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const { writeFileAtomicSync } = require("../lib/atomic-file");
 
 const { storageConfigRoot } = require("../config/paths");
 const { createHangman, moveHangman, viewHangman } = require("./games/hangman");
@@ -117,7 +118,7 @@ function readStore(options = {}) {
 function writeStore(sessions, options = {}) {
   const filePath = resolveGamesPath(options);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify({ version: 1, sessions }, null, 2)}\n`, "utf8");
+  writeFileAtomicSync(filePath, `${JSON.stringify({ version: 1, sessions }, null, 2)}\n`);
   try {
     const stats = fs.statSync(filePath);
     storeCache.set(filePath, { mtimeMs: stats.mtimeMs, size: stats.size, sessions });

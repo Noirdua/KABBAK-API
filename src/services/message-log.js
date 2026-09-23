@@ -1,5 +1,6 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
+const { writeFileAtomicSync } = require("../lib/atomic-file");
 const path = require("node:path");
 
 const { storageConfigRoot } = require("../config/paths");
@@ -25,8 +26,7 @@ function readLog(options = {}) {
 
 function writeLog(entries, options = {}) {
   const filePath = resolveLogPath(options);
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify({ version: 1, entries }, null, 2)}\n`, "utf8");
+  writeFileAtomicSync(filePath, `${JSON.stringify({ version: 1, entries }, null, 2)}\n`);
 }
 
 function normalizeLogEntry(entry) {

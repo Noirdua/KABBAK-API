@@ -110,11 +110,40 @@ function getDecanForDate(date, signs, decansBySign) {
   return { sign, decan };
 }
 
-function calcPlanetaryHoursForDayAndLocation(date, geo) {
+function readUtcOffsetMinutes(value) {
+  if (value == null || value === "") return null;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || Math.abs(numeric) > 14 * 60) return null;
+  return Math.trunc(numeric);
+}
+
+function weekdayForInstant(date, utcOffsetMinutes) {
+  if (!Number.isFinite(utcOffsetMinutes)) return date.getDay();
+  return new Date(date.getTime() + utcOffsetMinutes * 60_000).getUTCDay();
+}
+
+function civilDayBounds(date, utcOffsetMinutes) {
+  if (!Number.isFinite(utcOffsetMinutes)) {
+    return {
+      start: new Date(date.getFullYear(), date.getMonth(), date.getDate()),
+      end: new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59)
+    };
+  }
+  const shifted = new Date(date.getTime() + utcOffsetMinutes * 60_000);
+  const year = shifted.getUTCFullYear();
+  const month = shifted.getUTCMonth();
+  const day = shifted.getUTCDate();
+  return {
+    start: new Date(Date.UTC(year, month, day) - utcOffsetMinutes * 60_000),
+    end: new Date(Date.UTC(year, month, day, 23, 59, 59) - utcOffsetMinutes * 60_000)
+  };
+}
+
+function calcPlanetaryHoursForDayAndLocation(date, geo, utcOffsetMinutes = null, weekday = null) {
   const solar = SunCalc.getTimes(date, geo.latitude, geo.longitude);
   const nextDay = new Date(date.getTime() + DAY_IN_MS);
   const solarNext = SunCalc.getTimes(nextDay, geo.latitude, geo.longitude);
-  const dayOfWeek = date.getDay();
+  const dayOfWeek = Number.isInteger(weekday) ? weekday : weekdayForInstant(date, utcOffsetMinutes);
   const chaldeanStartPos = CHALDEAN.indexOf(START[dayOfWeek]);
 
   const dayHourInMinutes = minutesBetween(solar.sunset, solar.sunrise) / 12;
@@ -186,19 +215,20 @@ function parseAnchorDate(input) {
   return date;
 }
 
-function buildWeekEvents(geo, referenceData, anchorDate) {
+function buildWeekEvents(geo, referenceData, anchorDate, utcOffsetMinutes = null) {
   const baseDate = anchorDate || new Date();
   const events = [];
   let runningId = 1;
 
   for (let offset = -BACKFILL_DAYS; offset <= FORECAST_DAYS; offset += 1) {
     const date = new Date(baseDate.getTime() + offset * DAY_IN_MS);
-    const hours = calcPlanetaryHoursForDayAndLocation(date, geo);
+    const hours = calcPlanetaryHoursForDayAndLocation(date, geo, utcOffsetMinutes);
     const moonIllum = SunCalc.getMoonIllumination(date);
     const moonPhase = getMoonPhaseName(moonIllum.phase);
     const sunInfo = getDecanForDate(date, referenceData.signs, referenceData.decansBySign);
-    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+    const bounds = civilDayBounds(date, utcOffsetMinutes);
+    const dayStart = bounds.start;
+    const dayEnd = bounds.end;
 
     // Compact DTO: client expands titles/bodies from bootstrap reference data.
     events.push({
@@ -409,8 +439,8 @@ function buildGeoCacheKey(geo, extra = "") {
   return `${latitude.toFixed(3)}|${longitude.toFixed(3)}|${extra}`;
 }
 
-function findCurrentPlanetaryHour(now, geo) {
-  const todayHours = calcPlanetaryHoursForDayAndLocation(now, geo);
+function findCurrentPlanetaryHour(now, geo, utcOffsetMinutes = null) {
+  const todayHours = calcPlanetaryHoursForDayAndLocation(now, geo, utcOffsetMinutes);
   let currentHour = todayHours.find((entry) => now >= entry.start && now < entry.end) || null;
   let hourPool = todayHours;
   let yesterdayHours = null;
@@ -418,7 +448,7 @@ function findCurrentPlanetaryHour(now, geo) {
 
   // After local midnight and before sunrise, the active hour lives on "yesterday"'s night chain.
   if (!currentHour) {
-    yesterdayHours = calcPlanetaryHoursForDayAndLocation(new Date(now.getTime() - DAY_IN_MS), geo);
+    yesterdayHours = calcPlanetaryHoursForDayAndLocation(new Date(now.getTime() - DAY_IN_MS), geo, utcOffsetMinutes);
     currentHour = yesterdayHours.find((entry) => now >= entry.start && now < entry.end) || null;
     if (currentHour) {
       hourPool = [...yesterdayHours, ...todayHours];
@@ -426,7 +456,7 @@ function findCurrentPlanetaryHour(now, geo) {
   }
 
   if (!currentHour) {
-    tomorrowHours = calcPlanetaryHoursForDayAndLocation(new Date(now.getTime() + DAY_IN_MS), geo);
+    tomorrowHours = calcPlanetaryHoursForDayAndLocation(new Date(now.getTime() + DAY_IN_MS), geo, utcOffsetMinutes);
     currentHour = tomorrowHours.find((entry) => now >= entry.start && now < entry.end) || null;
     if (currentHour) {
       hourPool = [...todayHours, ...tomorrowHours];
@@ -440,7 +470,7 @@ function findCurrentPlanetaryHour(now, geo) {
   const currentEndMs = currentHour.end.getTime();
   let nextHour = hourPool.find((entry) => entry.start.getTime() >= currentEndMs - 1000) || null;
   if (!nextHour) {
-    tomorrowHours = tomorrowHours || calcPlanetaryHoursForDayAndLocation(new Date(now.getTime() + DAY_IN_MS), geo);
+    tomorrowHours = tomorrowHours || calcPlanetaryHoursForDayAndLocation(new Date(now.getTime() + DAY_IN_MS), geo, utcOffsetMinutes);
     nextHour = tomorrowHours.find((entry) => entry.start.getTime() >= currentEndMs - 1000) || tomorrowHours[0] || null;
   }
 
@@ -544,13 +574,14 @@ async function getWeekEventsForQuery(query = {}) {
   ensureCalendarIndexes(referenceData);
   const geo = parseGeo(query);
   const anchorDate = parseAnchorDate(query.date);
-  const cacheKey = buildGeoCacheKey(geo, getDateKey(anchorDate));
+  const utcOffsetMinutes = readUtcOffsetMinutes(query.utcOffsetMinutes ?? query.offsetMinutes);
+  const cacheKey = buildGeoCacheKey(geo, `${getDateKey(anchorDate)}|${utcOffsetMinutes ?? ""}`);
   const cached = readResponseCache(weekEventsResponseCache, cacheKey);
   if (cached) {
     return cached;
   }
 
-  const events = buildWeekEvents(geo, referenceData, anchorDate);
+  const events = buildWeekEvents(geo, referenceData, anchorDate, utcOffsetMinutes);
   const payload = {
     anchorDate: anchorDate.toISOString(),
     geo,
@@ -566,8 +597,9 @@ async function getNowSnapshot(query = {}) {
   ensureCalendarIndexes(referenceData);
   const geo = parseGeo(query);
   const now = parseAnchorDate(query.date);
+  const utcOffsetMinutes = readUtcOffsetMinutes(query.utcOffsetMinutes ?? query.offsetMinutes);
   const cacheBucket = Math.floor(now.getTime() / NOW_SNAPSHOT_CACHE_TTL_MS);
-  const cacheKey = buildGeoCacheKey(geo, String(cacheBucket));
+  const cacheKey = buildGeoCacheKey(geo, `${cacheBucket}|${utcOffsetMinutes ?? ""}`);
   const cached = readResponseCache(nowSnapshotResponseCache, cacheKey);
   if (cached) {
     // Refresh countdowns against "now" so cached snapshots stay accurate.
@@ -605,7 +637,7 @@ async function getNowSnapshot(query = {}) {
     return cloned;
   }
 
-  const { currentHour, nextHour } = findCurrentPlanetaryHour(now, geo);
+  const { currentHour, nextHour } = findCurrentPlanetaryHour(now, geo, utcOffsetMinutes);
   const moonIllum = SunCalc.getMoonIllumination(now);
   const moonPhase = getMoonPhaseName(moonIllum.phase);
   const moonCountdown = findNextMoonPhaseTransition(now);

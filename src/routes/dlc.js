@@ -42,15 +42,24 @@ const {
 } = require("../services/dlc-catalog");
 
 function redactPluginConfig(config) {
-  if (!config || typeof config !== "object" || Array.isArray(config)) {
+  if (!config || typeof config !== "object") {
     return config;
+  }
+  if (Array.isArray(config)) {
+    return config.map((entry) => redactPluginConfig(entry));
   }
   const next = { ...config };
   for (const key of Object.keys(next)) {
-    if (!/key|secret|password|token/i.test(key)) continue;
-    if (!next[key]) continue;
-    next[key] = "***";
-    next[`${key}Set`] = true;
+    if (/key|secret|password|token/i.test(key)) {
+      if (next[key]) {
+        next[key] = "***";
+        next[`${key}Set`] = true;
+      }
+      continue;
+    }
+    if (next[key] && typeof next[key] === "object") {
+      next[key] = redactPluginConfig(next[key]);
+    }
   }
   return next;
 }
@@ -330,15 +339,25 @@ router.get("/plugins/:name/config", (request, response) => {
   response.apiSuccess({ name, config: redactPluginConfig(config) });
 });
 
-router.get("/plugins/:name/logs", (request, response) => {
-  const name = String(request.params.name || "");
-  const level = String(request.query?.level || "").trim();
-  const limit = Number(request.query?.limit) || 200;
-  response.apiSuccess({
-    name,
-    entries: readPluginLogs(name, { limit, level })
-  });
-});
+router.get(
+  "/plugins/:name/logs",
+  requireApiClientCapability({
+    capabilityName: "adminApiManagement",
+    anyRoles: ADMIN_API_MANAGEMENT_CAPABILITY.anyRoles,
+    anyScopes: ADMIN_API_MANAGEMENT_CAPABILITY.anyScopes,
+    errorCode: "insufficient_admin_capability",
+    errorMessage: "This route requires the admin role or api:admin scope."
+  }),
+  (request, response) => {
+    const name = String(request.params.name || "");
+    const level = String(request.query?.level || "").trim();
+    const limit = Number(request.query?.limit) || 200;
+    response.apiSuccess({
+      name,
+      entries: readPluginLogs(name, { limit, level })
+    });
+  }
+);
 
 router.delete(
   "/plugins/:name/logs",

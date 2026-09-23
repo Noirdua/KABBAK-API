@@ -8,13 +8,29 @@ const accounts = require("../services/account-service");
 const captcha = require("../services/captcha-service");
 const mail = require("../services/mail-service");
 
+function isLoopbackHost(host) {
+  const name = String(host || "").split(":")[0].replace(/^\[|\]$/g, "").toLowerCase();
+  return name === "localhost" || name === "127.0.0.1" || name === "::1";
+}
+
 function buildVerifyLink(request, token) {
   // Admin panel value wins so the public base can be fixed without a restart.
   const runtime = require("../services/runtime-settings").getRuntimeSettingValue("publicApiUrl");
   const configured = String(runtime || process.env.KABBAK_PUBLIC_API_URL || "").trim().replace(/\/+$/, "");
+  // Never trust a non-loopback Host header. An attacker can otherwise email a
+  // verify link on their own origin and complete signup for the victim.
+  const host = String(request.get("host") || "");
+  const baseSource = configured || (isLoopbackHost(host) ? `${request.protocol}://${host}` : "");
+  if (!baseSource) {
+    throw createHttpError(
+      503,
+      "public_url_required",
+      "Set the public API URL before sending verification email."
+    );
+  }
   // Accept either the host (https://api.example.com) or the full base with
   // /api/v1, so operators do not have to remember which one this expects.
-  let base = configured || `${request.protocol}://${request.get("host")}`;
+  let base = baseSource;
   if (!base.endsWith(apiBasePath)) {
     base = `${base}${apiBasePath}`;
   }

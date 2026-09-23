@@ -4,6 +4,7 @@
  * roles (highest limit wins) and applied to profile storage limits.
  */
 const fs = require("node:fs");
+const { writeFileAtomicSync } = require("../lib/atomic-file");
 
 const { apiRolesPath } = require("../config/paths");
 const {
@@ -131,8 +132,7 @@ function writeRoleDefinitions(roles, options = {}) {
   if (!filePath) {
     throw new Error("No roles file path configured.");
   }
-  fs.mkdirSync(require("node:path").dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify({ roles }, null, 2)}\n`, "utf8");
+  writeFileAtomicSync(filePath, `${JSON.stringify({ roles }, null, 2)}\n`);
   return filePath;
 }
 

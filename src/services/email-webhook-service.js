@@ -10,6 +10,7 @@
  */
 const crypto = require("node:crypto");
 const fs = require("node:fs");
+const { writeFileAtomicSync } = require("../lib/atomic-file");
 const path = require("node:path");
 
 const { storageConfigRoot } = require("../config/paths");
@@ -32,7 +33,7 @@ function readEvents() {
 
 function writeEvents(events) {
   fs.mkdirSync(path.dirname(EVENTS_PATH), { recursive: true });
-  fs.writeFileSync(EVENTS_PATH, `${JSON.stringify(events, null, 2)}\n`, "utf8");
+  writeFileAtomicSync(EVENTS_PATH, `${JSON.stringify(events, null, 2)}\n`);
 }
 
 function recordEmailEvent(event = {}) {

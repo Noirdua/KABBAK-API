@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { writeFileAtomicSync } = require("../lib/atomic-file");
 
 const { profilesRoot } = require("../config/profile-storage");
 const { storageConfigRoot } = require("../config/paths");
@@ -30,8 +31,7 @@ function readState(options = {}) {
 
 function writeState(state, options = {}) {
   const filePath = resolveStatePath(options);
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+  writeFileAtomicSync(filePath, `${JSON.stringify(state, null, 2)}\n`);
 }
 
 function localDateKey(date) {
@@ -73,28 +73,16 @@ function runDigest({ now = new Date(), options = {}, settings: settingsOverride 
 
   const broadcasts = listBroadcasts({ filePath: options.broadcastsFilePath });
   const root = options.profilesRoot || profilesRoot;
-  let files = [];
-  try {
-    files = fs.readdirSync(root).filter((name) => name.startsWith("profile-") && name.endsWith(".json"));
-  } catch (_error) {
-    files = [];
-  }
-
+  const { forEachStoredProfile } = require("./profile-service");
   let delivered = 0;
-  for (const file of files) {
-    let profile;
-    try {
-      profile = JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
-    } catch (_error) {
-      continue; // unreadable/encrypted profiles are skipped
-    }
+  forEachStoredProfile((profile) => {
     const clientId = String(profile?.clientId || "").trim();
     if (!clientId) {
-      continue;
+      return;
     }
     const unread = collectUnreadBroadcasts(profile, broadcasts, now.getTime());
     if (!unread.length) {
-      continue;
+      return;
     }
     const lines = unread.slice(0, 5).map((broadcast) => `• ${broadcast.title}`);
     if (unread.length > 5) {
@@ -112,7 +100,7 @@ function runDigest({ now = new Date(), options = {}, settings: settingsOverride 
     } catch (_error) {
       // Skip a profile that cannot be written (quota, etc.).
     }
-  }
+  }, { rootPath: root });
 
   writeState({ lastRunDate: dateKey, lastRunAt: now.toISOString(), delivered }, options);
   return { ran: true, delivered, date: dateKey };
