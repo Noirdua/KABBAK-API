@@ -123,10 +123,53 @@ function normalizeDeckId(deckId, sources = {}) {
   if (sources[normalized]) {
     return normalized;
   }
+  const byName = Object.keys(sources).find((id) => {
+    const name = String(sources[id]?.name || sources[id]?.label || "").trim().toLowerCase();
+    return name && name === normalized;
+  });
+  if (byName) {
+    return byName;
+  }
   if (sources[DEFAULT_DECK_ID]) {
     return DEFAULT_DECK_ID;
   }
   return Object.keys(sources)[0] || DEFAULT_DECK_ID;
+}
+
+function resolveTrumpNumber(manifest, cardName, trumpNumber) {
+  const explicit = normalizeTrumpNumber(trumpNumber);
+  if (Number.isInteger(explicit)) {
+    return explicit;
+  }
+  const canonical = canonicalMajorName(cardName);
+  const fromName = trumpNumberByCanonicalName[canonical];
+  if (Number.isInteger(fromName)) {
+    return fromName;
+  }
+  const overrides = manifest?.majorNameOverridesByTrump;
+  if (!overrides || typeof overrides !== "object") {
+    return null;
+  }
+  const match = Object.keys(overrides).find((key) => canonicalMajorName(overrides[key]) === canonical);
+  return match ? normalizeTrumpNumber(match) : null;
+}
+
+function canonicalNameForTrump(trumpNumber) {
+  const trump = normalizeTrumpNumber(trumpNumber);
+  if (!Number.isInteger(trump)) {
+    return "";
+  }
+  return Object.keys(trumpNumberByCanonicalName).find((name) => trumpNumberByCanonicalName[name] === trump) || "";
+}
+
+function resolveMinorLookupName(manifest, cardName) {
+  const overrides = manifest?.minorNameOverrides;
+  if (!overrides || typeof overrides !== "object") {
+    return cardName;
+  }
+  const target = String(cardName || "").trim().toLowerCase();
+  const match = Object.keys(overrides).find((key) => String(overrides[key] || "").trim().toLowerCase() === target);
+  return match || cardName;
 }
 
 function normalizeTrumpNumber(value) {
@@ -479,17 +522,23 @@ function normalizeCardFiles(value) {
   return single ? [single] : [];
 }
 
-function resolveMajorFiles(manifest, canonicalName) {
+function resolveMajorFiles(manifest, cardName, trumpNumber) {
   const majorRule = manifest?.majors;
   if (!majorRule || typeof majorRule !== "object") {
     return [];
   }
+  const canonicalName = canonicalMajorName(cardName);
+  const trumpNo = resolveTrumpNumber(manifest, cardName, trumpNumber);
   if (majorRule.mode === "canonical-map") {
     const cards = majorRule.cards || {};
-    return normalizeCardFiles(cards[canonicalName]);
+    const byName = normalizeCardFiles(cards[canonicalName]);
+    if (byName.length) {
+      return byName;
+    }
+    const canonicalFromTrump = canonicalNameForTrump(trumpNo);
+    return canonicalFromTrump ? normalizeCardFiles(cards[canonicalFromTrump]) : [];
   }
 
-  const trumpNo = trumpNumberByCanonicalName[canonicalName];
   if (!Number.isInteger(trumpNo) || trumpNo < 0 || trumpNo > 21) {
     return [];
   }
@@ -674,7 +723,7 @@ function resolvePlayingCardFiles(manifest, cardName) {
   return file ? normalizeCardFiles(file) : [];
 }
 
-function resolveCardRelativePaths(manifest, cardName) {
+function resolveCardRelativePaths(manifest, cardName, trumpNumber) {
   if (!manifest) {
     return [];
   }
@@ -685,12 +734,11 @@ function resolveCardRelativePaths(manifest, cardName) {
   if (system === "playing-cards") {
     return resolvePlayingCardFiles(manifest, cardName);
   }
-  const canonical = canonicalMajorName(cardName);
-  const majorFiles = resolveMajorFiles(manifest, canonical);
+  const majorFiles = resolveMajorFiles(manifest, cardName, trumpNumber);
   if (majorFiles.length) {
     return majorFiles;
   }
-  const parsedMinor = parseMinorCard(cardName);
+  const parsedMinor = parseMinorCard(resolveMinorLookupName(manifest, cardName));
   if (!parsedMinor) {
     return [];
   }
@@ -891,7 +939,7 @@ async function resolveDeckCard(query = {}) {
   }
 
   const variant = String(query.variant || "full").trim().toLowerCase() === "thumbnail" ? "thumbnail" : "full";
-  const relativePaths = resolveCardRelativePaths(manifest, cardName);
+  const relativePaths = resolveCardRelativePaths(manifest, cardName, query.trumpNumber);
   if (!relativePaths.length) {
     return {
       deckId: resolvedDeckId,
