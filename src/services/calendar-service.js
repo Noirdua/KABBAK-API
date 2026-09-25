@@ -1,7 +1,7 @@
 const SunCalc = require("suncalc");
 const Astronomy = require("astronomy-engine");
 
-const { loadReferenceData } = require("./data-loader");
+const { loadLinkedReference } = require("./document-slices");
 const { createHttpError } = require("../lib/http-errors");
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -570,7 +570,7 @@ function findNextDecanTransition(now, signs, decansBySign) {
 }
 
 async function getWeekEventsForQuery(query = {}) {
-  const referenceData = await loadReferenceData();
+  const referenceData = await loadLinkedReference();
   ensureCalendarIndexes(referenceData);
   const geo = parseGeo(query);
   const anchorDate = parseAnchorDate(query.date);
@@ -593,7 +593,7 @@ async function getWeekEventsForQuery(query = {}) {
 }
 
 async function getNowSnapshot(query = {}) {
-  const referenceData = await loadReferenceData();
+  const referenceData = await loadLinkedReference();
   ensureCalendarIndexes(referenceData);
   const geo = parseGeo(query);
   const now = parseAnchorDate(query.date);

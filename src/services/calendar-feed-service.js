@@ -1,6 +1,6 @@
 const Astronomy = require("astronomy-engine");
 
-const { loadReferenceData } = require("./data-loader");
+const { loadLinkedReference } = require("./document-slices");
 const {
   buildAttachmentShareUrl,
   expandEventOccurrences,
@@ -839,7 +839,7 @@ async function collectSubscriptionEvents({
     collectUserEvents(profile?.events || [], fromIso, toIso, feedEvents, collectContext);
   }
   if (layerSet.has("holidays") || layerSet.has("astrology") || layerSet.has("planetary")) {
-    const referenceData = await loadReferenceData();
+    const referenceData = await loadLinkedReference();
     if (layerSet.has("holidays")) {
       collectHolidays(referenceData, fromIso, toIso, feedEvents);
     }

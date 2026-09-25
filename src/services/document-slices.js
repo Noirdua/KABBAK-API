@@ -22,11 +22,19 @@ const REFERENCE_SLICES = Object.freeze({
   calendarMonths: (reference) => (Array.isArray(reference?.calendarMonths) ? reference.calendarMonths : []),
   calendarHolidays: (reference) => (Array.isArray(reference?.calendarHolidays) ? reference.calendarHolidays : []),
   celestialHolidays: (reference) => (Array.isArray(reference?.celestialHolidays) ? reference.celestialHolidays : []),
-  iChing: (reference) => reference?.iChing || {}
+  iChing: (reference) => reference?.iChing || {},
+  sabianSymbols: (reference) => (Array.isArray(reference?.sabianSymbols) ? reference.sabianSymbols : []),
+  tarotCourt: (reference) => ({
+    courtDateRanges: reference?.tarotDatabase?.courtDateRanges || {},
+    courtDecanWindows: reference?.tarotDatabase?.courtDecanWindows || {}
+  })
 });
+
+let linkedReference = null;
 
 function resetSliceCache() {
   sliceCache.clear();
+  linkedReference = null;
 }
 
 function indexesFor(slice, build) {
@@ -91,6 +99,31 @@ async function loadReferenceSlice(name) {
     throw new Error(`Unknown reference slice '${name}'.`);
   }
   return loadExtractedSlice(`reference:${name}`, `slice:reference:${name}`, extract);
+}
+
+async function loadLinkedReference() {
+  if (linkedReference) {
+    return linkedReference;
+  }
+  const [planets, signs, decansBySign, calendarHolidays, celestialHolidays, sabianSymbols, tarotCourt] = await Promise.all([
+    loadReferenceSlice("planets"),
+    loadReferenceSlice("signs"),
+    loadReferenceSlice("decansBySign"),
+    loadReferenceSlice("calendarHolidays"),
+    loadReferenceSlice("celestialHolidays"),
+    loadReferenceSlice("sabianSymbols"),
+    loadReferenceSlice("tarotCourt")
+  ]);
+  linkedReference = {
+    planets: planets || {},
+    signs: Array.isArray(signs) ? signs : [],
+    decansBySign: decansBySign || {},
+    calendarHolidays: Array.isArray(calendarHolidays) ? calendarHolidays : [],
+    celestialHolidays: Array.isArray(celestialHolidays) ? celestialHolidays : [],
+    sabianSymbols: Array.isArray(sabianSymbols) ? sabianSymbols : [],
+    tarotDatabase: tarotCourt || {}
+  };
+  return linkedReference;
 }
 
 async function warmDocumentSlices() {
@@ -377,6 +410,7 @@ module.exports = {
   loadHolidays,
   loadKabbalahCube,
   loadKabbalahTree,
+  loadLinkedReference,
   loadMagickSlice,
   loadReferenceSlice,
   resetSliceCache,

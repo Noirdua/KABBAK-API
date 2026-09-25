@@ -18,7 +18,8 @@ const {
   getProfileBoardWatch,
   getProfileSummary,
   listTopicWatchers,
-  updateProfileBoardWatch
+  updateProfileBoardWatch,
+  withProfileWriteLock
 } = require("../services/profile-service");
 const { ADMIN_API_MANAGEMENT_CAPABILITY } = require("../middleware/api-client-capability");
 const { rejectSharedDemoPersonalWrites } = require("../lib/demo-client");
@@ -187,16 +188,18 @@ function notifyTopicWatchers(topic, auth) {
     const excerpt = String(lastReply?.body || "").slice(0, 200);
     const watchers = listTopicWatchers(topic.id).filter((clientId) => clientId && clientId !== auth.clientId);
     watchers.slice(0, 200).forEach((clientId) => {
-      try {
-        addProfileMessage(clientId, {
-          kind: "report",
-          title: `New reply in ${topic.title}`,
-          description: excerpt,
-          visibility: "internal"
-        }, { sender: "Community" });
-      } catch (_error) {
-        // A single failed notification must not fail the reply.
-      }
+      void withProfileWriteLock(clientId, () => {
+        try {
+          addProfileMessage(clientId, {
+            kind: "report",
+            title: `New reply in ${topic.title}`,
+            description: excerpt,
+            visibility: "internal"
+          }, { sender: "Community" });
+        } catch (_error) {
+          // A single failed notification must not fail the reply.
+        }
+      });
     });
   } catch (_error) {
     // Notifications are best-effort.
@@ -214,14 +217,16 @@ router.post("/board/topics/:topicId/replies", (request, response) => {
   }
 });
 
-router.post("/board/topics/:topicId/watch", (request, response) => {
+router.post("/board/topics/:topicId/watch", async (request, response) => {
   const auth = getAuth(request, response);
   const topic = getTopic(request.params.topicId);
   if (!topic) {
     throw createNotFoundError("topic_not_found", `Topic '${request.params.topicId}' was not found.`);
   }
   try {
-    const result = updateProfileBoardWatch(auth.clientId, request.params.topicId, request.body?.watching === true);
+    const result = await withProfileWriteLock(auth.clientId, () => (
+      updateProfileBoardWatch(auth.clientId, request.params.topicId, request.body?.watching === true)
+    ));
     response.apiSuccess({ watching: result.watching });
   } catch (error) {
     if (error?.code === "invalid_watch") {

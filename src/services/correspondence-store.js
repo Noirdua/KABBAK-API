@@ -153,6 +153,11 @@ function extractCorrespondence(magickDataset, referenceData) {
   pushCollection(bucket, "reference:calendarHolidays", referenceData?.calendarHolidays || []);
   pushCollection(bucket, "reference:celestialHolidays", referenceData?.celestialHolidays || []);
   pushCollection(bucket, "reference:iChing", iching);
+  pushCollection(bucket, "reference:sabianSymbols", Array.isArray(referenceData?.sabianSymbols) ? referenceData.sabianSymbols : []);
+  pushCollection(bucket, "reference:tarotCourt", {
+    courtDateRanges: referenceData?.tarotDatabase?.courtDateRanges || {},
+    courtDecanWindows: referenceData?.tarotDatabase?.courtDecanWindows || {}
+  });
 
   Object.entries(planets).forEach(([id, planet], ordinal) => {
     pushEntity(bucket, "planet", id, planet?.name || id, planet, ordinal);
@@ -285,7 +290,7 @@ function sourceStamp(database) {
     const rows = database.prepare(
       "SELECT key, updated_at FROM documents WHERE key IN ('magickDataset', 'referenceData') ORDER BY key"
     ).all();
-    return rows.map((row) => `${row.key}:${row.updated_at || ""}`).join("|");
+    return `v2|${rows.map((row) => `${row.key}:${row.updated_at || ""}`).join("|")}`;
   } catch (_error) {
     return "";
   }

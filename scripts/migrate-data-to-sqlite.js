@@ -1469,7 +1469,12 @@ function writeDatabase({
     "slice:reference:calendarMonths": referenceData?.calendarMonths || [],
     "slice:reference:calendarHolidays": referenceData?.calendarHolidays || [],
     "slice:reference:celestialHolidays": referenceData?.celestialHolidays || [],
-    "slice:reference:iChing": referenceData?.iChing || {}
+    "slice:reference:iChing": referenceData?.iChing || {},
+    "slice:reference:sabianSymbols": referenceData?.sabianSymbols || [],
+    "slice:reference:tarotCourt": {
+      courtDateRanges: referenceData?.tarotDatabase?.courtDateRanges || {},
+      courtDecanWindows: referenceData?.tarotDatabase?.courtDecanWindows || {}
+    }
   };
   for (const [sliceKey, sliceValue] of Object.entries(documentSlices)) {
     writeDocument.run(sliceKey, JSON.stringify(sliceValue), timestamp);

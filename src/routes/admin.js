@@ -15,7 +15,7 @@ const { clearLogEntries, getLogFacets, getRecentLogEvents } = require("../servic
 const { listJobs } = require("../services/job-progress");
 const { listRegistry } = require("../services/user-registry");
 const { createBroadcast, deleteBroadcast, listBroadcasts } = require("../services/message-store");
-const { addProfileMessage, buildSharePath } = require("../services/profile-service");
+const { addProfileMessage, buildSharePath, withProfileWriteLock } = require("../services/profile-service");
 const { resolveAudienceClientIds } = require("../services/audience-service");
 const { appendLogEntry, clearLog, deleteLogEntry, listLogEntries } = require("../services/message-log");
 const { clearReplies, deleteReply, listReplies } = require("../services/reply-store");
@@ -315,7 +315,7 @@ router.delete("/admin/messages/:messageId", (request, response) => {
 
 // Send a message to an audience: everyone (global broadcast), specific users, or
 // everyone holding selected roles/tiers (delivered per user).
-router.post("/admin/messages/send", (request, response) => {
+router.post("/admin/messages/send", async (request, response) => {
   const body = getPatchBody(request);
   const { type, clientIds } = resolveAudienceClientIds(body.audience);
   const message = {
@@ -362,11 +362,11 @@ router.post("/admin/messages/send", (request, response) => {
   const failures = [];
   for (const clientId of clientIds) {
     try {
-      addProfileMessage(
+      await withProfileWriteLock(clientId, () => addProfileMessage(
         clientId,
         { ...message, visibility: message.visibility || "internal" },
         { sender: "Admin" }
-      );
+      ));
       delivered += 1;
     } catch (error) {
       failures.push({ clientId, error: error?.code || error?.message });
@@ -439,7 +439,7 @@ router.delete("/admin/reports/all", (_request, response) => {
   response.apiSuccess(clearReports());
 });
 
-router.post("/admin/reports/:reportId/resolve", (request, response) => {
+router.post("/admin/reports/:reportId/resolve", async (request, response) => {
   let report;
   try {
     report = resolveReport(request.params.reportId);
@@ -449,12 +449,12 @@ router.post("/admin/reports/:reportId/resolve", (request, response) => {
   // Let the reporter know their report was actioned.
   if (report.reporterClientId) {
     try {
-      addProfileMessage(report.reporterClientId, {
+      await withProfileWriteLock(report.reporterClientId, () => addProfileMessage(report.reporterClientId, {
         kind: "report",
         title: `Report reviewed: ${report.topicTitle || report.topicId}`,
         description: "Thanks — an admin has reviewed your report.",
         visibility: "internal"
-      }, { sender: "Community" });
+      }, { sender: "Community" }));
     } catch (_error) {
       // Notification is best-effort.
     }
@@ -467,11 +467,13 @@ router.delete("/admin/reports/:reportId", (request, response) => {
 });
 
 // Send a message into one user's inbox (direct send / plugin report).
-router.post("/admin/users/:clientId/messages", (request, response) => {
+router.post("/admin/users/:clientId/messages", async (request, response) => {
   const body = getPatchBody(request);
   let result;
   try {
-    result = addProfileMessage(request.params.clientId, body, { sender: String(body.sender || "Admin") });
+    result = await withProfileWriteLock(request.params.clientId, () => (
+      addProfileMessage(request.params.clientId, body, { sender: String(body.sender || "Admin") })
+    ));
   } catch (error) {
     if (error?.code === "invalid_message") {
       throw createHttpError(400, "invalid_message", error.message);

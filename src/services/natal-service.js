@@ -1,7 +1,7 @@
 const Astronomy = require("astronomy-engine");
 const SunCalc = require("suncalc");
 
-const { loadReferenceData } = require("./data-loader");
+const { loadLinkedReference } = require("./document-slices");
 const { createHttpError } = require("../lib/http-errors");
 const { parseGeo, getMoonPhaseName } = require("./calendar-service");
 
@@ -361,7 +361,7 @@ function tally(planets, field) {
 }
 
 async function getNatalChart(query = {}) {
-  const referenceData = await loadReferenceData();
+  const referenceData = await loadLinkedReference();
   const geo = parseGeo(query);
   const birth = parseBirthMoment(query, geo);
   const sortedSigns = getSortedSigns(referenceData.signs);
