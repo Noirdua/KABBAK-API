@@ -194,7 +194,21 @@ function listContentDirs(dirPath) {
     .map((entry) => entry.name);
 }
 
+const dirSizeCache = new Map();
+const DIR_SIZE_TTL_MS = 30 * 1000;
+
 function getDirSize(dirPath) {
+  const nowMs = Date.now();
+  const cached = dirSizeCache.get(dirPath);
+  if (cached && cached.expiresAtMs > nowMs) {
+    return cached.value;
+  }
+  const value = measureDirSize(dirPath);
+  dirSizeCache.set(dirPath, { value, expiresAtMs: nowMs + DIR_SIZE_TTL_MS });
+  return value;
+}
+
+function measureDirSize(dirPath) {
   let total = 0;
   let files = 0;
   const walk = (current) => {
@@ -505,7 +519,8 @@ function describeLocalItem(category, name, root = dlcRoot) {
   const itemPath = path.join(root, category.dir, name);
   if (!isDirectory(itemPath)) return null;
 
-  const { size, files } = getDirSize(itemPath);
+  const measured = category.kind === "pack" ? { size: 0, files: 0 } : getDirSize(itemPath);
+  const { size, files } = measured;
   const base = { name, size, files };
 
   if (category.kind === "deck") {
@@ -819,13 +834,9 @@ let catalogCache = {
   expiresAtMs: 0,
   value: null
 };
+let catalogRefresh = null;
 
-async function getCatalog({ refresh = false, log = () => {} } = {}) {
-  const nowMs = Date.now();
-  if (!refresh && catalogCache.value && catalogCache.expiresAtMs > nowMs) {
-    return catalogCache.value;
-  }
-
+function buildCatalogSnapshot({ log = () => {} } = {}) {
   const sources = dlcSources.listSources().filter((source) => source.enabled !== false);
   const items = [];
   const seen = new Set();
@@ -882,11 +893,46 @@ async function getCatalog({ refresh = false, log = () => {} } = {}) {
     sources: dlcSources.listDescribedSources()
   };
 
+  return result;
+}
+
+function storeCatalog(result) {
   catalogCache = {
-    expiresAtMs: nowMs + CATALOG_CACHE_TTL_MS,
+    expiresAtMs: Date.now() + CATALOG_CACHE_TTL_MS,
     value: result
   };
   return result;
+}
+
+function refreshCatalog({ log = () => {} } = {}) {
+  if (catalogRefresh) {
+    return catalogRefresh;
+  }
+  catalogRefresh = new Promise((resolve, reject) => {
+    setImmediate(() => {
+      try {
+        resolve(storeCatalog(buildCatalogSnapshot({ log })));
+      } catch (error) {
+        reject(error);
+      } finally {
+        catalogRefresh = null;
+      }
+    });
+  });
+  return catalogRefresh;
+}
+
+async function getCatalog({ refresh = false, log = () => {} } = {}) {
+  const nowMs = Date.now();
+  const fresh = catalogCache.value && catalogCache.expiresAtMs > nowMs;
+  if (!refresh && fresh) {
+    return catalogCache.value;
+  }
+  if (!refresh && catalogCache.value) {
+    refreshCatalog({ log }).catch(() => {});
+    return catalogCache.value;
+  }
+  return refreshCatalog({ log });
 }
 
 function findCatalogItem(items, name, kind, sourceId) {

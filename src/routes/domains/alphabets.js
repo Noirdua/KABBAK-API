@@ -1,18 +1,15 @@
 const { createApiRouter } = require("../../lib/create-api-router");
-const { loadMagickDataset } = require("../../services/data-loader");
+const { loadAlphabets } = require("../../services/document-slices");
 const { createEntityNotFound } = require("./shared");
-const { normalizeAlphabets } = require("../../lib/normalize-alphabets");
 
 const router = createApiRouter();
 
 router.get("/", async (_request, response) => {
-  const magickDataset = await loadMagickDataset();
-  response.apiSuccess(normalizeAlphabets(magickDataset?.grouped?.alphabets || {}));
+  response.apiSuccess(await loadAlphabets());
 });
 
 router.get("/:scriptId", async (request, response) => {
-  const magickDataset = await loadMagickDataset();
-  const alphabets = normalizeAlphabets(magickDataset?.grouped?.alphabets || {});
+  const alphabets = await loadAlphabets();
   const scriptId = String(request.params.scriptId || "").trim();
   const value = alphabets?.[scriptId] || null;
   if (!value) {

@@ -1453,6 +1453,28 @@ function writeDatabase({
     writeDocument.run("dictionaryGreek", JSON.stringify(dictionaryGreek), timestamp);
   }
 
+  const magickGrouped = magickDataset?.grouped || {};
+  const documentSlices = {
+    "slice:magick:alphabets": magickGrouped.alphabets || {},
+    "slice:magick:chakras": magickGrouped.chakras || {},
+    "slice:magick:enochian": magickGrouped.enochian || {},
+    "slice:magick:gods": magickGrouped.gods || {},
+    "slice:magick:kabbalah": magickGrouped.kabbalah || {},
+    "slice:magick:numbers": magickGrouped.numbers || {},
+    "slice:magick:playing-cards": magickGrouped["playing-cards-52"] || {},
+    "slice:magick:tattvas": magickGrouped.alchemy?.tattvas || {},
+    "slice:reference:planets": referenceData?.planets || {},
+    "slice:reference:signs": referenceData?.signs || [],
+    "slice:reference:decansBySign": referenceData?.decansBySign || {},
+    "slice:reference:calendarMonths": referenceData?.calendarMonths || [],
+    "slice:reference:calendarHolidays": referenceData?.calendarHolidays || [],
+    "slice:reference:celestialHolidays": referenceData?.celestialHolidays || [],
+    "slice:reference:iChing": referenceData?.iChing || {}
+  };
+  for (const [sliceKey, sliceValue] of Object.entries(documentSlices)) {
+    writeDocument.run(sliceKey, JSON.stringify(sliceValue), timestamp);
+  }
+
   Object.entries(textLibrarySnapshot.sources || {}).forEach(([sourceId, sourceDocument]) => {
     writeDocument.run(getTextSourceDocumentKey(sourceId), JSON.stringify(sourceDocument), timestamp);
   });
@@ -1465,6 +1487,18 @@ function writeDatabase({
   Object.entries(deckManifests).forEach(([deckId, manifest]) => {
     writeDeckManifest.run(deckId, JSON.stringify(manifest), timestamp);
   });
+
+  try {
+    const { writeCorrespondenceTables } = require("../src/services/correspondence-store");
+    const counts = writeCorrespondenceTables(database, {
+      magickDataset,
+      referenceData,
+      stamp: timestamp
+    });
+    console.log(`[migrate] Correspondence index: ${counts.entities} entities, ${counts.relations} relations.`);
+  } catch (error) {
+    console.warn(`[migrate] Correspondence index skipped: ${error && error.message ? error.message : error}`);
+  }
 
   database.close();
 }

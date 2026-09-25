@@ -1,6 +1,8 @@
 const { loadGematriaWordIndex, loadHebrewDictionary, loadGreekDictionary } = require("./data-loader");
 const { computeSimpleOrdinalGematria, computeSyllableValue } = require("./word-service");
 const {
+  HEBREW_METHODS,
+  GREEK_METHODS,
   computeGematria,
   defaultMethodForLanguage,
   isHebrewScript,
@@ -12,6 +14,71 @@ const {
 const { createHttpError } = require("../lib/http-errors");
 
 const DICTIONARY_LANGUAGES = new Set(["hebrew", "greek"]);
+const dictionaryIndexCache = new Map();
+
+function dictionaryMatch(entry, language, method, word) {
+  const isHebrew = language === "hebrew";
+  const transliteration = String(entry?.[2] || "").trim();
+  const lemma = isHebrew ? String(entry?.[1] || "").trim() : "";
+  const grammar = isHebrew ? "" : String(entry?.[3] || "").trim();
+  const definition = String(entry?.[isHebrew ? 3 : 4] || "").trim();
+  const gematriaValue = computeGematria(word, language, method);
+  return {
+    word,
+    gematriaValue,
+    ...(transliteration ? { transliteration } : {}),
+    ...(lemma && lemma !== word ? { lemma } : {}),
+    ...(grammar ? { grammar } : {}),
+    ...(definition ? { definition } : {})
+  };
+}
+
+function buildDictionaryIndex(language, method, dictionary) {
+  const isHebrew = language === "hebrew";
+  const entries = Array.isArray(dictionary?.entries) ? dictionary.entries : [];
+  const byValue = new Map();
+  let indexedWordCount = 0;
+  for (const entry of entries) {
+    const rawWord = isHebrew ? String(entry?.[0] || "") : String(entry?.[1] || entry?.[0] || "");
+    const word = (isHebrew ? normalizeHebrewText(rawWord) : normalizeGreekText(rawWord)).trim();
+    if (!word) continue;
+    if (isHebrew ? !isHebrewScript(word) : !isGreekScript(word)) continue;
+    indexedWordCount += 1;
+    const match = dictionaryMatch(entry, language, method, word);
+    const bucket = byValue.get(match.gematriaValue);
+    if (bucket) {
+      bucket.push(match);
+    } else {
+      byValue.set(match.gematriaValue, [match]);
+    }
+  }
+  for (const bucket of byValue.values()) {
+    bucket.sort((left, right) => left.word.length - right.word.length || left.word.localeCompare(right.word));
+  }
+  return {
+    byValue,
+    indexedWordCount,
+    source: String(dictionary?.meta?.source || ""),
+    sourceWordCount: Number(dictionary?.meta?.sourceWordCount || entries.length || 0)
+  };
+}
+
+async function getDictionaryIndex(language, method) {
+  const key = `${language}:${method}`;
+  if (!dictionaryIndexCache.has(key)) {
+    const dictionary = language === "hebrew" ? await loadHebrewDictionary() : await loadGreekDictionary();
+    dictionaryIndexCache.set(key, buildDictionaryIndex(language, method, dictionary));
+  }
+  return dictionaryIndexCache.get(key);
+}
+
+function warmDictionaryIndexes() {
+  const jobs = [
+    ...HEBREW_METHODS.map((method) => getDictionaryIndex("hebrew", method)),
+    ...GREEK_METHODS.map((method) => getDictionaryIndex("greek", method))
+  ];
+  return Promise.all(jobs).catch(() => {});
+}
 
 function normalizeLanguage(rawLanguage, rawScript) {
   const raw = String(rawLanguage || rawScript || "").trim().toLowerCase();
@@ -99,40 +166,8 @@ function parseGematriaCipherFilter(rawValue, cipherEntries) {
 // Hebrew/Greek reverse lookup: value every dictionary entry (Strong's Hebrew /
 // Thayer's Greek) in its own script and return the words matching the value.
 async function findDictionaryWordsByValue(language, value, method) {
-  const isHebrew = language === "hebrew";
-  const dictionary = isHebrew ? await loadHebrewDictionary() : await loadGreekDictionary();
-  const entries = Array.isArray(dictionary?.entries) ? dictionary.entries : [];
-  const matches = [];
-  let indexedWordCount = 0;
-
-  for (const entry of entries) {
-    const rawWord = isHebrew ? String(entry?.[0] || "") : String(entry?.[1] || entry?.[0] || "");
-    const word = (isHebrew ? normalizeHebrewText(rawWord) : normalizeGreekText(rawWord)).trim();
-    if (!word) continue;
-    if (isHebrew ? !isHebrewScript(word) : !isGreekScript(word)) continue;
-    indexedWordCount += 1;
-
-    const gematriaValue = computeGematria(word, language, method);
-    if (gematriaValue !== value) continue;
-
-    const transliteration = String(entry?.[2] || "").trim();
-    const lemma = isHebrew ? String(entry?.[1] || "").trim() : "";
-    const grammar = isHebrew ? "" : String(entry?.[3] || "").trim();
-    const definition = String(entry?.[isHebrew ? 3 : 4] || "").trim();
-
-    matches.push({
-      word,
-      gematriaValue,
-      ...(transliteration ? { transliteration } : {}),
-      ...(lemma && lemma !== word ? { lemma } : {}),
-      ...(grammar ? { grammar } : {}),
-      ...(definition ? { definition } : {})
-    });
-  }
-
-  matches.sort((left, right) => (
-    left.word.length - right.word.length || left.word.localeCompare(right.word)
-  ));
+  const index = await getDictionaryIndex(language, method);
+  const matches = index.byValue.get(value) || [];
 
   return {
     value,
@@ -144,9 +179,9 @@ async function findDictionaryWordsByValue(language, value, method) {
     meta: {
       language,
       method,
-      source: String(dictionary?.meta?.source || ""),
-      sourceWordCount: Number(dictionary?.meta?.sourceWordCount || entries.length || 0),
-      indexedWordCount,
+      source: index.source,
+      sourceWordCount: index.sourceWordCount,
+      indexedWordCount: index.indexedWordCount,
       matchedCount: matches.length
     }
   };
@@ -286,5 +321,6 @@ async function calculateGematriaText(rawText, rawLanguage, rawMethod) {
 module.exports = {
   findWordsByGematriaValue,
   calculateGematriaText,
-  parseGematriaValue
+  parseGematriaValue,
+  warmDictionaryIndexes
 };

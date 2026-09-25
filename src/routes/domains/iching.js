@@ -1,22 +1,19 @@
 const { createApiRouter } = require("../../lib/create-api-router");
-const { loadReferenceData } = require("../../services/data-loader");
 const {
-  createEntityNotFound,
-  findByNormalizedId
-} = require("./shared");
+  findHexagram,
+  findTrigram,
+  loadReferenceSlice
+} = require("../../services/document-slices");
+const { createEntityNotFound } = require("./shared");
 
 const router = createApiRouter();
 
 router.get("/", async (_request, response) => {
-  const referenceData = await loadReferenceData();
-  response.apiSuccess(referenceData.iChing || {});
+  response.apiSuccess(await loadReferenceSlice("iChing"));
 });
 
 router.get("/hexagrams/:number", async (request, response) => {
-  const referenceData = await loadReferenceData();
-  const target = Number(request.params.number);
-  const hexagram = (Array.isArray(referenceData.iChing?.hexagrams) ? referenceData.iChing.hexagrams : [])
-    .find((entry) => Number(entry?.number) === target) || null;
+  const hexagram = await findHexagram(request.params.number);
   if (!hexagram) {
     throw createEntityNotFound("hexagram", request.params.number);
   }
@@ -25,8 +22,7 @@ router.get("/hexagrams/:number", async (request, response) => {
 });
 
 router.get("/trigrams/:name", async (request, response) => {
-  const referenceData = await loadReferenceData();
-  const trigram = findByNormalizedId(referenceData.iChing?.trigrams, request.params.name, (entry) => entry?.name);
+  const trigram = await findTrigram(request.params.name);
   if (!trigram) {
     throw createEntityNotFound("trigram", request.params.name);
   }

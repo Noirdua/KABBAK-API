@@ -74,7 +74,8 @@ const {
   updateProfileLibrary,
   updateProfileNote,
   updateProfilePluginState,
-  updateProfilePreferredDeck
+  updateProfilePreferredDeck,
+  withProfileWriteLock
 } = require("../services/profile-service");
 const { getProfilePostShare, previewProfilePost } = require("../services/post-share-service");
 const {
@@ -227,12 +228,21 @@ function mapProfileStorageError(error) {
 
 function wrapProfileHandler(handler) {
   return function profileHandler(request, response, next) {
-    try {
-      const result = handler(request, response, next);
-      Promise.resolve(result).catch((error) => next(mapProfileStorageError(error)));
-    } catch (error) {
-      next(mapProfileStorageError(error));
+    const execute = () => {
+      try {
+        const result = handler(request, response, next);
+        return Promise.resolve(result).catch((error) => next(mapProfileStorageError(error)));
+      } catch (error) {
+        next(mapProfileStorageError(error));
+        return null;
+      }
+    };
+    const clientId = String((response.locals?.auth || request.auth || {}).clientId || "").trim();
+    if (!clientId) {
+      execute();
+      return;
     }
+    withProfileWriteLock(clientId, execute).catch((error) => next(mapProfileStorageError(error)));
   };
 }
 

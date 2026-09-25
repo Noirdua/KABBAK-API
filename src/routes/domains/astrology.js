@@ -1,12 +1,13 @@
 const { createApiRouter } = require("../../lib/create-api-router");
-const { loadReferenceData } = require("../../services/data-loader");
 const { parsePaginationParams } = require("../../lib/pagination");
 const { getNatalChart } = require("../../services/natal-service");
 const {
-  createEntityNotFound,
-  findByNormalizedId,
-  flattenDecans
-} = require("./shared");
+  findDecan,
+  findSign,
+  loadFlattenedDecans,
+  loadReferenceSlice
+} = require("../../services/document-slices");
+const { createEntityNotFound } = require("./shared");
 
 const router = createApiRouter();
 
@@ -16,15 +17,15 @@ router.get("/natal", async (request, response) => {
 });
 
 router.get("/planets", async (request, response) => {
-  const referenceData = await loadReferenceData();
-  const items = Object.values(referenceData.planets || {});
+  const planets = await loadReferenceSlice("planets");
+  const items = Object.values(planets || {});
   const { offset, limit } = parsePaginationParams(request.query);
   response.apiPaginated(items, { offset, limit });
 });
 
 router.get("/planets/:planetId", async (request, response) => {
-  const referenceData = await loadReferenceData();
-  const planet = referenceData.planets?.[request.params.planetId] || null;
+  const planets = await loadReferenceSlice("planets");
+  const planet = planets?.[request.params.planetId] || null;
   if (!planet) {
     throw createEntityNotFound("planet", request.params.planetId);
   }
@@ -33,15 +34,13 @@ router.get("/planets/:planetId", async (request, response) => {
 });
 
 router.get("/signs", async (request, response) => {
-  const referenceData = await loadReferenceData();
-  const items = Array.isArray(referenceData.signs) ? referenceData.signs : [];
+  const items = await loadReferenceSlice("signs");
   const { offset, limit } = parsePaginationParams(request.query);
-  response.apiPaginated(items, { offset, limit });
+  response.apiPaginated(Array.isArray(items) ? items : [], { offset, limit });
 });
 
 router.get("/signs/:signId", async (request, response) => {
-  const referenceData = await loadReferenceData();
-  const sign = findByNormalizedId(referenceData.signs, request.params.signId, (entry) => entry?.id);
+  const sign = await findSign(request.params.signId);
   if (!sign) {
     throw createEntityNotFound("sign", request.params.signId);
   }
@@ -50,16 +49,13 @@ router.get("/signs/:signId", async (request, response) => {
 });
 
 router.get("/decans", async (request, response) => {
-  const referenceData = await loadReferenceData();
-  const decans = flattenDecans(referenceData.decansBySign);
+  const decans = await loadFlattenedDecans();
   const { offset, limit } = parsePaginationParams(request.query);
   response.apiPaginated(decans, { offset, limit });
 });
 
 router.get("/decans/:decanId", async (request, response) => {
-  const referenceData = await loadReferenceData();
-  const decans = flattenDecans(referenceData.decansBySign);
-  const decan = findByNormalizedId(decans, request.params.decanId, (entry) => entry?.id);
+  const decan = await findDecan(request.params.decanId);
   if (!decan) {
     throw createEntityNotFound("decan", request.params.decanId);
   }

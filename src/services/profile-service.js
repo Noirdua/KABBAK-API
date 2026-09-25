@@ -2,6 +2,18 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { writeFileAtomicSync } = require("../lib/atomic-file");
+const {
+  attachmentDirBytes,
+  forgetDirectorySummary,
+  hydrateProfileAttachments,
+  prepareStoredProfile,
+  readDirectoryIndex,
+  rememberDirectorySummary,
+  removeProfileAttachmentFiles,
+  summaryFromProfile,
+  withProfileWriteLock,
+  writeDirectoryIndex
+} = require("./profile-attachments");
 
 const {
   profilesRoot,
@@ -440,7 +452,11 @@ function readProfile(clientId, options = {}) {
       // Looks encrypted but no secret available
       throw new ProfileStorageError("encryption_required", "Profile is encrypted; set KABBAK_PROFILE_ENCRYPTION_SECRET to read it.");
     }
-    return normalizeProfile(JSON.parse(content), clientIdNorm, options);
+    const parsed = JSON.parse(content);
+    if (options.hydrateAttachments !== false) {
+      hydrateProfileAttachments(parsed, clientIdNorm, options);
+    }
+    return normalizeProfile(parsed, clientIdNorm, options);
   } catch (error) {
     if (error && error.code === "ENOENT") {
       return createEmptyProfile(normalizeClientId(clientId));
@@ -498,7 +514,7 @@ function readStoredProfileFile(fileName, options = {}) {
   let profile = null;
   try {
     profile = encrypted
-      ? readProfile(clientId, options)
+      ? readProfile(clientId, { ...options, hydrateAttachments: false })
       : normalizeProfile(parsed, clientId, options);
   } catch (_error) {
     profile = null;
@@ -526,13 +542,82 @@ function forEachStoredProfile(visitor, options = {}) {
   }
 }
 
+function loadProfileSummaries(options = {}) {
+  const root = resolveRootPath(options);
+  let files = [];
+  try {
+    files = fs.readdirSync(root);
+  } catch (_error) {
+    return [];
+  }
+  const index = readDirectoryIndex(options);
+  const byFile = new Map();
+  for (const entry of Object.values(index)) {
+    if (entry?.fileName) {
+      byFile.set(entry.fileName, entry);
+    }
+  }
+  const nextIndex = { ...index };
+  const summaries = [];
+  let dirty = false;
+  for (const file of files) {
+    if (!file.startsWith("profile-") || !file.endsWith(".json")) {
+      continue;
+    }
+    const filePath = path.join(root, file);
+    let stat;
+    try {
+      stat = fs.statSync(filePath);
+    } catch (_error) {
+      continue;
+    }
+    const cached = byFile.get(file);
+    if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size && cached.clientId) {
+      summaries.push(cached);
+      continue;
+    }
+    let raw = "";
+    try {
+      raw = fs.readFileSync(filePath, "utf8").trim();
+    } catch (_error) {
+      continue;
+    }
+    let outer = null;
+    try {
+      outer = JSON.parse(raw);
+    } catch (_error) {
+      continue;
+    }
+    const clientId = String(outer?.clientId || "").trim() || clientIdFromProfileFileName(file);
+    if (!clientId) {
+      continue;
+    }
+    let profile = outer;
+    if (outer && outer.v === 1 && typeof outer.data === "string") {
+      try {
+        profile = JSON.parse(decryptData(raw, clientId, resolveProfileEncryptionSecret(options)));
+      } catch (_error) {
+        continue;
+      }
+    }
+    const summary = summaryFromProfile(profile, stat, file);
+    nextIndex[clientId] = summary;
+    summaries.push(summary);
+    dirty = true;
+  }
+  if (dirty) {
+    try {
+      writeDirectoryIndex(nextIndex, options);
+    } catch (_error) {}
+  }
+  return summaries;
+}
+
 function listProfileClientIds(options = {}) {
-  const ids = [];
-  forEachStoredProfile((profile) => {
-    const clientId = String(profile.clientId || "").trim();
-    if (clientId) ids.push(clientId);
-  }, options);
-  return ids.sort();
+  return loadProfileSummaries(options)
+    .map((entry) => String(entry.clientId || "").trim())
+    .filter(Boolean)
+    .sort();
 }
 
 // "public" profiles are listed in the public directory; "private" (default)
@@ -555,13 +640,13 @@ function updateProfileDirectory(clientId, input, options = {}) {
 
 function listPublicDirectoryEntries(options = {}) {
   const entries = [];
-  forEachStoredProfile((profile) => {
+  for (const profile of loadProfileSummaries(options)) {
     const clientId = String(profile?.clientId || "").trim();
     if (!clientId || isSharedDemoClientId(clientId)) {
-      return;
+      continue;
     }
     if (normalizeDirectoryVisibility(profile.directoryVisibility, "private") !== "public") {
-      return;
+      continue;
     }
     const username = resolveAccountUsername(clientId);
     const displayName = String(profile.displayName || "").trim().slice(0, 80);
@@ -572,9 +657,9 @@ function listPublicDirectoryEntries(options = {}) {
       tagline: String(profile.tagline || "").slice(0, 120),
       bio: String(profile.bio || "").slice(0, 300),
       memberSince: String(profile.createdAt || ""),
-      hasAvatar: Boolean(profile.avatar?.data)
+      hasAvatar: Boolean(profile.hasAvatar)
     });
-  }, options);
+  }
   entries.sort((left, right) => left.displayName.localeCompare(right.displayName));
   return entries;
 }
@@ -946,17 +1031,17 @@ function getQuizLeaderboard(options = {}) {
   const limitRaw = Number(options.limit);
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.trunc(limitRaw))) : 50;
   const entries = [];
-  forEachStoredProfile((profile) => {
+  for (const profile of loadProfileSummaries(options)) {
     const clientId = String(profile?.clientId || "").trim();
     if (!clientId) {
-      return;
+      continue;
     }
     if (normalizeDirectoryVisibility(profile.directoryVisibility, "private") !== "public") {
-      return;
+      continue;
     }
-    const attempts = Array.isArray(profile.quiz?.attempts) ? profile.quiz.attempts : [];
+    const attempts = Array.isArray(profile.quizAttempts) ? profile.quizAttempts : [];
     if (!attempts.length) {
-      return;
+      continue;
     }
 
     const stats = computeQuizStats(attempts);
@@ -979,7 +1064,7 @@ function getQuizLeaderboard(options = {}) {
       bestAccuracy,
       bestByDifficulty
     });
-  }, options);
+  }
 
   return entries
     .sort((left, right) => (
@@ -1036,12 +1121,12 @@ function listTopicWatchers(topicId, options = {}) {
     return [];
   }
   const watchers = [];
-  forEachStoredProfile((profile) => {
+  for (const profile of loadProfileSummaries(options)) {
     const clientId = String(profile?.clientId || "").trim();
     if (clientId && normalizeBoardWatch(profile.boardWatch).includes(wanted)) {
       watchers.push(clientId);
     }
-  }, options);
+  }
   return watchers;
 }
 
@@ -1055,10 +1140,13 @@ function writeProfile(clientId, profile, options = {}) {
   const normalizedProfile = normalizeProfile(profile, normalizeClientId(clientId), options);
   normalizedProfile.updatedAt = new Date().toISOString();
 
-  const serialized = `${JSON.stringify(normalizedProfile)}\n`.trim();
   const secret = resolveProfileEncryptionSecret(options);
-  const toStore = encryptData(serialized, normalizeClientId(clientId), secret);
-  const usedBytes = Buffer.byteLength(toStore, "utf8");
+  const clientKey = normalizeClientId(clientId);
+  const prepared = prepareStoredProfile(normalizedProfile, clientKey, options);
+  const serialized = `${JSON.stringify(prepared.stored)}\n`.trim();
+  const toStore = encryptData(serialized, clientKey, secret);
+  const jsonBytes = Buffer.byteLength(toStore, "utf8");
+  const usedBytes = jsonBytes + prepared.attachmentBytes;
 
   let previousBytes = 0;
   try {
@@ -1068,19 +1156,24 @@ function writeProfile(clientId, profile, options = {}) {
       throw error;
     }
   }
+  const previousUsed = previousBytes + attachmentDirBytes(clientKey, options);
 
   // Shrinking writes are always allowed so a profile that ended up over the
   // quota can still delete or edit its way back under it.
-  if (usedBytes > quotaBytes && usedBytes >= previousBytes) {
+  if (usedBytes > quotaBytes && usedBytes >= previousUsed) {
     throw new ProfileStorageError(
       "quota_exceeded",
       `Profile storage quota exceeded (${usedBytes} of ${quotaBytes} bytes).`
     );
   }
 
+  prepared.commit();
   writeFileAtomicSync(filePath, `${toStore}\n`);
+  try {
+    rememberDirectorySummary(normalizedProfile, fs.statSync(filePath), path.basename(filePath), options);
+  } catch (_error) {}
   dropStoredProfileCache(filePath);
-  const revisionKey = normalizeClientId(clientId);
+  const revisionKey = clientKey;
   profileWriteRevisions.set(revisionKey, (profileWriteRevisions.get(revisionKey) || 0) + 1);
   // Return usage (attachments are embedded in the JSON)
   return getProfileUsage(clientId, options);
@@ -1098,16 +1191,15 @@ function getProfileUsage(clientId, options = {}) {
     }
   }
 
-  // Attachments are embedded as base64 data inside the profile JSON,
-  // so jsonBytes already accounts for their size. No separate attachment files.
-  const usedBytes = jsonBytes;
+  const attachmentsBytes = attachmentDirBytes(normalizeClientId(clientId), options);
+  const usedBytes = jsonBytes + attachmentsBytes;
 
   return {
     usedBytes,
     quotaBytes,
     quotaPercent: Math.round((usedBytes / quotaBytes) * 1000) / 10,
     jsonBytes,
-    attachmentsBytes: 0
+    attachmentsBytes
   };
 }
 
@@ -1488,14 +1580,17 @@ function deleteProfileNote(clientId, noteId, options = {}) {
 function resetProfile(clientId, options = {}) {
   const filePath = getProfileFilePath(clientId, options);
   try {
-    if (fs.existsSync(filePath)) {
+    const existed = fs.existsSync(filePath);
+    if (existed) {
       fs.unlinkSync(filePath);
-      return true;
     }
+    removeProfileAttachmentFiles(clientId, options);
+    forgetDirectorySummary(clientId, options);
+    dropStoredProfileCache(filePath);
+    return existed;
   } catch (_error) {
     return false;
   }
-  return false;
 }
 
 // --- Quick notes --------------------------------------------------------------
@@ -4266,6 +4361,7 @@ function updateProfileDisplayName(clientId, input, options = {}) {
 
 module.exports = {
   ProfileStorageError,
+  withProfileWriteLock,
   addProfileQuickNote,
   createProfileEvent,
   createProfileNote,

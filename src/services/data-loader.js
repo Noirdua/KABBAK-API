@@ -101,6 +101,8 @@ const cache = {
   deckManifestById: new Map()
 };
 
+const TEXT_SOURCE_CACHE_MAX = 8;
+
 let database = null;
 let readDocumentStatement = null;
 let readDeckManifestStatement = null;
@@ -133,6 +135,33 @@ function readDocument(key) {
   ensureDatabase();
   const row = readDocumentStatement.get(String(key || ""));
   return row?.json ? JSON.parse(row.json) : null;
+}
+
+function loadOptionalDocument(key) {
+  try {
+    return readDocument(key);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function openReadOnlyDatabase() {
+  const resolvedPath = resolveDatabasePath();
+  if (!fs.existsSync(resolvedPath)) {
+    return null;
+  }
+  return new DatabaseSync(resolvedPath, { readOnly: true });
+}
+
+function rememberTextSource(key, value) {
+  if (cache.textSourceById.has(key)) {
+    cache.textSourceById.delete(key);
+  }
+  cache.textSourceById.set(key, value);
+  while (cache.textSourceById.size > TEXT_SOURCE_CACHE_MAX) {
+    const oldest = cache.textSourceById.keys().next().value;
+    cache.textSourceById.delete(oldest);
+  }
 }
 
 function readRequiredDocument(key) {
@@ -236,10 +265,13 @@ async function loadTextSource(sourceId) {
     return null;
   }
 
-  if (!cache.textSourceById.has(key)) {
-    cache.textSourceById.set(key, readDocument(key));
+  if (cache.textSourceById.has(key)) {
+    const cached = cache.textSourceById.get(key);
+    rememberTextSource(key, cached);
+    return cached;
   }
 
+  rememberTextSource(key, readDocument(key));
   return cache.textSourceById.get(key);
 }
 
@@ -326,6 +358,8 @@ module.exports = {
   loadTextSource,
   loadTextReference,
   loadDeckManifest,
+  loadOptionalDocument,
+  openReadOnlyDatabase,
   checkDatabaseConnectivity,
   resetCaches
 };

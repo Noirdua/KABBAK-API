@@ -13,6 +13,7 @@ const playingCardsRoutes = require("./domains/playing-cards");
 const gematriaRoutes = require("./domains/gematria");
 const wordsRoutes = require("./domains/words");
 const scriberRoutes = require("./domains/scriber");
+const correspondenceRoutes = require("./domains/correspondences");
 
 const router = createApiRouter();
 
@@ -30,5 +31,6 @@ router.use("/playing-cards", playingCardsRoutes);
 router.use("/gematria", gematriaRoutes);
 router.use("/words", wordsRoutes);
 router.use("/scriber", scriberRoutes);
+router.use("/correspondences", correspondenceRoutes);
 
 module.exports = router;

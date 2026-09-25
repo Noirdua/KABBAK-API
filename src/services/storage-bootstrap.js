@@ -403,6 +403,15 @@ function resetDataLoaderCaches() {
     }
   } catch (_error) {}
   try {
+    require("./correspondence-store").resetCorrespondenceStore();
+  } catch (_error) {}
+  try {
+    require("./document-slices").resetSliceCache();
+  } catch (_error) {}
+  try {
+    require("./text-search-index").resetTextSearchIndex();
+  } catch (_error) {}
+  try {
     require("../middleware/static-content-cache").invalidateContentVersionEtag?.();
   } catch (_error) {}
   try {

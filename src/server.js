@@ -73,6 +73,12 @@ async function startServer({ logger = console } = {}) {
   const activeLogger = createCapturingLogger(logger);
 
   await ensureStorageReady({ logger: activeLogger });
+  try {
+    await require("./services/correspondence-store").ensureCorrespondenceStore();
+    await require("./services/document-slices").warmDocumentSlices();
+  } catch (error) {
+    activeLogger.warn(`[api] Correspondence index skipped: ${error && error.message ? error.message : error}`);
+  }
 
   // Load plugin servers once at startup so plugin routes and plugin-registered
   // games exist before the first request (lazy dispatch alone would hide them
@@ -116,6 +122,10 @@ async function startServer({ logger = console } = {}) {
   await listen(server, { port: appEnv.port, host: appEnv.host });
   activeLogger.log(`[api] ${serviceName}@${serviceVersion} listening on http://${appEnv.host}:${appEnv.port}${apiBasePath}/health`);
   startBackgroundThumbnails({ logger: activeLogger });
+  require("./services/text-search-index").startTextSearchIndex().catch((error) => {
+    activeLogger.warn(`[api] Text search index skipped: ${error && error.message ? error.message : error}`);
+  });
+  require("./services/gematria-service").warmDictionaryIndexes().catch(() => {});
   // One shared scheduler drives the nightly digest and any plugin jobs.
   startScheduler({ log: (message) => activeLogger.log(message) });
   registerDigestJob({ log: (message) => activeLogger.log(message) });

@@ -89,6 +89,9 @@
       "name": "kabbalah"
     },
     {
+      "name": "correspondences"
+    },
+    {
       "name": "alphabets"
     },
     {
@@ -3506,6 +3509,43 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           }
+        }
+      }
+    },
+    "/correspondences": {
+      "get": {
+        "tags": ["correspondences"],
+        "summary": "List correspondence entity kinds and counts",
+        "operationId": "listCorrespondenceKinds",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/correspondences/{kind}/{id}": {
+      "get": {
+        "tags": ["correspondences"],
+        "summary": "Get one correspondence entity and its relations",
+        "operationId": "getCorrespondence",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
     },

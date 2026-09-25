@@ -190,6 +190,7 @@ Endpoints the bot calls (keep these shapes/names):
 - I Ching: `GET /iching`, `GET /iching/hexagrams/:number`.
 - Texts: `GET /texts`, `GET /texts/search`, `GET /texts/:sourceId/works/:workId/sections/:sectionId`.
 - Library: `GET /tattvas`, `GET /tattvas/:id`, `GET /locations/*`, `GET /quiz/session` (`count` 1–25, default 5), `GET /quiz/questions/pull`, `GET /quiz/categories`.
+- Correspondences: `GET /correspondences` (`{ kinds: [{ kind, count }] }`), `GET /correspondences/:kind/:id` (`{ kind, id, name, entity, relations: [{ direction, relation, kind, id, label }] }`). `entity` is the original nested object. Relations are indexed edges, not a replacement for that payload.
 - Gematria: `GET /gematria/words` (`value` + optional `language` = `english`|`hebrew`|`greek`, `method`, `ciphers`), `GET /gematria/methods` (`{ hebrew: [{id,label,description}], greek: [...] }`), `GET /gematria/calculate` (`text`, `language`, `method`). `language`/`method` are additive — bots that only send `value` keep the English behavior.
 - Assets: `GET /assets/<path>` (query `apiKey` only for media tags).
 

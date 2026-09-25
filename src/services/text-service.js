@@ -7,6 +7,7 @@ const {
   loadTextReference
 } = require("./data-loader");
 const { createHttpError } = require("../lib/http-errors");
+const { searchVerses } = require("./text-search-index");
 const { escapeRegExp } = require("../lib/string-utils");
 
 function getCatalogSources(catalog) {
@@ -160,15 +161,15 @@ function ensureTextSourceIndexes(sourceDocument) {
             if (!entryId) {
               return;
             }
-            if (!referenceOccurrencesByEntryId.has(entryId)) {
-              referenceOccurrencesByEntryId.set(entryId, []);
+            let bucket = referenceOccurrencesByEntryId.get(entryId);
+            if (!bucket) {
+              bucket = [];
+              bucket.seen = new Set();
+              referenceOccurrencesByEntryId.set(entryId, bucket);
             }
-            const bucket = referenceOccurrencesByEntryId.get(entryId);
-            // Keep one occurrence row per verse for a Strong's id.
-            if (!bucket.length || bucket[bucket.length - 1] !== verseRecord) {
-              if (!bucket.includes(verseRecord)) {
-                bucket.push(verseRecord);
-              }
+            if (!bucket.seen.has(verseRecord)) {
+              bucket.seen.add(verseRecord);
+              bucket.push(verseRecord);
             }
           });
         });
@@ -427,6 +428,34 @@ async function searchTextLibrary(query, options = {}) {
       total: 0,
       truncated: false,
       matches: []
+    };
+  }
+
+  const indexed = searchVerses(normalizedQuery, {
+    sourceId: normalizedSourceId,
+    workId: normalizedWorkId,
+    limit
+  });
+  if (indexed) {
+    return {
+      query,
+      normalizedQuery,
+      scope: normalizedWorkId
+        ? {
+            type: "work",
+            source: normalizedSourceId ? sourceSummaries[0] : null,
+            workId: normalizedWorkId
+          }
+        : normalizedSourceId
+          ? { type: "source", source: sourceSummaries[0] }
+          : { type: "global" },
+      limit,
+      total: indexed.total,
+      truncated: indexed.truncated,
+      matches: indexed.matches.map((match) => ({
+        ...match,
+        preview: buildSearchExcerpt(match.text, normalizedQuery)
+      }))
     };
   }
 
