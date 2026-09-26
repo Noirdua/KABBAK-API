@@ -171,12 +171,15 @@ function resolveMinorLookupName(manifest, cardName) {
   const match = Object.keys(overrides).find((key) => String(overrides[key] || "").trim().toLowerCase() === target);
   return match || cardName;
 }
-
 function normalizeTrumpNumber(value) {
+  if (value == null || value === "") {
+    return null;
+  }
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 0 || parsed > 21) {
     return null;
   }
+
   return parsed;
 }
 
@@ -527,9 +530,9 @@ function resolveMajorFiles(manifest, cardName, trumpNumber) {
   if (!majorRule || typeof majorRule !== "object") {
     return [];
   }
-  const canonicalName = canonicalMajorName(cardName);
-  const trumpNo = resolveTrumpNumber(manifest, cardName, trumpNumber);
-  if (majorRule.mode === "canonical-map") {
+    const canonicalName = canonicalMajorName(cardName);
+    const trumpNo = resolveTrumpNumber(manifest, cardName, trumpNumber);
+    if (majorRule.mode === "canonical-map") {
     const cards = majorRule.cards || {};
     const byName = normalizeCardFiles(cards[canonicalName]);
     if (byName.length) {
