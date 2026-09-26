@@ -734,16 +734,14 @@ function resolveCardRelativePaths(manifest, cardName, trumpNumber) {
   if (system === "playing-cards") {
     return resolvePlayingCardFiles(manifest, cardName);
   }
-  const majorFiles = resolveMajorFiles(manifest, cardName, trumpNumber);
-  if (majorFiles.length) {
-    return majorFiles;
-  }
   const parsedMinor = parseMinorCard(resolveMinorLookupName(manifest, cardName));
-  if (!parsedMinor) {
-    return [];
+  if (parsedMinor) {
+    const minorFile = resolveMinorFile(manifest, parsedMinor);
+    if (minorFile) {
+      return [minorFile];
+    }
   }
-  const minorFile = resolveMinorFile(manifest, parsedMinor);
-  return minorFile ? [minorFile] : [];
+  return resolveMajorFiles(manifest, cardName, trumpNumber);
 }
 
 async function getDeckSources() {
