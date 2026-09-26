@@ -896,6 +896,10 @@ function listMinorRelativePaths(manifest) {
     ];
   }
 
+  if (minorRule.cards && typeof minorRule.cards === "object") {
+    return collectMappedAssetPaths(minorRule.cards);
+  }
+
   const rankOrder = getRankOrderEntries(minorRule);
   if (!rankOrder.length) {
     return [];
@@ -956,6 +960,19 @@ function listMinorRelativePaths(manifest) {
   return [];
 }
 
+function collectMappedAssetPaths(cards) {
+  const relativePaths = [];
+  Object.values(cards || {}).forEach((value) => {
+    (Array.isArray(value) ? value : [value]).forEach((entry) => {
+      const relativePath = String(entry || "").trim().replace(/^\.\//, "");
+      if (relativePath && !relativePath.includes("..")) {
+        relativePaths.push(relativePath);
+      }
+    });
+  });
+  return relativePaths;
+}
+
 function listDeckAssetRelativePaths(manifest) {
   const relativePaths = new Set();
 
@@ -980,6 +997,12 @@ function listDeckAssetRelativePaths(manifest) {
           relativePaths.add(relativePath.replace(/^\.\//, ""));
         }
       });
+    });
+  }
+
+  if (manifest?.cards && typeof manifest.cards === "object") {
+    collectMappedAssetPaths(manifest.cards).forEach((relativePath) => {
+      relativePaths.add(relativePath);
     });
   }
 

@@ -33,7 +33,7 @@ function createThumbFallback(rootPath) {
       return;
     }
 
-    response.setHeader("Cache-Control", "no-cache");
+    response.setHeader("Cache-Control", "public, max-age=2592000, immutable");
     response.sendFile(fallback);
   };
 }
