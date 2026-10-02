@@ -201,8 +201,11 @@ function normalizeText(value, max = 300) {
 }
 
 function normalizeClientApiBaseUrl(value, { strict = false } = {}) {
-  const normalized = normalizeText(value, 300).replace(/\/+$/, "");
+  let normalized = normalizeText(value, 300).replace(/\/+$/, "");
   if (!normalized) return "";
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(normalized)) {
+    normalized = `http://${normalized}`;
+  }
   let parsed = null;
   try {
     parsed = new URL(normalized);
@@ -211,11 +214,12 @@ function normalizeClientApiBaseUrl(value, { strict = false } = {}) {
   }
   if (!parsed || (parsed.protocol !== "http:" && parsed.protocol !== "https:") || !parsed.hostname) {
     if (strict) {
-      throw new Error("Default connection URL must be an http:// or https:// URL.");
+      throw new Error("Default connection URL must be an http:// or https:// address, such as http://localhost:3100.");
     }
     return "";
   }
-  return normalized;
+  const pathName = parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/+$/, "");
+  return `${parsed.origin}${pathName}${parsed.search}`.replace(/\/api\/v1$/i, "");
 }
 
 function normalizeSmtpPort(value) {
@@ -476,6 +480,9 @@ function getRuntimeSettingValue(key) {
 }
 
 function updateRuntimeSettings(input = {}) {
+  if (input && Object.prototype.hasOwnProperty.call(input, "clientApiBaseUrl")) {
+    normalizeClientApiBaseUrl(input.clientApiBaseUrl, { strict: true });
+  }
   const settings = loadRuntimeSettings();
   const changes = {};
 
