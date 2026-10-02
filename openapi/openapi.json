@@ -1278,7 +1278,7 @@
     "/branding": {
       "get": {
         "tags": ["branding"],
-        "summary": "Get the public branding title, overlay background URL, and favicon URL",
+        "summary": "Get public branding and the default client connection URL",
         "operationId": "getBranding",
         "responses": {
           "200": { "$ref": "#/components/responses/JsonPayload" }

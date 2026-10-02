@@ -54,7 +54,8 @@ const EDITABLE_KEYS = new Set([
   "signupEnabled",
   "trialDays",
   "trialAccessLevel",
-  "publicApiUrl"
+  "publicApiUrl",
+  "clientApiBaseUrl"
 ]);
 
 // Secrets are persisted but never returned by the API; the panel only sees
@@ -91,6 +92,7 @@ const ENV_VAR_NAMES = Object.freeze({
   trialDays: "KABBAK_TRIAL_DAYS",
   trialAccessLevel: "KABBAK_TRIAL_ACCESS_LEVEL",
   publicApiUrl: "KABBAK_PUBLIC_API_URL",
+  clientApiBaseUrl: "KABBAK_CLIENT_API_BASE_URL",
   port: "PORT",
   host: "HOST"
 });
@@ -198,6 +200,24 @@ function normalizeText(value, max = 300) {
   return String(value || "").trim().slice(0, max);
 }
 
+function normalizeClientApiBaseUrl(value, { strict = false } = {}) {
+  const normalized = normalizeText(value, 300).replace(/\/+$/, "");
+  if (!normalized) return "";
+  let parsed = null;
+  try {
+    parsed = new URL(normalized);
+  } catch (_error) {
+    parsed = null;
+  }
+  if (!parsed || (parsed.protocol !== "http:" && parsed.protocol !== "https:") || !parsed.hostname) {
+    if (strict) {
+      throw new Error("Default connection URL must be an http:// or https:// URL.");
+    }
+    return "";
+  }
+  return normalized;
+}
+
 function normalizeSmtpPort(value) {
   const numeric = Number(value);
   if (!Number.isInteger(numeric) || numeric < 1 || numeric > 65535) {
@@ -302,6 +322,8 @@ function envDefault(key) {
       return normalizeTrialAccessLevel(process.env.KABBAK_TRIAL_ACCESS_LEVEL || TRIAL_ACCESS_DEFAULT);
     case "publicApiUrl":
       return normalizeText(process.env.KABBAK_PUBLIC_API_URL, 300).replace(/\/+$/, "");
+    case "clientApiBaseUrl":
+      return normalizeClientApiBaseUrl(process.env.KABBAK_CLIENT_API_BASE_URL);
     default:
       return undefined;
   }
@@ -366,6 +388,8 @@ function normalizePersistedValue(key, value) {
       return normalizeTrialAccessLevel(value);
     case "publicApiUrl":
       return normalizeText(value, 300).replace(/\/+$/, "");
+    case "clientApiBaseUrl":
+      return normalizeClientApiBaseUrl(value);
     default:
       return value;
   }
@@ -426,6 +450,7 @@ function getRuntimeSettings() {
     trialDays: normalizeTrialDays(state.trialDays),
     trialAccessLevel: normalizeTrialAccessLevel(state.trialAccessLevel),
     publicApiUrl: normalizeText(state.publicApiUrl, 300).replace(/\/+$/, ""),
+    clientApiBaseUrl: normalizeClientApiBaseUrl(state.clientApiBaseUrl),
     // Restart-only values (shown for reference; changing them needs a restart).
     envOnly: {
       port: appEnv.port,
@@ -591,6 +616,10 @@ function updateRuntimeSettings(input = {}) {
   if (Object.prototype.hasOwnProperty.call(input, "publicApiUrl")) {
     changes.publicApiUrl = normalizeText(input.publicApiUrl, 300).replace(/\/+$/, "");
     settings.publicApiUrl = changes.publicApiUrl;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "clientApiBaseUrl")) {
+    changes.clientApiBaseUrl = normalizeClientApiBaseUrl(input.clientApiBaseUrl, { strict: true });
+    settings.clientApiBaseUrl = changes.clientApiBaseUrl;
   }
 
   if (Object.keys(changes).length) {

@@ -138,10 +138,10 @@ router.get("/health/ready", async (request, response) => {
   });
 });
 
-// Public branding (browser tab title, favicon). Admin-editable via the Admin
-// panel's server settings and persisted in runtime settings; empty means
-// "frontend default". Public so the app shell can apply it before
-// authentication.
+// Public branding (browser tab title, favicon, default connection URL).
+// Admin-editable via the Admin panel's server settings and persisted in
+// runtime settings; empty means "frontend default". Public so the app shell
+// can apply it before authentication.
 router.get("/branding", (_request, response) => {
   let title = "";
   try {
@@ -154,14 +154,16 @@ router.get("/branding", (_request, response) => {
   let faviconUrl = "";
   let homeLabel = "";
   let logoUrl = "";
+  let apiBaseUrl = "";
   try {
     const settings = require("../services/runtime-settings").getRuntimeSettings();
     overlayBackgroundUrl = String(settings.overlayBackgroundUrl || "").trim();
     faviconUrl = String(settings.faviconUrl || "").trim();
     homeLabel = String(settings.brandingHomeLabel || "").trim();
     logoUrl = String(settings.brandingLogoUrl || "").trim();
+    apiBaseUrl = String(settings.clientApiBaseUrl || "").trim();
   } catch (_error) {}
-  response.json({ title, homeLabel, logoUrl, overlayBackgroundUrl, faviconUrl });
+  response.json({ title, homeLabel, logoUrl, overlayBackgroundUrl, faviconUrl, apiBaseUrl });
 });
 
 router.get("/branding/overlay", (_request, response) => {
