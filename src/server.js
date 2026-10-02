@@ -113,6 +113,7 @@ async function startServer({ logger = console } = {}) {
     void shutdown("SIGTERM");
   });
 
+  require("./services/runtime-settings").publishGuiConnectionConfig();
   await listen(server, { port: appEnv.port, host: appEnv.host });
   activeLogger.log(`[api] ${serviceName}@${serviceVersion} listening on http://${appEnv.host}:${appEnv.port}${apiBasePath}/health`);
   startBackgroundThumbnails({ logger: activeLogger });

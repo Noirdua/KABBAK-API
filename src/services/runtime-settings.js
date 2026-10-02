@@ -678,5 +678,9 @@ module.exports = {
   getProfileEncryptionSecret,
   getRuntimeSettingValue,
   isRuntimeSettingEditable,
-  updateRuntimeSettings
+  updateRuntimeSettings,
+  publishGuiConnectionConfig() {
+    const published = normalizeClientApiBaseUrl(getRuntimeSettings().clientApiBaseUrl);
+    if (published) syncGuiConnectionConfig(published);
+  }
 };
