@@ -163,7 +163,28 @@ router.get("/branding", (_request, response) => {
     logoUrl = String(settings.brandingLogoUrl || "").trim();
     apiBaseUrl = String(settings.clientApiBaseUrl || "").trim();
   } catch (_error) {}
-  response.json({ title, homeLabel, logoUrl, overlayBackgroundUrl, faviconUrl, apiBaseUrl });
+  let apiHost = "";
+  let apiPort = "";
+  let apiProtocol = "";
+  if (apiBaseUrl) {
+    try {
+      const parsed = new URL(apiBaseUrl);
+      apiHost = parsed.hostname;
+      apiPort = parsed.port;
+      apiProtocol = parsed.protocol;
+    } catch (_error) {}
+  }
+  response.json({
+    title,
+    homeLabel,
+    logoUrl,
+    overlayBackgroundUrl,
+    faviconUrl,
+    apiBaseUrl,
+    apiHost,
+    apiPort,
+    apiProtocol
+  });
 });
 
 router.get("/branding/overlay", (_request, response) => {
