@@ -120,6 +120,34 @@ function readPersistedSettings() {
   }
 }
 
+function guiConnectionConfigPaths() {
+  const forgejoRoot = path.resolve(__dirname, "../../..");
+  return [
+    path.join(forgejoRoot, "KABBAK-GUI", "config.json"),
+    path.join(forgejoRoot, "KABBAK-APP", "www", "config.json"),
+    path.join(forgejoRoot, "KABBAK-APP", "ios", "App", "App", "public", "config.json")
+  ];
+}
+
+function syncGuiConnectionConfig(apiBaseUrl) {
+  if (process.env.KABBAK_RUNTIME_SETTINGS_PATH) return;
+  const nextUrl = normalizeClientApiBaseUrl(apiBaseUrl);
+  for (const filePath of guiConnectionConfigPaths()) {
+    try {
+      if (!fs.existsSync(filePath)) continue;
+      let current = {};
+      try {
+        const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) current = parsed;
+      } catch (_error) {
+        current = {};
+      }
+      current.apiBaseUrl = nextUrl;
+      writeFileAtomicSync(filePath, `${JSON.stringify(current, null, 2)}\n`);
+    } catch (_error) {}
+  }
+}
+
 function persistSettings(settings) {
   fs.mkdirSync(path.dirname(RUNTIME_SETTINGS_PATH), { recursive: true });
   writeFileAtomicSync(RUNTIME_SETTINGS_PATH, `${JSON.stringify(settings, null, 2)}\n`);
@@ -627,6 +655,7 @@ function updateRuntimeSettings(input = {}) {
   if (Object.prototype.hasOwnProperty.call(input, "clientApiBaseUrl")) {
     changes.clientApiBaseUrl = normalizeClientApiBaseUrl(input.clientApiBaseUrl, { strict: true });
     settings.clientApiBaseUrl = changes.clientApiBaseUrl;
+    syncGuiConnectionConfig(settings.clientApiBaseUrl);
   }
 
   if (Object.keys(changes).length) {
