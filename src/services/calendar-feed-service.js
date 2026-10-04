@@ -713,7 +713,7 @@ function collectDayTarotCards(referenceData, fromIso, toIso, target) {
       date: cursor,
       summary: `Day card: ${card}`,
       description: `${DAY_NAMES[weekday]} is ruled by ${symbol}${planetName}. Hour cards are the planetary hours of the same day.`,
-      categories: "astrology"
+      categories: "day-card"
     });
     cursor = addIsoDays(cursor, 1);
   }
