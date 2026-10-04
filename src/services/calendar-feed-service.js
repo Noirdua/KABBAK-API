@@ -41,6 +41,18 @@ const SEARCH_LIMIT_DAYS = 45;
 // rolling window to keep the feed a sane size.
 const PLANETARY_PAST_DAYS = 14;
 const PLANETARY_FUTURE_DAYS = 60;
+// Sunday through Saturday. The day card is that day's planetary ruler.
+const DAY_RULERS = ["sol", "luna", "mars", "mercury", "jupiter", "venus", "saturn"];
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_CARD_FALLBACK = {
+  sol: "The Sun",
+  luna: "The High Priestess",
+  mars: "The Tower",
+  mercury: "The Magician",
+  jupiter: "Wheel of Fortune",
+  venus: "The Empress",
+  saturn: "The World"
+};
 
 const feedCache = new Map();
 
@@ -680,6 +692,33 @@ function collectAstrologyEvents(referenceData, fromIso, toIso, target, { offsetM
 }
 
 // 24 timed events per day, capped to a rolling window around now.
+function collectDayTarotCards(referenceData, fromIso, toIso, target) {
+  if (!fromIso || !toIso || toIso < fromIso) {
+    return;
+  }
+  const planets = referenceData?.planets || {};
+  let cursor = fromIso;
+  while (cursor && cursor <= toIso) {
+    const [year, month, day] = cursor.split("-").map(Number);
+    const weekday = new Date(Date.UTC(year, month - 1, day, 12)).getUTCDay();
+    const planetId = DAY_RULERS[weekday];
+    const planet = planets[planetId] || {};
+    const card = String(planet?.tarot?.majorArcana || DAY_CARD_FALLBACK[planetId] || "").trim();
+    const planetName = planet.name || planetId;
+    const symbol = planet.symbol ? `${planet.symbol} ` : "";
+    target.push({
+      uid: `day-card-${cursor}@kabbak`,
+      dtstamp: compactTimestamp(new Date().toISOString()),
+      allDay: true,
+      date: cursor,
+      summary: `Day card: ${card}`,
+      description: `${DAY_NAMES[weekday]} is ruled by ${symbol}${planetName}. Hour cards are the planetary hours of the same day.`,
+      categories: "astrology"
+    });
+    cursor = addIsoDays(cursor, 1);
+  }
+}
+
 function collectPlanetaryHours(profile, fromIso, toIso, target, { offsetMinutes = 0, referenceData = null } = {}) {
   const latitude = Number(profile?.location?.latitude);
   const longitude = Number(profile?.location?.longitude);
@@ -845,6 +884,7 @@ async function collectSubscriptionEvents({
     }
     if (layerSet.has("astrology")) {
       collectAstrologyEvents(referenceData, fromIso, toIso, feedEvents, { offsetMinutes, detail: astrologyDetail });
+      collectDayTarotCards(referenceData, fromIso, toIso, feedEvents);
     }
     if (layerSet.has("planetary")) {
       collectPlanetaryHours(profile, fromIso, toIso, feedEvents, { offsetMinutes, referenceData });
@@ -928,6 +968,7 @@ module.exports = {
   resolveFeedNoteAttachment,
   // Exposed for tests and for callers that precompute layers/events.
   collectAstrologyEvents,
+  collectDayTarotCards,
   collectMoonPhases,
   collectPlanetaryHours,
   collectSubscriptionEvents,
