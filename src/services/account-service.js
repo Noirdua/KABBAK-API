@@ -657,6 +657,55 @@ function listAccounts({ filePath = accountsPath, clientsFilePath } = {}) {
   });
 }
 
+function extendAccountTrial(accountId, { days, expiresAt, filePath = accountsPath, clientsFilePath } = {}) {
+  const id = String(accountId || "").trim();
+  const account = id ? getAccountById(id, { filePath }) : null;
+  if (!account) {
+    throw createHttpError(404, "account_not_found", "No account with that id.");
+  }
+  const clientId = String(account.trial?.clientId || "").trim();
+  if (!clientId) {
+    throw createHttpError(409, "trial_not_issued", "Verify the account before extending its trial.");
+  }
+  const clients = readManagedApiClients({ filePath: clientsFilePath });
+  const client = clients.find((entry) => entry.id === clientId) || null;
+  if (!client) {
+    throw createHttpError(404, "api_client_not_found", "That trial key is missing.");
+  }
+
+  let nextExpires = "";
+  if (expiresAt != null && String(expiresAt).trim()) {
+    const parsed = Date.parse(String(expiresAt));
+    if (!Number.isFinite(parsed)) {
+      throw createHttpError(400, "invalid_expiry", "expiresAt must be a valid date.");
+    }
+    nextExpires = new Date(parsed).toISOString();
+  } else {
+    const addDays = Number(days);
+    if (!Number.isFinite(addDays) || addDays <= 0) {
+      throw createHttpError(400, "invalid_expiry", "days must be a positive number.");
+    }
+    const current = Date.parse(client.expiresAt || "");
+    const base = Number.isFinite(current) && current > Date.now() ? current : Date.now();
+    nextExpires = new Date(base + addDays * MS_PER_DAY).toISOString();
+  }
+
+  upsertManagedApiClient({
+    ...client,
+    hidden: true,
+    expiresAt: nextExpires
+  }, { filePath: clientsFilePath });
+  updateAccount(account.id, {
+    trial: { ...(account.trial || {}), expiresAt: nextExpires }
+  }, { filePath });
+
+  return {
+    accountId: account.id,
+    clientId,
+    expiresAt: nextExpires
+  };
+}
+
 function removeAccount(accountId, { filePath = accountsPath, clientsFilePath } = {}) {
   const accounts = readAccounts({ filePath });
   const account = accounts.find((entry) => entry.id === accountId) || null;
@@ -701,6 +750,7 @@ module.exports = {
   findAccountByIdentifier,
   getAccountById,
   listAccounts,
+  extendAccountTrial,
   removeAccount,
   publicAccount,
   verifyPasswordRecord

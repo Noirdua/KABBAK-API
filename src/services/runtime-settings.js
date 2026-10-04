@@ -55,7 +55,8 @@ const EDITABLE_KEYS = new Set([
   "trialDays",
   "trialAccessLevel",
   "publicApiUrl",
-  "clientApiBaseUrl"
+  "clientApiBaseUrl",
+  "guiDefaults"
 ]);
 
 // Secrets are persisted but never returned by the API; the panel only sees
@@ -93,9 +94,37 @@ const ENV_VAR_NAMES = Object.freeze({
   trialAccessLevel: "KABBAK_TRIAL_ACCESS_LEVEL",
   publicApiUrl: "KABBAK_PUBLIC_API_URL",
   clientApiBaseUrl: "KABBAK_CLIENT_API_BASE_URL",
+  guiDefaults: "KABBAK_GUI_DEFAULTS",
   port: "PORT",
   host: "HOST"
 });
+
+const GUI_MENU_LAYOUTS = new Set(["drawer", "panel"]);
+const GUI_THEME_IDS = new Set(["midnight", "amethyst", "emerald", "crimson", "ocean", "solar", "matrix"]);
+const GUI_LOOK_IDS = new Set(["default", "neon", "wood", "paper", "stone", "velvet"]);
+const GUI_TIME_FORMATS = new Set(["minutes", "hours", "seconds"]);
+
+function normalizeGuiChoice(value, allowed) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return allowed.has(normalized) ? normalized : "";
+}
+
+function normalizeGuiSkinId(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized || normalized === "default") return "";
+  return /^[a-z0-9][a-z0-9_-]{0,79}$/.test(normalized) ? normalized : "";
+}
+
+function normalizeGuiDefaults(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    menuLayout: normalizeGuiChoice(source.menuLayout, GUI_MENU_LAYOUTS),
+    themeId: normalizeGuiChoice(source.themeId, GUI_THEME_IDS),
+    lookId: normalizeGuiChoice(source.lookId, GUI_LOOK_IDS),
+    skinId: normalizeGuiSkinId(source.skinId),
+    timeFormat: normalizeGuiChoice(source.timeFormat, GUI_TIME_FORMATS)
+  };
+}
 
 function normalizeDigestHour(value) {
   const numeric = Number(value);
@@ -356,6 +385,8 @@ function envDefault(key) {
       return normalizeText(process.env.KABBAK_PUBLIC_API_URL, 300).replace(/\/+$/, "");
     case "clientApiBaseUrl":
       return normalizeClientApiBaseUrl(process.env.KABBAK_CLIENT_API_BASE_URL);
+    case "guiDefaults":
+      return normalizeGuiDefaults(null);
     default:
       return undefined;
   }
@@ -422,6 +453,8 @@ function normalizePersistedValue(key, value) {
       return normalizeText(value, 300).replace(/\/+$/, "");
     case "clientApiBaseUrl":
       return normalizeClientApiBaseUrl(value);
+    case "guiDefaults":
+      return normalizeGuiDefaults(value);
     default:
       return value;
   }
@@ -483,6 +516,7 @@ function getRuntimeSettings() {
     trialAccessLevel: normalizeTrialAccessLevel(state.trialAccessLevel),
     publicApiUrl: normalizeText(state.publicApiUrl, 300).replace(/\/+$/, ""),
     clientApiBaseUrl: normalizeClientApiBaseUrl(state.clientApiBaseUrl),
+    guiDefaults: normalizeGuiDefaults(state.guiDefaults),
     // Restart-only values (shown for reference; changing them needs a restart).
     envOnly: {
       port: appEnv.port,
@@ -656,6 +690,10 @@ function updateRuntimeSettings(input = {}) {
     changes.clientApiBaseUrl = normalizeClientApiBaseUrl(input.clientApiBaseUrl, { strict: true });
     settings.clientApiBaseUrl = changes.clientApiBaseUrl;
     syncGuiConnectionConfig(settings.clientApiBaseUrl);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "guiDefaults")) {
+    changes.guiDefaults = normalizeGuiDefaults(input.guiDefaults);
+    settings.guiDefaults = changes.guiDefaults;
   }
 
   if (Object.keys(changes).length) {

@@ -155,6 +155,13 @@ router.get("/branding", (_request, response) => {
   let homeLabel = "";
   let logoUrl = "";
   let apiBaseUrl = "";
+  let guiDefaults = {
+    menuLayout: "",
+    themeId: "",
+    lookId: "",
+    skinId: "",
+    timeFormat: ""
+  };
   try {
     const settings = require("../services/runtime-settings").getRuntimeSettings();
     overlayBackgroundUrl = String(settings.overlayBackgroundUrl || "").trim();
@@ -162,6 +169,9 @@ router.get("/branding", (_request, response) => {
     homeLabel = String(settings.brandingHomeLabel || "").trim();
     logoUrl = String(settings.brandingLogoUrl || "").trim();
     apiBaseUrl = String(settings.clientApiBaseUrl || "").trim();
+    if (settings.guiDefaults && typeof settings.guiDefaults === "object") {
+      guiDefaults = settings.guiDefaults;
+    }
   } catch (_error) {}
   let apiHost = "";
   let apiPort = "";
@@ -183,7 +193,8 @@ router.get("/branding", (_request, response) => {
     apiBaseUrl,
     apiHost,
     apiPort,
-    apiProtocol
+    apiProtocol,
+    guiDefaults
   });
 });
 
