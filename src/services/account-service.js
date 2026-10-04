@@ -695,6 +695,11 @@ function extendAccountTrial(accountId, { days, expiresAt, filePath = accountsPat
     hidden: true,
     expiresAt: nextExpires
   }, { filePath: clientsFilePath });
+  readManagedApiClients({ filePath: clientsFilePath })
+    .filter((entry) => entry.kind === "app" && entry.accountId === account.id)
+    .forEach((entry) => {
+      upsertManagedApiClient({ ...entry, expiresAt: nextExpires }, { filePath: clientsFilePath });
+    });
   updateAccount(account.id, {
     trial: { ...(account.trial || {}), expiresAt: nextExpires }
   }, { filePath });
@@ -704,6 +709,79 @@ function extendAccountTrial(accountId, { days, expiresAt, filePath = accountsPat
     clientId,
     expiresAt: nextExpires
   };
+}
+
+const MAX_APP_KEYS = 8;
+
+function appKeysForParent(parentClientId, clients) {
+  const parentId = String(parentClientId || "").trim();
+  return clients.filter((client) => client.kind === "app" && client.parentClientId === parentId);
+}
+
+function listAppKeys(parentClientId, { clientsFilePath } = {}) {
+  return appKeysForParent(parentClientId, readManagedApiClients({ filePath: clientsFilePath }))
+    .map((client) => ({
+      id: client.id,
+      name: client.name,
+      createdAt: client.createdAt || "",
+      expiresAt: client.expiresAt || ""
+    }))
+    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+}
+
+function createAppKey(parentClientId, name, { clientsFilePath } = {}) {
+  const parentId = String(parentClientId || "").trim();
+  const label = String(name || "").trim().slice(0, 40);
+  if (!parentId) {
+    throw createHttpError(401, "unauthorized", "Sign in before creating an app key.");
+  }
+  if (!label) {
+    throw createHttpError(400, "invalid_name", "Name the key so you can tell your apps apart.");
+  }
+  const clients = readManagedApiClients({ filePath: clientsFilePath });
+  const parent = clients.find((client) => client.id === parentId && client.kind !== "app") || null;
+  if (!parent) {
+    throw createHttpError(404, "api_client_not_found", "No account session to attach this key to.");
+  }
+  if (appKeysForParent(parentId, clients).length >= MAX_APP_KEYS) {
+    throw createHttpError(409, "app_key_limit", `You can keep up to ${MAX_APP_KEYS} app keys.`);
+  }
+  const id = `app_${crypto.randomBytes(8).toString("hex")}`;
+  const apiKey = `kabbak_app_${crypto.randomBytes(32).toString("base64url")}`;
+  const createdAt = new Date().toISOString();
+  upsertManagedApiClient({
+    id,
+    key: apiKey,
+    name: label,
+    accountId: parent.accountId || "",
+    parentClientId: parentId,
+    kind: "app",
+    hidden: true,
+    accessLevel: parent.accessLevel,
+    roles: (parent.roles || []).filter((role) => role !== "admin"),
+    scopes: (parent.scopes || []).filter((scope) => scope !== "api:admin"),
+    expiresAt: parent.expiresAt || "",
+    createdAt
+  }, { filePath: clientsFilePath, mergeExisting: false });
+  return {
+    id,
+    name: label,
+    apiKey,
+    createdAt,
+    expiresAt: parent.expiresAt || ""
+  };
+}
+
+function deleteAppKey(parentClientId, keyId, { clientsFilePath } = {}) {
+  const parentId = String(parentClientId || "").trim();
+  const id = String(keyId || "").trim();
+  const clients = readManagedApiClients({ filePath: clientsFilePath });
+  const existing = clients.find((client) => client.id === id && client.kind === "app" && client.parentClientId === parentId) || null;
+  if (!existing) {
+    throw createHttpError(404, "app_key_not_found", "That app key was not found.");
+  }
+  removeManagedApiClient(id, { filePath: clientsFilePath });
+  return { removed: true, id };
 }
 
 function removeAccount(accountId, { filePath = accountsPath, clientsFilePath } = {}) {
@@ -718,6 +796,13 @@ function removeAccount(accountId, { filePath = accountsPath, clientsFilePath } =
       removeManagedApiClient(account.trial.clientId, { filePath: clientsFilePath });
     } catch (_error) {}
   }
+  readManagedApiClients({ filePath: clientsFilePath })
+    .filter((client) => client.kind === "app" && (client.accountId === account.id || client.parentClientId === account.trial?.clientId))
+    .forEach((client) => {
+      try {
+        removeManagedApiClient(client.id, { filePath: clientsFilePath });
+      } catch (_error) {}
+    });
 
   writeAccounts(accounts.filter((entry) => entry.id !== accountId), { filePath });
   return { removed: true, account: publicAccount(account) };
@@ -751,6 +836,9 @@ module.exports = {
   getAccountById,
   listAccounts,
   extendAccountTrial,
+  listAppKeys,
+  createAppKey,
+  deleteAppKey,
   removeAccount,
   publicAccount,
   verifyPasswordRecord

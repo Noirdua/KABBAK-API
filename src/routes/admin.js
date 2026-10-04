@@ -150,7 +150,7 @@ function findManagedClientById(clientId) {
 }
 
 function findTrialAccountForClient(client) {
-  if (!client) return null;
+  if (!client || client.kind === "app") return null;
   const accounts = require("../services/account-service");
   return accounts.findAccountByClientId(client.id) || accounts.getAccountById(client.accountId) || null;
 }

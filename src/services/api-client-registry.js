@@ -129,6 +129,9 @@ function normalizeConfiguredClientEntries(entries, { sourceName = "apiClients" }
       // client out of the normal Users list; `expiresAt` (ISO) expires its key.
       hidden: entry.hidden === true,
       expiresAt: normalizeOptionalString(entry.expiresAt || entry.expires || ""),
+      kind: entry.kind === "app" ? "app" : "",
+      parentClientId: normalizeOptionalString(entry.parentClientId || ""),
+      createdAt: normalizeOptionalString(entry.createdAt || ""),
       // Only present once a payment provider has written billing state.
       ...(subscription ? { subscription } : {})
     };

@@ -250,7 +250,7 @@ function findConfiguredClientByApiKey(presentedKey) {
   const hashed = hashApiKey(presented);
   const mappedClient = getConfiguredClientLookupMap().get(hashed) || null;
   if (mappedClient && apiKeysMatch(mappedClient.key, presented)) {
-    return activeClientOrNull(mappedClient);
+    return presentClient(mappedClient);
   }
 
   // Managed clients take precedence, but operator-provided env keys must keep
@@ -260,14 +260,30 @@ function findConfiguredClientByApiKey(presentedKey) {
   if (envClients.length) {
     const envClient = envClientCache.clientsByKeyHash.get(hashed) || null;
     if (envClient && apiKeysMatch(envClient.key, presented)) {
-      return activeClientOrNull(envClient);
+      return presentClient(envClient);
     }
   }
 
   // Fallback for rare hash collisions / legacy mismatched encodings.
   const fallback = [...getConfiguredApiClients(), ...envClients]
     .find((configuredClient) => apiKeysMatch(configuredClient.key, presented)) || null;
-  return activeClientOrNull(fallback);
+  return presentClient(fallback);
+}
+
+function presentClient(client) {
+  const active = activeClientOrNull(client);
+  if (!active || active.kind !== "app") {
+    return active;
+  }
+  const parent = readManagedApiClients().find((entry) => entry.id === active.parentClientId) || null;
+  if (!parent || parent.kind === "app" || isClientExpired(parent)) {
+    return null;
+  }
+  return {
+    ...parent,
+    roles: (parent.roles || []).filter((role) => role !== "admin"),
+    scopes: (parent.scopes || []).filter((scope) => scope !== "api:admin")
+  };
 }
 
 // Expired clients (e.g. trial demo accounts) stop authenticating.

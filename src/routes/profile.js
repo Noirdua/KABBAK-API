@@ -296,6 +296,25 @@ function isDemoAllowedProfileRequest(request) {
   return /(?:^|\/)profile$/.test(original);
 }
 
+router.get("/profile/app-keys", wrapProfileHandler((request, response) => {
+  const clientId = getProfileClientId(request, response);
+  response.apiSuccess({
+    keys: require("../services/account-service").listAppKeys(clientId)
+  });
+}));
+
+router.post("/profile/app-keys", wrapProfileHandler((request, response) => {
+  const clientId = getProfileClientId(request, response);
+  const created = require("../services/account-service").createAppKey(clientId, request.body?.name);
+  response.status(201).apiSuccess(created);
+}));
+
+router.delete("/profile/app-keys/:keyId", wrapProfileHandler((request, response) => {
+  const clientId = getProfileClientId(request, response);
+  const result = require("../services/account-service").deleteAppKey(clientId, request.params.keyId);
+  response.apiSuccess(result);
+}));
+
 router.get("/profile", wrapProfileHandler((request, response) => {
   const clientId = getProfileClientId(request, response);
   const auth = response.locals?.auth || request.auth || {};
