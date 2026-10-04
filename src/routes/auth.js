@@ -21,12 +21,10 @@ function buildVerifyLink(request, token) {
   // verify link on their own origin and complete signup for the victim.
   const host = String(request.get("host") || "");
   const baseSource = configured || (isLoopbackHost(host) ? `${request.protocol}://${host}` : "");
+  // A missing public URL must not block the code email. Password reset already
+  // sends a code with no link; signup should do the same.
   if (!baseSource) {
-    throw createHttpError(
-      503,
-      "public_url_required",
-      "Set the public API URL before sending verification email."
-    );
+    return "";
   }
   // Accept either the host (https://api.example.com) or the full base with
   // /api/v1, so operators do not have to remember which one this expects.
@@ -122,21 +120,26 @@ function createAuthRoutes() {
 
       const token = accounts.createVerificationLinkToken(result.account.id);
       const link = buildVerifyLink(request, token);
+      if (!link) {
+        console.warn("[auth] Signup email will omit the verify link. Set the public API URL in Admin → Server so new accounts can verify from the email link.");
+      }
+      const text = [
+        `Hi ${result.account.username},`,
+        "",
+        `Your KABBAK verification code is ${result.code}. It expires in 30 minutes.`
+      ];
+      if (link) {
+        text.push("", `Or open this link to verify: ${link}`);
+      }
+      text.push("", "If you did not create this account, you can ignore this message.");
+      const htmlLink = link ? `<p>Or <a href="${link}">open this link to verify</a>.</p>` : "";
       const delivered = await mail.sendMail({
         to: result.email,
         subject: "Verify your KABBAK account",
-        text: [
-          `Hi ${result.account.username},`,
-          "",
-          `Your KABBAK verification code is ${result.code}. It expires in 30 minutes.`,
-          "",
-          `Or open this link to verify: ${link}`,
-          "",
-          "If you did not create this account, you can ignore this message."
-        ].join("\n"),
+        text: text.join("\n"),
         html: `<p>Hi <strong>${result.account.username}</strong>,</p>
 <p>Your KABBAK verification code is <strong style="font-size:20px;letter-spacing:2px">${result.code}</strong>. It expires in 30 minutes.</p>
-<p>Or <a href="${link}">open this link to verify</a>.</p>
+${htmlLink}
 <p>If you did not create this account, you can ignore this message.</p>`
       });
 
