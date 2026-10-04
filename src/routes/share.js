@@ -11,7 +11,7 @@ const {
   resolveSignedShareAttachment
 } = require("../services/profile-service");
 const { renderPostShareHtml, resolvePostShareToken } = require("../services/post-share-service");
-const { resolveBroadcastToken } = require("../services/message-store");
+const { listBroadcasts, resolveBroadcastToken } = require("../services/message-store");
 const { renderShareErrorPage, renderSharePage } = require("../services/share-service");
 
 const router = createApiRouter();
@@ -185,6 +185,20 @@ router.get("/share/:token", shareRateLimiter, (request, response) => {
 
   setHtmlHeaders(response);
   response.status(404).send(renderShareErrorPage({}));
+});
+
+router.get("/b/:broadcastId/:attachmentId", shareRateLimiter, (request, response) => {
+  const broadcastId = String(request.params.broadcastId || "").trim();
+  const attachmentId = String(request.params.attachmentId || "").trim();
+  const message = listBroadcasts().find((entry) => entry.id === broadcastId) || null;
+  const attachment = message && message.visibility === "public"
+    ? (message.attachments || []).find((entry) => entry.id === attachmentId) || null
+    : null;
+  if (!attachment || !attachment.data) {
+    response.status(404).type("text/plain").send("Not found.");
+    return;
+  }
+  sendStoredAttachment(response, attachment);
 });
 
 router.get("/share/:token/asset/:attachmentId", shareRateLimiter, (request, response) => {

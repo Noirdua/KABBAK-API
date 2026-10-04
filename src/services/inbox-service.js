@@ -24,7 +24,13 @@ function summarizeInboxItem(item) {
     hasHtml: Boolean(item.bodyHtml),
     attachmentCount: Array.isArray(item.attachments) ? item.attachments.length : 0,
     attachments: Array.isArray(item.attachments)
-      ? item.attachments.map((att) => ({ id: att.id, name: att.name, type: att.type, size: att.size }))
+      ? item.attachments.map((att) => {
+        const summary = { id: att.id, name: att.name, type: att.type, size: att.size };
+        if (item.scope === "broadcast" && item.visibility === "public" && item.id && att.id) {
+          summary.url = `/api/v1/b/${encodeURIComponent(item.id)}/${encodeURIComponent(att.id)}`;
+        }
+        return summary;
+      })
       : [],
     token: item.token,
     createdAt: item.createdAt,
