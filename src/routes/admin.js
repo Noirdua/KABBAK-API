@@ -149,8 +149,16 @@ function findManagedClientById(clientId) {
   return readManagedApiClients().find((client) => client.id === clientId) || null;
 }
 
+function findTrialAccountForClient(client) {
+  if (!client) return null;
+  const accounts = require("../services/account-service");
+  return accounts.findAccountByClientId(client.id) || accounts.getAccountById(client.accountId) || null;
+}
+
 function rejectHiddenManagedClient(client, clientId) {
-  if (client?.hidden === true) {
+  // Trial accounts own a hidden client so they stay out of the raw client list.
+  // The Users panel still edits them; other hidden clients stay plugin-managed.
+  if (client?.hidden === true && !findTrialAccountForClient(client)) {
     throw createNotFoundError("api_client_not_found", `Managed API client '${clientId}' was not found.`);
   }
 }
@@ -1489,16 +1497,21 @@ router.patch("/admin/api-clients/:clientId", (request, response) => {
     throw createHttpError(400, "invalid_client_id", "A clientId route parameter is required.");
   }
   const existingClient = findManagedClientById(clientId);
+  if (!existingClient) {
+    throw createNotFoundError("api_client_not_found", `Managed API client '${clientId}' was not found.`);
+  }
   rejectHiddenManagedClient(existingClient, clientId);
   const body = getPatchBody(request);
   if (body.id != null && normalizeClientId(body.id) !== clientId) {
     throw createHttpError(400, "invalid_client_id", "Client id in the request body must match the route parameter.");
   }
 
+  const trialAccount = findTrialAccountForClient(existingClient);
   const result = upsertManagedApiClient({
     ...body,
     id: clientId,
-    hidden: false
+    hidden: trialAccount ? true : false,
+    ...(trialAccount ? { accountId: existingClient.accountId || trialAccount.id } : {})
   });
 
   emitAdminMutationAuditEvent(request, response, {
@@ -1526,8 +1539,25 @@ router.delete("/admin/api-clients/:clientId", (request, response) => {
   }
 
   const existingClient = findManagedClientById(clientId);
-  rejectHiddenManagedClient(existingClient, clientId);
-  const result = removeManagedApiClient(clientId);
+  const accounts = require("../services/account-service");
+  const trialAccount = findTrialAccountForClient(existingClient) || accounts.getAccountById(clientId);
+  if (existingClient?.hidden === true && !trialAccount) {
+    throw createNotFoundError("api_client_not_found", `Managed API client '${clientId}' was not found.`);
+  }
+  if (!existingClient && !trialAccount) {
+    throw createNotFoundError("api_client_not_found", `Managed API client '${clientId}' was not found.`);
+  }
+
+  let result = { removed: false, clients: readManagedApiClients() };
+  if (trialAccount) {
+    const removedAccount = accounts.removeAccount(trialAccount.id);
+    result = {
+      removed: removedAccount.removed === true,
+      clients: readManagedApiClients()
+    };
+  } else {
+    result = removeManagedApiClient(clientId);
+  }
   if (!result.removed) {
     throw createNotFoundError("api_client_not_found", `Managed API client '${clientId}' was not found.`);
   }
