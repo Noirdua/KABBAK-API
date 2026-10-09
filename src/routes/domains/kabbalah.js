@@ -2,6 +2,8 @@ const { createApiRouter } = require("../../lib/create-api-router");
 const {
   findKabbalahPath,
   findSephirah,
+  findShemhamphorashAngel,
+  listShemAngels,
   loadKabbalahCube,
   loadKabbalahTree
 } = require("../../services/document-slices");
@@ -33,6 +35,19 @@ router.get("/paths/:value", async (request, response) => {
 
 router.get("/cube", async (_request, response) => {
   response.apiSuccess(await loadKabbalahCube());
+});
+
+router.get("/shemhamphorash", async (request, response) => {
+  response.apiSuccess(await listShemAngels(request.query || {}));
+});
+
+router.get("/shemhamphorash/:value", async (request, response) => {
+  const angel = await findShemhamphorashAngel(request.params.value);
+  if (!angel) {
+    throw createEntityNotFound("shem-angel", request.params.value);
+  }
+
+  response.apiSuccess(angel);
 });
 
 module.exports = router;

@@ -1,5 +1,11 @@
 const { loadMagickDataset, loadOptionalDocument, loadReferenceData } = require("./data-loader");
 const { normalizeAlphabets } = require("../lib/normalize-alphabets");
+const {
+  buildShemCatalog,
+  filterShemAngels,
+  findShemAngel,
+  loadShemhamphorashDataset
+} = require("./shemhamphorash");
 
 const sliceCache = new Map();
 const indexCache = new WeakMap();
@@ -183,6 +189,52 @@ async function findKabbalahPath(value) {
 async function loadKabbalahCube() {
   const kabbalah = await loadMagickSlice("kabbalah");
   return kabbalah?.cube || {};
+}
+
+function nonempty(value) {
+  if (Array.isArray(value)) {
+    return value.length ? value : null;
+  }
+  if (value && typeof value === "object") {
+    return Object.keys(value).length ? value : null;
+  }
+  return null;
+}
+
+async function loadShemhamphorashCatalog() {
+  let dataset = null;
+  try {
+    dataset = loadShemhamphorashDataset();
+  } catch (_error) {
+    const kabbalah = await loadMagickSlice("kabbalah").catch(() => null);
+    dataset = kabbalah?.shemhamphorash || null;
+  }
+  const [signs, decansBySign, enochian] = await Promise.all([
+    loadReferenceSlice("signs").catch(() => null),
+    loadReferenceSlice("decansBySign").catch(() => null),
+    loadMagickSlice("enochian").catch(() => null)
+  ]);
+  return buildShemCatalog({
+    dataset,
+    signs: nonempty(signs),
+    decans: nonempty(decansBySign),
+    letters: nonempty(enochian?.letters),
+    tablets: nonempty(enochian?.tablets)
+  });
+}
+
+async function listShemAngels(query = {}) {
+  const catalog = await loadShemhamphorashCatalog();
+  return {
+    meta: catalog.meta,
+    choirs: catalog.choirs,
+    angels: filterShemAngels(catalog.angels, query)
+  };
+}
+
+async function findShemhamphorashAngel(value) {
+  const catalog = await loadShemhamphorashCatalog();
+  return findShemAngel(catalog.angels, value);
 }
 
 function listIndexes(items, keyFns) {
@@ -402,6 +454,7 @@ module.exports = {
   findNumberEntry,
   findPlayingCard,
   findSephirah,
+  findShemhamphorashAngel,
   findSign,
   findTattva,
   findTrigram,
@@ -410,6 +463,7 @@ module.exports = {
   loadHolidays,
   loadKabbalahCube,
   loadKabbalahTree,
+  listShemAngels,
   loadLinkedReference,
   loadMagickSlice,
   loadReferenceSlice,

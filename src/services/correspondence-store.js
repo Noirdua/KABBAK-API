@@ -4,6 +4,7 @@ const { DatabaseSync } = require("node:sqlite");
 
 const { storageRoot } = require("../config/paths");
 const { openReadOnlyDatabase } = require("./data-loader");
+const { angelAliases, buildShemCatalog } = require("./shemhamphorash");
 
 const STORE_PATH = path.join(storageRoot, "correspondences.db");
 const SCHEMA = `
@@ -242,7 +243,76 @@ function extractCorrespondence(magickDataset, referenceData) {
     }
   });
 
+  indexShemhamphorash(bucket, grouped, { signs, decansBySign });
+
   return bucket;
+}
+
+function indexShemhamphorash(bucket, grouped, { signs, decansBySign }) {
+  let catalog;
+  try {
+    catalog = buildShemCatalog({
+      signs,
+      decans: decansBySign,
+      letters: grouped?.enochian?.letters || null,
+      tablets: grouped?.enochian?.tablets || null
+    });
+  } catch (_error) {
+    return;
+  }
+
+  const orders = grouped?.kabbalah?.angelicOrders && typeof grouped.kabbalah.angelicOrders === "object"
+    ? grouped.kabbalah.angelicOrders
+    : {};
+  Object.entries(orders).forEach(([id, order]) => {
+    const name = order?.name?.en || order?.name?.roman || id;
+    pushEntity(bucket, "angelic-order", id, name, order);
+    pushAlias(bucket, "angelic-order", order?.name?.roman, id);
+    pushAlias(bucket, "angelic-order", order?.name?.he, id);
+  });
+
+  (catalog.choirs || []).forEach((choir, ordinal) => {
+    pushEntity(bucket, "shem-choir", choir.id, choir.name || choir.id, choir, ordinal);
+    if (choir.angelicOrderId) {
+      pushRelation(bucket, "shem-choir", choir.id, "angelic-order", "angelic-order", choir.angelicOrderId, choir.name);
+    }
+  });
+
+  const letters = grouped?.enochian?.letters && typeof grouped.enochian.letters === "object"
+    ? grouped.enochian.letters
+    : {};
+  Object.values(letters).forEach((letter, ordinal) => {
+    const id = letter?.id;
+    pushEntity(bucket, "enochian-letter", id, letter?.title || id, letter, ordinal);
+    pushAlias(bucket, "enochian-letter", letter?.title, id);
+    pushAlias(bucket, "enochian-letter", letter?.english, id);
+  });
+
+  const tablets = grouped?.enochian?.tablets && typeof grouped.enochian.tablets === "object"
+    ? grouped.enochian.tablets
+    : {};
+  Object.entries(tablets).forEach(([id, tablet]) => {
+    pushEntity(bucket, "enochian-tablet", tablet?.id || id, tablet?.id || id, { id: tablet?.id || id });
+  });
+
+  (catalog.angels || []).forEach((angel) => {
+    pushEntity(bucket, "shem-angel", angel.id, angel.name?.en || angel.id, angel, angel.number);
+    angelAliases(angel).forEach((alias) => pushAlias(bucket, "shem-angel", alias, angel.id));
+    (angel.relations || []).forEach((relation) => {
+      pushRelation(
+        bucket,
+        "shem-angel",
+        angel.id,
+        relation.relation,
+        relation.kind,
+        relation.id,
+        relation.label
+      );
+    });
+    if (angel.element) {
+      pushEntity(bucket, "element", angel.element, angel.element, { id: angel.element });
+    }
+  });
 }
 
 function writeCorrespondenceTables(database, { magickDataset, referenceData, stamp = "" } = {}) {
@@ -290,7 +360,7 @@ function sourceStamp(database) {
     const rows = database.prepare(
       "SELECT key, updated_at FROM documents WHERE key IN ('magickDataset', 'referenceData') ORDER BY key"
     ).all();
-    return `v2|${rows.map((row) => `${row.key}:${row.updated_at || ""}`).join("|")}`;
+    return `v3|${rows.map((row) => `${row.key}:${row.updated_at || ""}`).join("|")}`;
   } catch (_error) {
     return "";
   }

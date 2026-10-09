@@ -3633,6 +3633,58 @@
         }
       }
     },
+    "/kabbalah/shemhamphorash": {
+      "get": {
+        "tags": [
+          "kabbalah"
+        ],
+        "summary": "List the 72 Shem HaMephorash angels, with decan, tarot, and Enochian links",
+        "operationId": "listShemhamphorash",
+        "parameters": [
+          { "name": "sign", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "decan", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "tarot", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "planet", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "choir", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "element", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "enochian", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "q", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/kabbalah/shemhamphorash/{value}": {
+      "get": {
+        "tags": [
+          "kabbalah"
+        ],
+        "summary": "Get one Shem HaMephorash angel by number, name, or Hebrew",
+        "operationId": "getShemhamphorashAngel",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ShemhamphorashValue"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/alphabets": {
       "get": {
         "tags": [
@@ -4762,6 +4814,14 @@
         }
       },
       "KabbalahPathValue": {
+        "name": "value",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ShemhamphorashValue": {
         "name": "value",
         "in": "path",
         "required": true,

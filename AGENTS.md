@@ -190,7 +190,8 @@ Endpoints the bot calls (keep these shapes/names):
 - I Ching: `GET /iching`, `GET /iching/hexagrams/:number`.
 - Texts: `GET /texts`, `GET /texts/search`, `GET /texts/:sourceId/works/:workId/sections/:sectionId`.
 - Library: `GET /tattvas`, `GET /tattvas/:id`, `GET /locations/*`, `GET /quiz/session` (`count` 1–25, default 5), `GET /quiz/questions/pull`, `GET /quiz/categories`.
-- Correspondences: `GET /correspondences` (`{ kinds: [{ kind, count }] }`), `GET /correspondences/:kind/:id` (`{ kind, id, name, entity, relations: [{ direction, relation, kind, id, label }] }`). `entity` is the original nested object. Relations are indexed edges, not a replacement for that payload.
+- Correspondences: `GET /correspondences` (`{ kinds: [{ kind, count }] }`), `GET /correspondences/:kind/:id` (`{ kind, id, name, entity, relations: [{ direction, relation, kind, id, label }] }`). `entity` is the original nested object. Relations are indexed edges, not a replacement for that payload. Shem HaMephorash angels are kind `shem-angel` (ids `01`–`72`); they relate to `tarot-card`, `decan`, `sign`, `planet`, `enochian-letter`, and `enochian-tablet`.
+- Shem HaMephorash: `GET /kabbalah/shemhamphorash` (`{ meta, choirs, angels }`; optional `sign`, `decan`, `tarot`, `planet`, `choir`, `element`, `enochian`, `q`), `GET /kabbalah/shemhamphorash/:value` (number, English name, Reuchlin spelling, or Hebrew). Each angel includes `quinance`, `tarot` (`minorArcana` + `majorArcana`), `enochianLetterIds`, and `relations`.
 - Gematria: `GET /gematria/words` (`value` + optional `language` = `english`|`hebrew`|`greek`, `method`, `ciphers`), `GET /gematria/methods` (`{ hebrew: [{id,label,description}], greek: [...] }`), `GET /gematria/calculate` (`text`, `language`, `method`). `language`/`method` are additive — bots that only send `value` keep the English behavior.
 - Assets: `GET /assets/<path>` (query `apiKey` only for media tags).
 

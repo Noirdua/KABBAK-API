@@ -447,6 +447,115 @@ function invalidResetCode() {
 
 // Operator/admin reset: set a new password without the emailed code. The caller
 // is responsible for rotating the account's API key if it should be invalidated.
+function provisionAccount({
+  username,
+  email,
+  password,
+  admin = false,
+  accessLevel,
+  linkClientId = "",
+  filePath = accountsPath,
+  clientsFilePath
+} = {}) {
+  const validUsername = assertUsername(String(username || "").replace(/^@/, ""));
+  const validPassword = assertPassword(password);
+  const normalizedUsername = normalizeUsername(validUsername);
+  const accounts = readAccounts({ filePath });
+  const now = new Date().toISOString();
+  let account = accounts.find((entry) => entry.usernameNormalized === normalizedUsername) || null;
+  const created = !account;
+
+  if (!account) {
+    const emailValue = String(email || "").trim() || `${normalizedUsername}@accounts.kabbak`;
+    const normalizedEmail = assertEmail(emailValue);
+    if (accounts.some((entry) => entry.emailNormalized === normalizedEmail)) {
+      throw createHttpError(409, "email_taken", "An account already exists for that email.");
+    }
+    account = {
+      id: generateAccountId(accounts),
+      username: validUsername,
+      usernameNormalized: normalizedUsername,
+      email: emailValue,
+      emailNormalized: normalizedEmail,
+      password: createPasswordRecord(validPassword),
+      status: "active",
+      emailVerified: true,
+      verification: null,
+      createdAt: now,
+      updatedAt: now,
+      lastLoginAt: "",
+      trial: null
+    };
+    accounts.push(account);
+    writeAccounts(accounts, { filePath });
+  } else {
+    account = updateAccount(account.id, {
+      password: createPasswordRecord(validPassword),
+      emailVerified: true,
+      status: "active",
+      ...(email ? { email: String(email).trim(), emailNormalized: assertEmail(email) } : {})
+    }, { filePath });
+  }
+
+  const clients = readManagedApiClients({ filePath: clientsFilePath });
+  const linkedId = String(linkClientId || account.trial?.clientId || "").trim();
+  let client = linkedId ? clients.find((entry) => entry.id === linkedId) || null : null;
+  if (!client) {
+    client = clients.find((entry) => entry.kind !== "app" && normalizeUsername(entry.name) === normalizedUsername) || null;
+  }
+
+  const level = String(accessLevel || client?.accessLevel || "premium").trim() || "premium";
+  const capabilities = getDefaultCapabilitiesForAccessLevel(level);
+  const roles = Array.from(new Set([...(client?.roles || capabilities.roles || []), ...(admin ? ["admin"] : [])]));
+  const scopes = Array.from(new Set([...(client?.scopes || capabilities.scopes || []), ...(admin ? ["api:admin"] : [])]));
+
+  if (!client) {
+    const nextClients = readManagedApiClients({ filePath: clientsFilePath });
+    const clientId = generateManagedApiClientId(nextClients);
+    const apiKey = generateManagedApiClientKey(nextClients);
+    upsertManagedApiClient({
+      id: clientId,
+      key: apiKey,
+      name: validUsername,
+      accountId: account.id,
+      accessLevel: level,
+      roles,
+      scopes,
+      hidden: true,
+      expiresAt: ""
+    }, { filePath: clientsFilePath });
+    client = { id: clientId };
+  } else {
+    upsertManagedApiClient({
+      ...client,
+      name: client.name || validUsername,
+      accountId: account.id,
+      accessLevel: level,
+      roles,
+      scopes,
+      expiresAt: ""
+    }, { filePath: clientsFilePath });
+  }
+
+  updateAccount(account.id, {
+    trial: {
+      clientId: client.id,
+      accessLevel: level,
+      days: 0,
+      startsAt: account.trial?.startsAt || now,
+      expiresAt: "",
+      issuedAt: now
+    }
+  }, { filePath });
+
+  return {
+    created,
+    account: publicAccount(getAccountById(account.id, { filePath }) || account),
+    clientId: client.id,
+    admin: roles.includes("admin")
+  };
+}
+
 function setAccountPassword(accountId, password, { filePath = accountsPath } = {}) {
   const account = getAccountById(accountId, { filePath });
   if (!account) {
@@ -825,6 +934,7 @@ module.exports = {
   requestPasswordReset,
   resetPassword,
   setAccountPassword,
+  provisionAccount,
   login,
   authenticate,
   issueTrial,

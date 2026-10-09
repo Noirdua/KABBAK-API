@@ -65,7 +65,11 @@ const FLAG_ALIASES = new Map([
   ["--username", "username"],
   ["-username", "username"],
   ["--user", "username"],
-  ["-user", "username"]
+  ["-user", "username"],
+  ["--admin", "admin"],
+  ["-admin", "admin"],
+  ["--email", "email"],
+  ["-email", "email"]
 ]);
 
 function parseFlags(argv) {
@@ -77,7 +81,13 @@ function parseFlags(argv) {
     const raw = String(argv[index] ?? "");
     const target = FLAG_ALIASES.get(raw.toLowerCase());
     if (target) {
-      values[target] = String(argv[index + 1] ?? "").trim();
+      const next = argv[index + 1];
+      if (target === "admin" && (next == null || String(next).startsWith("-"))) {
+        values.admin = "true";
+        provided.add(target);
+        continue;
+      }
+      values[target] = String(next ?? "").trim();
       provided.add(target);
       index += 1;
       continue;
@@ -302,42 +312,56 @@ function generatePassword() {
   return crypto.randomBytes(12).toString("base64url");
 }
 
+function passwordFrom(parsed) {
+  if (parsed.provided.has("password")) return parsed.values.password;
+  return parsed.positionals[1] || "";
+}
+
+function usernameFrom(parsed) {
+  return stripAt(parsed.positionals[0] || parsed.values.username || parsed.values.account || parsed.values.name || "");
+}
+
+function runProvision(parsed, paths, { creating = false } = {}) {
+  const username = usernameFrom(parsed);
+  const password = passwordFrom(parsed);
+  if (!username) {
+    throw new Error(creating
+      ? "Usage: add <username> <password> [--admin] [--email you@example.com]"
+      : "Usage: passwd <username> <password> [--admin]");
+  }
+  if (!password) {
+    throw new Error("Give a password of at least 8 characters.");
+  }
+  const result = accounts.provisionAccount({
+    username,
+    email: parsed.values.email,
+    password,
+    admin: parsed.values.admin === "true" || parsed.provided.has("admin"),
+    accessLevel: parsed.values.access,
+    filePath: paths.accountsFile,
+    clientsFilePath: paths.clientsFile
+  });
+  const verb = result.created ? "Created" : "Updated";
+  console.log(`${verb} password login @${result.account.username} (${result.account.id}).`);
+  console.log(`  Sign in with the username and password. An API key is not required.`);
+  console.log(`  Access: ${result.account.trial?.accessLevel || parsed.values.access || "premium"}`);
+  console.log(`  Admin:  ${result.admin ? "yes" : "no"}`);
+  console.log(`  Password: ${password}`);
+  return 0;
+}
+
 function runPasswd(rest) {
   const parsed = parseFlags(rest);
-  const paths = pathsFor(parsed.values);
-  const target = resolveTarget(parsed, paths);
+  return runProvision(parsed, pathsFor(parsed.values));
+}
 
-  if (target.kind !== "account") {
-    throw new Error("passwd applies to trial accounts only. Use `rekey` for an API client key.");
+function runAdd(rest) {
+  const parsed = parseFlags(rest);
+  const wantsClient = parsed.provided.has("name") && !parsed.provided.has("password") && !parsed.provided.has("admin") && !parsed.positionals.length;
+  if (wantsClient) {
+    return runClientCommand("add", rest);
   }
-
-  const password = parsed.provided.has("password") ? parsed.values.password : generatePassword();
-  const result = accounts.setAccountPassword(target.account.id, password, { filePath: paths.accountsFile });
-  if (!result.updated) {
-    throw new Error(`No account '${target.account.id}'.`);
-  }
-
-  // Reset also signs other devices out by rotating the trial key.
-  let rotatedKey = "";
-  const trialClientId = target.account.trial?.clientId || "";
-  if (trialClientId) {
-    try {
-      rotatedKey = rotateManagedApiClientKey(trialClientId, { filePath: paths.clientsFile }).client.key;
-    } catch (_error) {
-      rotatedKey = "";
-    }
-  }
-
-  console.log(`Set a new password for @${target.account.username} (${target.account.id}).`);
-  console.log(`  Password: ${password}`);
-  if (rotatedKey) {
-    console.log(`  New API key: ${rotatedKey}`);
-    console.log("");
-    console.log("The previous trial key is invalid; devices signed in with it are logged out.");
-  }
-  console.log("");
-  console.log("Copy these now — they are shown in full only once.");
-  return 0;
+  return runProvision(parsed, pathsFor(parsed.values), { creating: true });
 }
 
 function runRemove(rest) {
@@ -383,15 +407,14 @@ function printHelp() {
     "",
     `  Usage: ${CLI_NAME} <command> [options]`,
     "",
-    "  Accounts (self-serve trial logins)",
-    "    list accounts                List trial accounts",
-    "    show <id|@username|email>    Show one account and its trial key",
-    "    passwd <id|@username>        Set a new password and rotate the trial key",
-    "    verify <id|@username>        Verify by hand and issue the trial key (no email needed)",
-    "    rekey <id|@username>         Rotate the trial API key",
-    "    remove <id|@username>        Delete the account and revoke its key",
+    "  Password logins (GUI users)",
+    "    add <username> <password> [--admin] [--email you@example.com]",
+    "    passwd <username> <password> [--admin]",
+    "    list accounts                List password accounts",
+    "    show <@username|email>       Show one account",
+    "    remove <@username>           Delete the account",
     "",
-    "  API clients (operator, bot, and admin keys)",
+    "  API clients (bots and other apps, not GUI logins)",
     "    list clients                 List managed API clients",
     "    add --name <name> [--access <level>] [--roles a,b] [--scopes a,b]",
     "    set --id <id> [--name] [--access] [--roles] [--scopes]",
@@ -422,7 +445,9 @@ function printHelp() {
     "",
     "  Notes",
     "    - Full API keys and generated passwords print once. Copy them right away.",
-    "    - passwd and rekey change the account's API key, signing other devices out.",
+    "    - GUI users sign in with a username and password. passwd does not print an API key.",
+    "    - --admin grants the admin role on that login.",
+    "    - Use `clients add` when you need a raw key for a bot.",
     "    - The registry is re-read within a couple of seconds; no server restart needed."
   ].join("\n"));
 }
@@ -455,7 +480,7 @@ function main(argv) {
     case "verify":
       return runVerify(rest);
     case "add":
-      return runClientCommand("add", rest);
+      return runAdd(rest);
     case "set":
     case "upsert":
       return runClientCommand("upsert", rest);
