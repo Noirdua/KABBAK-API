@@ -556,6 +556,83 @@ function provisionAccount({
   };
 }
 
+// Operator: give an existing API client a password login. The client name stays
+// the profile label; the username is only what they type at the gate.
+function attachPasswordLogin({
+  clientId,
+  username,
+  email,
+  password,
+  filePath = accountsPath,
+  clientsFilePath
+} = {}) {
+  const validUsername = assertUsername(String(username || "").replace(/^@/, ""));
+  const validPassword = assertPassword(password);
+  const id = String(clientId || "").trim();
+  const clients = readManagedApiClients({ filePath: clientsFilePath });
+  const client = clients.find((entry) => entry.id === id) || null;
+  if (!client) {
+    throw createHttpError(404, "client_not_found", "No client with that id.");
+  }
+  if (client.kind === "app") {
+    throw createHttpError(409, "not_a_login", "App keys cannot be password logins.");
+  }
+
+  const accounts = readAccounts({ filePath });
+  const already = accounts.find((entry) => entry.trial?.clientId === client.id || entry.id === client.accountId) || null;
+  if (already) {
+    throw createHttpError(409, "account_exists", `That client already signs in as @${already.username}.`);
+  }
+
+  const normalizedUsername = normalizeUsername(validUsername);
+  if (accounts.some((entry) => entry.usernameNormalized === normalizedUsername)) {
+    throw createHttpError(409, "username_taken", "That username is already a login.");
+  }
+
+  const emailValue = String(email || "").trim() || `${normalizedUsername}@accounts.kabbak`;
+  const normalizedEmail = assertEmail(emailValue);
+  if (accounts.some((entry) => entry.emailNormalized === normalizedEmail)) {
+    throw createHttpError(409, "email_taken", "An account already exists for that email.");
+  }
+
+  const now = new Date().toISOString();
+  const account = {
+    id: generateAccountId(accounts),
+    username: validUsername,
+    usernameNormalized: normalizedUsername,
+    email: emailValue,
+    emailNormalized: normalizedEmail,
+    password: createPasswordRecord(validPassword),
+    status: "active",
+    emailVerified: true,
+    verification: null,
+    createdAt: now,
+    updatedAt: now,
+    lastLoginAt: "",
+    trial: {
+      clientId: client.id,
+      accessLevel: client.accessLevel || "premium",
+      days: 0,
+      startsAt: now,
+      expiresAt: client.expiresAt || "",
+      issuedAt: now
+    }
+  };
+  accounts.push(account);
+  writeAccounts(accounts, { filePath });
+  upsertManagedApiClient({
+    ...client,
+    accountId: account.id
+  }, { filePath: clientsFilePath });
+
+  return {
+    created: true,
+    account: publicAccount(getAccountById(account.id, { filePath }) || account),
+    clientId: client.id,
+    clientName: client.name || ""
+  };
+}
+
 function setAccountPassword(accountId, password, { filePath = accountsPath } = {}) {
   const account = getAccountById(accountId, { filePath });
   if (!account) {
@@ -935,6 +1012,7 @@ module.exports = {
   resetPassword,
   setAccountPassword,
   provisionAccount,
+  attachPasswordLogin,
   login,
   authenticate,
   issueTrial,

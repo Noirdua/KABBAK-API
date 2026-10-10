@@ -240,10 +240,12 @@ function describeAccount(account, paths) {
   console.log(`  API key:    ${client ? `present (${maskApiKey(client.key)})` : "missing from the registry"}`);
 }
 
-function describeClient(client) {
+function describeClient(client, paths) {
+  const linked = paths ? linkedAccount(client, paths) : null;
   console.log(`Client ${client.id}`);
   console.log(`  Name:    ${client.name || "-"}`);
-  console.log(`  Account: ${client.accountId || "-"}`);
+  console.log(`  Login:   ${linked ? `@${linked.username}` : "-"}`);
+  console.log(`  Account: ${client.accountId || linked?.id || "-"}`);
   console.log(`  Access:  ${client.accessLevel || "-"}`);
   console.log(`  Roles:   ${(client.roles || []).join(",") || "-"}`);
   console.log(`  Scopes:  ${(client.scopes || []).join(",") || "-"}`);
@@ -259,7 +261,7 @@ function runShow(rest) {
   if (target.kind === "account") {
     describeAccount(target.account, paths);
   } else {
-    describeClient(target.client);
+    describeClient(target.client, paths);
   }
   return 0;
 }
@@ -351,31 +353,13 @@ function runProvision(parsed, paths, { creating = false } = {}) {
   return 0;
 }
 
-function accountSelector(parsed) {
-  if (parsed.provided.has("account")) return parsed.values.account;
-  if (parsed.provided.has("username")) return parsed.values.username;
-  return parsed.positionals[0] || parsed.values.id || "";
+function linkedAccount(client, paths) {
+  if (!client) return null;
+  return accounts.findAccountByClientId(client.id, { filePath: paths.accountsFile })
+    || (client.accountId ? accounts.getAccountById(client.accountId, { filePath: paths.accountsFile }) : null);
 }
 
-function runPasswd(rest) {
-  const parsed = parseFlags(rest);
-  const paths = pathsFor(parsed.values);
-  const selector = accountSelector(parsed);
-  if (!selector) {
-    throw new Error("Usage: passwd <@username|email|acc_id> [--password <value>]");
-  }
-  if (parsed.provided.has("client") || String(selector).startsWith("cli_")) {
-    throw new Error("Password reset applies to GUI accounts, not API clients. Use show/rekey for a client key.");
-  }
-
-  const account = resolveAccount(selector, paths);
-  if (!account) {
-    throw new Error(`No account matches '${selector}'. List logins with \`${CLI_NAME} list accounts\`.`);
-  }
-
-  let password = passwordFrom(parsed);
-  if (!password) password = generatePassword();
-
+function resetExistingPassword(account, password, paths) {
   const updated = accounts.setAccountPassword(account.id, password, { filePath: paths.accountsFile });
   if (!updated.updated) {
     throw new Error(`No account '${account.id}'.`);
@@ -396,6 +380,66 @@ function runPasswd(rest) {
   console.log(`  New API key: ${rotated.client.key}`);
   console.log("");
   console.log("Other devices are signed out. Copy the password and key now — they are shown in full only once.");
+  return 0;
+}
+
+function runPasswd(rest) {
+  const parsed = parseFlags(rest);
+  const paths = pathsFor(parsed.values);
+  const clientForced = parsed.provided.has("client");
+  const selector = clientForced
+    ? parsed.values.client
+    : (parsed.positionals[0] || parsed.values.account || parsed.values.id || "");
+  if (!selector) {
+    throw new Error("Usage: passwd <@login> [--password <value>]\n       passwd --client <name|cli_id> --username <login> [--password <value>]");
+  }
+
+  let password = passwordFrom(parsed);
+  if (!password) password = generatePassword();
+
+  if (!clientForced && !String(selector).startsWith("cli_")) {
+    const account = resolveAccount(selector, paths);
+    if (account) return resetExistingPassword(account, password, paths);
+  }
+
+  const client = resolveClient(selector, paths);
+  if (!client) {
+    throw new Error(`No account or client matches '${selector}'. List logins with \`${CLI_NAME} list accounts\`.`);
+  }
+
+  const linked = linkedAccount(client, paths);
+  if (linked) return resetExistingPassword(linked, password, paths);
+
+  const username = parsed.provided.has("username") ? stripAt(parsed.values.username) : "";
+  if (!username) {
+    const label = client.name || client.id;
+    throw new Error([
+      `'${label}' is an API client (${client.id}), not a password login.`,
+      "That name is the profile label. It is not a username, and it has no password.",
+      "Attach a login without renaming the profile:",
+      "",
+      `  ${CLI_NAME} passwd --client "${label}" --username <login>`,
+      "",
+      "The login is 3-24 letters, numbers, or underscores, and stays separate from the profile name."
+    ].join("\n"));
+  }
+
+  const result = accounts.attachPasswordLogin({
+    clientId: client.id,
+    username,
+    email: parsed.values.email,
+    password,
+    filePath: paths.accountsFile,
+    clientsFilePath: paths.clientsFile
+  });
+  const kept = readManagedApiClients({ filePath: paths.clientsFile })
+    .find((entry) => entry.id === client.id);
+  console.log(`Created password login @${result.account.username} for '${result.clientName || client.id}' (${client.id}).`);
+  console.log(`  Profile name stays '${result.clientName || client.name}'. Sign in as @${result.account.username}.`);
+  console.log(`  Password: ${password}`);
+  console.log(`  API key:  unchanged (${maskApiKey(kept?.key)})`);
+  console.log("");
+  console.log("Copy the password now — it is shown in full only once.");
   return 0;
 }
 
@@ -455,8 +499,9 @@ function printHelp() {
     "    list accounts                List password accounts",
     "    show <@username|email>       Show one account",
     "    add <username> <password> [--admin] [--email you@example.com]",
-    "    passwd <@username|email> [--password <value>]",
-    "    reset <@username|email>      Same as passwd (operator password reset)",
+    "    passwd <@login> [--password <value>]",
+    "    reset <@login>               Same as passwd (operator password reset)",
+    "    passwd --client <name|id> --username <login> [--password <value>]",
     "    verify <@username>           Issue the trial key when the email never arrived",
     "    rekey <@username>            Rotate the trial key only",
     "    remove <@username>           Delete the account and its trial key",
@@ -495,8 +540,12 @@ function printHelp() {
     "      password). A client is an API key. Each account owns one hidden trial",
     "      client; a bot client has no password. `npm run accounts` and",
     "      `npm run clients` are the same CLI.",
-    "    - passwd / reset sets a new password with no email code and rotates the",
-    "      trial key, so other devices are signed out. Omit --password to generate one.",
+    "    - A client name (Noirdua, \"Esau Nordy\") is the profile label, not a login.",
+    "      passwd on that name does nothing until you attach one:",
+    "      passwd --client \"Esau Nordy\" --username esau",
+    "    - passwd / reset on an existing login sets a new password with no email",
+    "      code and rotates the trial key. Omit --password to generate one.",
+    "      Attaching a first login keeps the current API key and the profile name.",
     "    - Full API keys and generated passwords print once. Copy them right away.",
     "    - --admin on add grants the admin role on that login.",
     "    - Use `add --name` when you need a raw key for a bot.",
