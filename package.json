@@ -10,7 +10,7 @@
     "check:openapi": "node --test tests/openapi.contract.test.js",
     "check:syntax": "node scripts/check-syntax.js src scripts tests",
     "accounts": "node scripts/manage-accounts.js",
-    "clients": "node scripts/manage-accounts.js clients",
+    "clients": "node scripts/manage-accounts.js",
     "mail:test": "node scripts/test-mail.js",
     "dlc": "node scripts/manage-imports.js dlc",
     "imports": "node scripts/manage-imports.js",

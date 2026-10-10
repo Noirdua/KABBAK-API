@@ -89,13 +89,14 @@ npm run accounts -- set --id cli_<id> --roles reader,admin
 npm run accounts -- rekey --id cli_<id>          # rotate a client key
 npm run accounts -- remove --id cli_<id>
 npm run accounts -- show @username               # account detail + key status
-npm run accounts -- passwd @username             # set password and rotate the trial key
+npm run accounts -- passwd @username             # reset password (generates one) and rotate the trial key
+npm run accounts -- reset @username --password "new-secret"
 npm run accounts -- rekey @username              # rotate the trial key only
 ```
 
 `add` generates the client id (`cli_<random hex>`) and API key (`kabbak_<random base64url>`) server-side. `rekey` replaces a lost key with a freshly generated one. The full key is printed once after creation/rotation and only ever stored masked. `list` prints one plain line per client so nothing gets cut off.
 
-Account selectors are an id (`acc_…`), `@username`, or an email; client selectors are an id (`cli_…`) or a unique name. A bare selector tries accounts first, then clients; pass `--account` / `--client` to be explicit. `passwd` sets a new password without the email code and rotates the account's key, so other signed-in devices are logged out. The older flags (`-Id`, `-Name`, `-Access`) still work, and `scripts/manage-api-clients.js` remains the low-level client engine.
+Account selectors are an id (`acc_…`), `@username`, or an email; client selectors are an id (`cli_…`) or a unique name. A bare selector tries accounts first, then clients; pass `--account` / `--client` to be explicit. `passwd` and `reset` set a new password without the email code and rotate the account's key, so other signed-in devices are logged out. Omit `--password` to generate one. Accounts (GUI logins) and clients (API keys) stay separate records; `npm run clients` is the same CLI as `npm run accounts`. The older flags (`-Id`, `-Name`, `-Access`) still work, and `scripts/manage-api-clients.js` remains the low-level client engine.
 
 Access levels are `basic`, `premium`, and `pro+` (defaults to `premium`). When roles/scopes are not provided, they are derived from the access level:
 

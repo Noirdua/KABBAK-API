@@ -6,6 +6,7 @@
  *   npm run accounts -- list
  *   npm run accounts -- show @maya
  *   npm run accounts -- passwd @maya
+ *   npm run accounts -- reset @maya --password "new-secret"
  *   npm run accounts -- rekey @maya
  *   npm run accounts -- clients add --name "Discord bot"
  *
@@ -350,9 +351,52 @@ function runProvision(parsed, paths, { creating = false } = {}) {
   return 0;
 }
 
+function accountSelector(parsed) {
+  if (parsed.provided.has("account")) return parsed.values.account;
+  if (parsed.provided.has("username")) return parsed.values.username;
+  return parsed.positionals[0] || parsed.values.id || "";
+}
+
 function runPasswd(rest) {
   const parsed = parseFlags(rest);
-  return runProvision(parsed, pathsFor(parsed.values));
+  const paths = pathsFor(parsed.values);
+  const selector = accountSelector(parsed);
+  if (!selector) {
+    throw new Error("Usage: passwd <@username|email|acc_id> [--password <value>]");
+  }
+  if (parsed.provided.has("client") || String(selector).startsWith("cli_")) {
+    throw new Error("Password reset applies to GUI accounts, not API clients. Use show/rekey for a client key.");
+  }
+
+  const account = resolveAccount(selector, paths);
+  if (!account) {
+    throw new Error(`No account matches '${selector}'. List logins with \`${CLI_NAME} list accounts\`.`);
+  }
+
+  let password = passwordFrom(parsed);
+  if (!password) password = generatePassword();
+
+  const updated = accounts.setAccountPassword(account.id, password, { filePath: paths.accountsFile });
+  if (!updated.updated) {
+    throw new Error(`No account '${account.id}'.`);
+  }
+
+  console.log(`Set a new password for @${account.username} (${account.id}).`);
+  console.log(`  Password: ${password}`);
+
+  const trialClientId = account.trial?.clientId || "";
+  if (!trialClientId) {
+    console.log("  API key:  none yet (not verified). Run verify to issue one.");
+    console.log("");
+    console.log("Copy the password now — it is shown in full only once.");
+    return 0;
+  }
+
+  const rotated = rotateManagedApiClientKey(trialClientId, { filePath: paths.clientsFile });
+  console.log(`  New API key: ${rotated.client.key}`);
+  console.log("");
+  console.log("Other devices are signed out. Copy the password and key now — they are shown in full only once.");
+  return 0;
 }
 
 function runAdd(rest) {
@@ -407,14 +451,17 @@ function printHelp() {
     "",
     `  Usage: ${CLI_NAME} <command> [options]`,
     "",
-    "  Password logins (GUI users)",
-    "    add <username> <password> [--admin] [--email you@example.com]",
-    "    passwd <username> <password> [--admin]",
+    "  Password logins (GUI users — a person, not an API key)",
     "    list accounts                List password accounts",
     "    show <@username|email>       Show one account",
-    "    remove <@username>           Delete the account",
+    "    add <username> <password> [--admin] [--email you@example.com]",
+    "    passwd <@username|email> [--password <value>]",
+    "    reset <@username|email>      Same as passwd (operator password reset)",
+    "    verify <@username>           Issue the trial key when the email never arrived",
+    "    rekey <@username>            Rotate the trial key only",
+    "    remove <@username>           Delete the account and its trial key",
     "",
-    "  API clients (bots and other apps, not GUI logins)",
+    "  API clients (bots and other apps — a raw key, no password)",
     "    list clients                 List managed API clients",
     "    add --name <name> [--access <level>] [--roles a,b] [--scopes a,b]",
     "    set --id <id> [--name] [--access] [--roles] [--scopes]",
@@ -435,7 +482,7 @@ function printHelp() {
     "  Options",
     "    --file <path>                Managed clients file (default storage/config/api-clients.json)",
     "    --accounts-file <path>       Accounts file (default storage/config/accounts.json)",
-    "    --password <value>           passwd: set this password instead of generating one",
+    "    --password <value>           passwd/reset: set this password instead of generating one",
     "    --account <selector>         Force account resolution",
     "    --client <selector>          Force client resolution",
     "    --username <name>            Account selector (same as @name)",
@@ -444,10 +491,15 @@ function printHelp() {
     "  Tiers and roles: " + `${CLI_NAME} help tiers`,
     "",
     "  Notes",
+    "    - Accounts and clients are different. An account is a GUI login (username +",
+    "      password). A client is an API key. Each account owns one hidden trial",
+    "      client; a bot client has no password. `npm run accounts` and",
+    "      `npm run clients` are the same CLI.",
+    "    - passwd / reset sets a new password with no email code and rotates the",
+    "      trial key, so other devices are signed out. Omit --password to generate one.",
     "    - Full API keys and generated passwords print once. Copy them right away.",
-    "    - GUI users sign in with a username and password. passwd does not print an API key.",
-    "    - --admin grants the admin role on that login.",
-    "    - Use `clients add` when you need a raw key for a bot.",
+    "    - --admin on add grants the admin role on that login.",
+    "    - Use `add --name` when you need a raw key for a bot.",
     "    - The registry is re-read within a couple of seconds; no server restart needed."
   ].join("\n"));
 }
