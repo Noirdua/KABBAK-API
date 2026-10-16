@@ -144,7 +144,7 @@ Example registry file:
 - **basic** — All API routes except admin, decks, tarot, and metrics
 - **premium** — All API routes
 
-Premium-gated groups are defined in `src/config/api-access.js`. Tarot deck asset files under `GET /api/v1/assets/tarot deck/*` follow the same premium policy. Non-tarot assets (`/api/v1/assets/img/*`) are public.
+Premium-gated groups are defined in `src/config/api-access.js`. Tarot deck asset files under `GET /api/v1/assets/tarot deck/*` follow the same premium policy. Non-tarot assets (`/api/v1/assets/img/*`) and shared glyph fonts (`/api/v1/fonts`, `/api/v1/fonts.css`, `/api/v1/assets/fonts/*`) are public.
 
 ## Response Format (Success Envelope)
 
@@ -248,7 +248,7 @@ The API URL and key are stored in the browser's local storage. To pre-set them v
 http://127.0.0.1:8080/index.html?apiBaseUrl=http://localhost:3100
 ```
 
-Premium assets (tarot deck images) require an authorized key. Public assets (`/api/v1/assets/img/*`) and health endpoints remain open.
+Premium assets (tarot deck images) require an authorized key. Public assets (`/api/v1/assets/img/*`), glyph fonts (`/api/v1/assets/fonts/*`), and health endpoints remain open.
 
 ## Local Run Order
 
@@ -470,6 +470,7 @@ KJV+ stores interlinear annotations in `verse.tokens`. Bilingual texts like the 
 | `source/data/text/_generated/` | Generated text sources from imports |
 | `source/imports/text/` | Manifest-driven text import drop-folder |
 | `source/assets/tarot deck/` | Deck asset source (add-on packs) |
+| `source/assets/fonts/` | Shared glyph fonts served at `GET /api/v1/assets/fonts/*` |
 | `source/runtime/app/` | Shared runtime scripts for migration |
 | `packs/` | Installed text source packs |
 | `storage/kabbak.db` | SQLite snapshot of the app dataset |

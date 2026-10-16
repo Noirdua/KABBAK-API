@@ -49,20 +49,24 @@ const MAX_EVENT_OCCURRENCES = 1000; // per event per range query
 const MAX_EVENT_RANGE_DAYS = 1100; // ~3 years of expanded occurrences
 const FEED_TOKEN_PREFIX = "kbf1";
 // Calendar feed subscription layers. `moon` is the four principal phases;
-// `astrology` is the decan changes (sun crossing each 10° of the zodiac).
+// `astrology` is the decan changes (sun crossing each 10° of the zodiac);
+// `sun` is the sunrise/sunset day boundaries (later the angel hours).
 const CALENDAR_FEED_LAYERS = Object.freeze([
   "user",
   "notes",
   "holidays",
   "moon",
   "astrology",
-  "planetary"
+  "planetary",
+  "sun"
 ]);
 const DEFAULT_CALENDAR_FEED_LAYERS = Object.freeze(["user", "moon", "holidays"]);
 // Per-calendar subscription options. Moon phases are the four principal phases;
-// astrology detail picks the boundary size (10° decans, 1° steps, or sign starts).
+// astrology detail picks the boundary size (10° decans, 1° steps, or sign starts);
+// sun events picks the sunrise/sunset boundaries to include.
 const CALENDAR_MOON_PHASES = Object.freeze(["new", "first-quarter", "full", "last-quarter"]);
 const CALENDAR_ASTROLOGY_DETAILS = Object.freeze(["decan", "degree", "sign"]);
+const CALENDAR_SUN_EVENTS = Object.freeze(["sunrise", "sunset"]);
 // Who may read a profile's journal: private (owner only), friends, or anyone.
 const JOURNAL_VISIBILITY = Object.freeze(["private", "friends", "public"]);
 const DEFAULT_JOURNAL_VISIBILITY = "private";
@@ -126,6 +130,7 @@ module.exports = {
   DEFAULT_CALENDAR_FEED_LAYERS,
   CALENDAR_MOON_PHASES,
   CALENDAR_ASTROLOGY_DETAILS,
+  CALENDAR_SUN_EVENTS,
   JOURNAL_VISIBILITY,
   DEFAULT_JOURNAL_VISIBILITY,
   MAX_TAGLINE_LENGTH,

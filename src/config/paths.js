@@ -11,6 +11,7 @@ const sourceGeneratedTextRoot = path.join(sourceTextDataRoot, "_generated");
 const generatedTextSourceRegistryPath = path.join(sourceGeneratedTextRoot, "sources.generated.json");
 const textLibraryRegistryPath = path.join(sourceTextDataRoot, "library.json");
 const sourceAssetRoot = path.join(sourceRoot, "assets");
+const fontsRoot = path.join(sourceAssetRoot, "fonts");
 const sourceDecksRoot = path.join(sourceAssetRoot, "tarot deck");
 const sourceRuntimeRoot = path.join(sourceRoot, "runtime");
 const sourceRuntimeAppRoot = path.join(sourceRuntimeRoot, "app");
@@ -45,6 +46,7 @@ module.exports = {
   generatedTextSourceRegistryPath,
   textLibraryRegistryPath,
   sourceAssetRoot,
+  fontsRoot,
   sourceDecksRoot,
   sourceRuntimeRoot,
   sourceRuntimeAppRoot,

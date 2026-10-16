@@ -1,4 +1,5 @@
 const Astronomy = require("astronomy-engine");
+const SunCalc = require("suncalc");
 
 const { loadLinkedReference } = require("./document-slices");
 const {
@@ -41,6 +42,10 @@ const SEARCH_LIMIT_DAYS = 45;
 // rolling window to keep the feed a sane size.
 const PLANETARY_PAST_DAYS = 14;
 const PLANETARY_FUTURE_DAYS = 60;
+// Sunrise/sunset share the rolling window; the layer later grows into the
+// angel hours, which are another 24 timed events a day.
+const SUN_PAST_DAYS = 14;
+const SUN_FUTURE_DAYS = 60;
 // Sunday through Saturday. The day card is that day's planetary ruler.
 const DAY_RULERS = ["sol", "luna", "mars", "mercury", "jupiter", "venus", "saturn"];
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -770,6 +775,65 @@ function collectPlanetaryHours(profile, fromIso, toIso, target, { offsetMinutes 
   }
 }
 
+// Sunrise and sunset for the profile location: the day boundaries the angel
+// hours will hang off. Timed UTC events on a rolling window, like planetary
+// hours, so the layer stays small when it grows to a full day of hours.
+function collectSunEvents(profile, fromIso, toIso, target, { offsetMinutes = 0, events: sunEvents } = {}) {
+  const latitude = Number(profile?.location?.latitude);
+  const longitude = Number(profile?.location?.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return;
+  }
+  const allowed = Array.isArray(sunEvents) ? new Set(sunEvents) : null;
+  const windowFrom = localIsoDate(new Date(Date.now() - SUN_PAST_DAYS * DAY_IN_MS), offsetMinutes);
+  const windowTo = localIsoDate(new Date(Date.now() + SUN_FUTURE_DAYS * DAY_IN_MS), offsetMinutes);
+  const startIso = fromIso > windowFrom ? fromIso : windowFrom;
+  const endIso = toIso < windowTo ? toIso : windowTo;
+  if (endIso < startIso) {
+    return;
+  }
+  const seen = new Set();
+  let cursor = new Date(`${startIso}T12:00:00Z`);
+  const end = new Date(`${endIso}T12:00:00Z`);
+  for (; cursor <= end; cursor = new Date(cursor.getTime() + DAY_IN_MS)) {
+    const solar = SunCalc.getTimes(cursor, latitude, longitude);
+    // Polar days and nights have no sunrise or sunset; skip those boundaries.
+    const moments = [
+      { slug: "sunrise", label: "Sunrise", at: solar?.sunrise },
+      { slug: "sunset", label: "Sunset", at: solar?.sunset }
+    ];
+    for (const { slug, label, at } of moments) {
+      if (allowed && !allowed.has(slug)) {
+        continue;
+      }
+      if (!(at instanceof Date) || Number.isNaN(at.getTime())) {
+        continue;
+      }
+      const local = new Date(at.getTime() + offsetMinutes * 60 * 1000);
+      const date = `${local.getUTCFullYear()}-${pad2(local.getUTCMonth() + 1)}-${pad2(local.getUTCDate())}`;
+      const uid = `sun-${slug}-${date}@kabbak`;
+      if (seen.has(uid)) {
+        continue;
+      }
+      seen.add(uid);
+      const time = `${pad2(local.getUTCHours())}:${pad2(local.getUTCMinutes())}`;
+      target.push({
+        uid,
+        dtstamp: compactTimestamp(new Date().toISOString()),
+        allDay: false,
+        date,
+        time,
+        startTime: time,
+        utcStart: at,
+        utcEnd: new Date(at.getTime() + 30 * 60 * 1000),
+        summary: label,
+        description: `${label} at ${formatLocalMoment(at, offsetMinutes)}.`,
+        categories: "sun"
+      });
+    }
+  }
+}
+
 function SunLongitude(date) {
   const position = Astronomy.SunPosition(date);
   const longitude = Number(position?.elon);
@@ -830,6 +894,7 @@ async function buildCalendarFeed({ token, layers, notesFormat = "", now = new Da
     noteMode,
     feedOptions.astrologyDetail,
     [...feedOptions.moonPhases].sort().join(","),
+    [...feedOptions.sunEvents].sort().join(","),
     String(offsetMinutes),
     token,
     String(baseUrl).replace(/\/+$/, ""),
@@ -872,7 +937,7 @@ async function collectSubscriptionEvents({
   collectContext = {}
 } = {}) {
   const layerSet = layers instanceof Set ? layers : normalizeLayers(layers);
-  const { moonPhases, astrologyDetail } = normalizeCalendarFeedOptions(feedOptions);
+  const { moonPhases, astrologyDetail, sunEvents } = normalizeCalendarFeedOptions(feedOptions);
   const feedEvents = [];
   if (layerSet.has("user")) {
     collectUserEvents(profile?.events || [], fromIso, toIso, feedEvents, collectContext);
@@ -893,18 +958,25 @@ async function collectSubscriptionEvents({
   if (layerSet.has("moon")) {
     collectMoonPhases(fromIso, toIso, feedEvents, { offsetMinutes, phases: moonPhases });
   }
+  if (layerSet.has("sun")) {
+    collectSunEvents(profile, fromIso, toIso, feedEvents, { offsetMinutes, events: sunEvents });
+  }
   if (layerSet.has("notes")) {
     collectNotes(profile?.notes || [], fromIso, toIso, feedEvents, collectContext, noteMode);
   }
   return feedEvents;
 }
 
-// The same events as JSON for the in-app calendar, so a user can confirm what
-// their subscription contains. `time` is the exact local moment when known.
-async function buildProfileCalendarEvents(clientId, { fromIso, toIso, utcOffsetMinutes, options = {} } = {}) {
+// The same events as JSON for the in-app calendar, so the planner shows the
+// layers its filters ask for. `layers` is an optional override used by the
+// in-app view (the toggles must work even before a subscription is saved);
+// without it the stored subscription layers are used. `time` is the exact
+// local moment when known.
+async function buildProfileCalendarEvents(clientId, { fromIso, toIso, utcOffsetMinutes, layers, options = {} } = {}) {
   const profile = readProfile(clientId, options);
   const stored = profile.calendarFeed && typeof profile.calendarFeed === "object" ? profile.calendarFeed : {};
-  const layerSet = normalizeLayers(stored.layers);
+  const explicitLayers = Array.isArray(layers) || (typeof layers === "string" && layers.trim() !== "");
+  const layerSet = normalizeLayers(explicitLayers ? layers : stored.layers);
   const offsetMinutes = resolveFeedOffsetMinutes(profile, utcOffsetMinutes);
   const noteMode = String(stored.notesFormat || "events").toLowerCase() === "journal" ? "journal" : "events";
   const feedOptions = normalizeCalendarFeedOptions(stored.options);
@@ -972,6 +1044,7 @@ module.exports = {
   collectMoonPhases,
   collectPlanetaryHours,
   collectSubscriptionEvents,
+  collectSunEvents,
   normalizeLayers,
   resolveFeedOffsetMinutes
 };

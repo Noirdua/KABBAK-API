@@ -1307,6 +1307,28 @@
         }
       }
     },
+    "/fonts": {
+      "get": {
+        "tags": ["static"],
+        "summary": "List shared glyph fonts for the GUI and bot",
+        "operationId": "listFonts",
+        "security": [],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonPayload" }
+        }
+      }
+    },
+    "/fonts.css": {
+      "get": {
+        "tags": ["static"],
+        "summary": "Get @font-face rules for shared glyph fonts",
+        "operationId": "getFontStylesheet",
+        "security": [],
+        "responses": {
+          "200": { "$ref": "#/components/responses/BinaryAsset" }
+        }
+      }
+    },
     "/dlc/catalog": {
       "get": {
         "tags": ["dlc"],
@@ -1610,7 +1632,9 @@
         "operationId": "getProfileCalendarEvents",
         "parameters": [
           { "name": "from", "in": "query", "required": false, "schema": { "type": "string", "format": "date" } },
-          { "name": "to", "in": "query", "required": false, "schema": { "type": "string", "format": "date" } }
+          { "name": "to", "in": "query", "required": false, "schema": { "type": "string", "format": "date" } },
+          { "name": "utcOffsetMinutes", "in": "query", "required": false, "schema": { "type": "integer" } },
+          { "name": "layers", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Comma-separated layer override for the in-app view (the planner's enabled filters); defaults to the saved subscription layers." }
         ],
         "responses": {
           "200": { "$ref": "#/components/responses/JsonPayload" },

@@ -538,6 +538,7 @@ router.get("/profile/calendar-events", wrapProfileHandler(async (request, respon
       fromIso,
       toIso,
       utcOffsetMinutes: request.query.utcOffsetMinutes,
+      layers: request.query.layers,
       options: getProfileOptions(request, response)
     }
   );

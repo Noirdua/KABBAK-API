@@ -39,6 +39,7 @@ const calendarFeedRoutes = require("./routes/calendar-feed");
 const shareRoutes = require("./routes/share");
 const directoryRoutes = require("./routes/directory");
 const emailWebhookRoutes = require("./routes/email-webhooks");
+const fontRoutes = require("./routes/fonts");
 const { createAuthRoutes } = require("./routes/auth");
 const boardRoutes = require("./routes/board");
 const gameRoutes = require("./routes/games");
@@ -161,6 +162,7 @@ function createApp({ logger = console } = {}) {
     }),
     createAuthRoutes()
   );
+  app.use(apiBasePath, fontRoutes);
   assetGroups.forEach(({ routeSegment, rootPath, requiredAccessLevel }) => {
     const mountPath = createAssetMountPath(routeSegment);
     if (requiredAccessLevel) {

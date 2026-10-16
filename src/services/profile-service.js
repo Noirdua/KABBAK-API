@@ -58,6 +58,7 @@ const {
   DEFAULT_CALENDAR_FEED_LAYERS,
   CALENDAR_MOON_PHASES,
   CALENDAR_ASTROLOGY_DETAILS,
+  CALENDAR_SUN_EVENTS,
   JOURNAL_VISIBILITY,
   DEFAULT_JOURNAL_VISIBILITY,
   MAX_TAGLINE_LENGTH,
@@ -2524,9 +2525,9 @@ function normalizeStoredCalendarFeed(raw) {
   };
 }
 
-// Per-calendar display options (moon phases to include, astrology boundary size).
-// An explicit array is honoured even when empty (means "none"); only an absent
-// value falls back to all phases.
+// Per-calendar display options (moon phases to include, astrology boundary size,
+// sunrise/sunset boundaries). An explicit array is honoured even when empty
+// (means "none"); only an absent value falls back to every entry.
 function normalizeCalendarFeedOptions(value) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const hasPhases = Array.isArray(source.moonPhases);
@@ -2536,9 +2537,16 @@ function normalizeCalendarFeedOptions(value) {
         .filter((phase) => CALENDAR_MOON_PHASES.includes(phase)))]
     : [...CALENDAR_MOON_PHASES];
   const detailRaw = String(source.astrologyDetail || "").trim().toLowerCase();
+  const hasSunEvents = Array.isArray(source.sunEvents);
+  const sunEvents = hasSunEvents
+    ? [...new Set(source.sunEvents
+        .map((entry) => String(entry || "").trim().toLowerCase())
+        .filter((entry) => CALENDAR_SUN_EVENTS.includes(entry)))]
+    : [...CALENDAR_SUN_EVENTS];
   return {
     moonPhases: phases,
-    astrologyDetail: CALENDAR_ASTROLOGY_DETAILS.includes(detailRaw) ? detailRaw : "decan"
+    astrologyDetail: CALENDAR_ASTROLOGY_DETAILS.includes(detailRaw) ? detailRaw : "decan",
+    sunEvents
   };
 }
 

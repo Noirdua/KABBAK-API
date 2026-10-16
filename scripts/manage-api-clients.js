@@ -14,6 +14,8 @@ const {
   DEFAULT_CLIENT_ACCESS_LEVEL,
   normalizeAccessLevel
 } = require("../src/config/api-access");
+const { listAccessLevelDefinitions } = require("../src/services/api-access-levels");
+const { KNOWN_CAPABILITIES, listRoleDefinitions } = require("../src/services/api-roles");
 
 function parseArguments(argv) {
   const values = {
@@ -90,6 +92,116 @@ function printOptionLine(flag, description) {
   console.log(`    ${flag.padEnd(24)} ${description}`);
 }
 
+const LIMIT_KEY_ORDER = ["notes", "events", "attachmentsPerScene", "attachmentBytes", "storageBytes"];
+
+function formatBytes(bytes) {
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value <= 0) {
+    return "-";
+  }
+  if (value >= 1024 * 1024) {
+    return `${Math.round((value / (1024 * 1024)) * 10) / 10} MB`;
+  }
+  if (value >= 1024) {
+    return `${Math.round((value / 1024) * 10) / 10} KB`;
+  }
+  return `${value} B`;
+}
+
+function formatLimits(limits) {
+  const source = limits && typeof limits === "object" ? limits : {};
+  return LIMIT_KEY_ORDER
+    .filter((key) => source[key] != null && source[key] !== "")
+    .map((key) => {
+      const isBytes = key === "attachmentBytes" || key === "storageBytes";
+      return `${key}=${isBytes ? formatBytes(source[key]) : source[key]}`;
+    })
+    .join("  ");
+}
+
+function formatPrice(price) {
+  const amount = Number(price?.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return "free";
+  }
+  const plan = String(price?.providerPlanId || "").trim();
+  return `${amount} ${price?.currency || "USD"}${plan ? ` (plan ${plan})` : ""}`;
+}
+
+const CAPABILITY_DESCRIPTIONS = Object.freeze({
+  tarot: "Tarot decks and spreads.",
+  adminApiManagement: "Admin panel and admin API management."
+});
+
+// Live definitions, not just the ids: admins can list what a server currently
+// offers without opening the Admin panel or the JSON files. The optional
+// file paths exist so callers/tests can point at another configuration.
+function printCurrentAccessLevels(options = {}) {
+  console.log("  Current access levels (--access <id>; label, scopes, and limits editable in Admin > Tiers):");
+  const levelOptions = options.levelsFile ? { filePath: options.levelsFile } : {};
+  listAccessLevelDefinitions(levelOptions).forEach((level) => {
+    console.log(`    ${level.id.padEnd(8)} ${level.label}`);
+    if (level.description) {
+      console.log(`      ${level.description}`);
+    }
+    console.log(`      default roles:  ${(level.roles || []).join(", ") || "-"}`);
+    console.log(`      default scopes: ${(level.scopes || []).join(", ") || "-"}`);
+    const limits = formatLimits(level.limits);
+    if (limits) {
+      console.log(`      limits: ${limits}`);
+    }
+    console.log(`      price: ${formatPrice(level.price)}`);
+  });
+}
+
+function printCurrentRoles(options = {}) {
+  console.log("  Current roles (--roles <id>; custom tiers from Admin > Tiers or storage/config/api-roles.json):");
+  console.log("    admin    built-in — always grants the Admin panel (same as --scopes api:admin).");
+  const roleOptions = options.rolesFile ? { filePath: options.rolesFile } : {};
+  const roles = listRoleDefinitions(roleOptions);
+  if (!roles.length) {
+    console.log("    (no custom roles yet) — create one in Admin > Tiers to add limits, capabilities, or pricing.");
+    return;
+  }
+  roles.forEach((role) => {
+    const label = role.label && role.label !== role.id ? ` — ${role.label}` : "";
+    console.log(`    ${role.id.padEnd(8)}${label}`);
+    if (role.description) {
+      console.log(`      ${role.description}`);
+    }
+    if (role.accessLevel) {
+      console.log(`      raises the access level to: ${role.accessLevel}`);
+    }
+    if (role.capabilities?.length) {
+      console.log(`      capabilities: ${role.capabilities.join(", ")}`);
+    }
+    const limits = formatLimits(role.limits);
+    if (limits) {
+      console.log(`      limits (highest wins with the tier): ${limits}`);
+    }
+    if (Number(role.price?.amount) > 0 || role.price?.providerPlanId) {
+      console.log(`      price: ${formatPrice(role.price)}`);
+    }
+  });
+}
+
+function printScopesAndCapabilities() {
+  console.log("  Scopes (--scopes <id>):");
+  console.log("    api:admin      Admin panel and admin API. The only scope enforced as a capability.");
+  console.log("    api:read       Built-in default on every access level.");
+  console.log("    api:tarot      Built-in default on premium and pro+.");
+  console.log("    api:decks      Built-in default on premium and pro+.");
+  console.log("    api:metrics    Built-in default on pro+.");
+  console.log("    Defaults come from the client's access level and can be overridden per");
+  console.log("    client; custom scope names are allowed. The current defaults are listed");
+  console.log("    under each access level above.");
+  console.log("");
+  console.log("  Role capabilities (set on a role in Admin > Tiers):");
+  KNOWN_CAPABILITIES.forEach((name) => {
+    console.log(`    ${name.padEnd(20)} ${CAPABILITY_DESCRIPTIONS[name] || ""}`.trimEnd());
+  });
+}
+
 const COMMAND_DOCS = {
   list: {
     summary: "Show every managed API client (keys are masked).",
@@ -104,10 +216,10 @@ const COMMAND_DOCS = {
     usage: `${CLI_NAME} add --name <name> [--access <level>] [--account-id <id>] [--roles <a,b>] [--scopes <a,b>] [--file <path>]`,
     options: [
       ["--name <name>", "(required) Friendly name for the client."],
-      [`--access <level>`, `Access level: ${ACCESS_LEVELS.join(" | ")} (default ${DEFAULT_CLIENT_ACCESS_LEVEL}).`],
+      [`--access <level>`, `Access level: ${ACCESS_LEVELS.join(" | ")} (default ${DEFAULT_CLIENT_ACCESS_LEVEL}). Current labels and limits: \`help tiers\`.`],
       ["--account-id <id>", "Optional account id for this client."],
-      ["--roles <a,b>", "Roles, e.g. admin. Defaults come from the access level."],
-      ["--scopes <a,b>", "Scopes, e.g. api:admin. Defaults come from the access level."]
+      ["--roles <a,b>", "Roles, e.g. admin. Defaults come from the access level; `help tiers` lists current roles."],
+      ["--scopes <a,b>", "Scopes, e.g. api:admin. Defaults come from the access level; `help tiers` lists the scope ids."]
     ],
     example: `${CLI_NAME} add --name "Mystic Maya" --access pro+ --roles admin`
   },
@@ -127,9 +239,9 @@ const COMMAND_DOCS = {
       ["--id <id>", "(required) Client id to update or create."],
       ["--key <key>", "Set the key directly (rarely needed)."],
       ["--name <name>", "Rename the client."],
-      ["--access <level>", `Access level: ${ACCESS_LEVELS.join(" | ")}.`],
-      ["--roles <a,b>", "Set roles. Use `admin` to grant the Admin panel."],
-      ["--scopes <a,b>", "Set scopes. Use `api:admin` to grant the Admin panel."]
+      ["--access <level>", `Access level: ${ACCESS_LEVELS.join(" | ")}. Current labels and limits: \`help tiers\`.`],
+      ["--roles <a,b>", "Set roles. Use `admin` to grant the Admin panel; `help tiers` lists current roles."],
+      ["--scopes <a,b>", "Set scopes. Use `api:admin` to grant the Admin panel; `help tiers` lists the scope ids."]
     ],
     example: `${CLI_NAME} upsert --id cli_818c822b5ad3191a --roles admin`
   },
@@ -143,9 +255,9 @@ const COMMAND_DOCS = {
   }
 };
 
-function printCommandHelp(command) {
+function printCommandHelp(command, options = {}) {
   if (command === "tiers" || command === "roles" || command === "admin") {
-    printTiersHelp();
+    printTiersHelp(options);
     return;
   }
   const doc = COMMAND_DOCS[String(command || "").toLowerCase()];
@@ -164,17 +276,23 @@ function printCommandHelp(command) {
   printCommonNotes();
 }
 
-function printTiersHelp() {
-  console.log("Tiers, roles, and admin accounts.");
+function printTiersHelp(options = {}) {
+  console.log("Tiers, roles, and admin accounts (current values from this server).");
   console.log("");
   console.log("  What's what:");
-  console.log("    - Access levels (basic, premium, pro+) are the fixed tiers every client has.");
-  console.log("      Their meaning (price, limits, description) is editable in the Admin panel");
-  console.log("      or in storage/config/api-access-levels.json.");
+  console.log("    - Access levels are the fixed tiers every client has. The ids never change;");
+  console.log("      labels, descriptions, default roles/scopes, and limits are editable in");
+  console.log("      Admin > Tiers or storage/config/api-access-levels.json.");
   console.log("    - Custom tiers (a.k.a. roles, e.g. 'mystic-moon') stack on top: they can raise");
   console.log("      limits, grant capabilities (tarot, adminApiManagement), and carry pricing for");
   console.log("      future subscription billing.");
   console.log("    - The built-in 'admin' role is special: it always grants the Admin panel.");
+  console.log("");
+  printCurrentAccessLevels(options);
+  console.log("");
+  printCurrentRoles(options);
+  console.log("");
+  printScopesAndCapabilities();
   console.log("");
   console.log("  Make an admin account:");
   console.log(`    ${CLI_NAME} upsert --id <existing-id> --roles admin`);
@@ -210,8 +328,7 @@ function printTiersHelp() {
   console.log(`    ${CLI_NAME} upsert --id <id> --roles mystic-moon`);
   console.log(`    ${CLI_NAME} upsert --id <id> --roles "mystic-moon, admin"   (tier + admin panel)`);
   console.log("");
-  console.log("    Limits: notes, attachmentsPerScene, attachmentBytes, storageBytes (bytes).");
-  console.log("    Capabilities: tarot, adminApiManagement. Access levels: basic, premium, pro+.");
+  console.log("    Limits: notes, events, attachmentsPerScene, attachmentBytes, storageBytes (bytes).");
   printCommonNotes();
 }
 
@@ -245,7 +362,7 @@ function printFullUsage() {
   console.log(`    ${CLI_NAME} remove --id <id>                  Delete a client`);
   console.log("");
   console.log(`  Access levels: ${ACCESS_LEVELS.join(", ")} (default ${DEFAULT_CLIENT_ACCESS_LEVEL}).`);
-  console.log("  Tiers & roles: see " + `${CLI_NAME} help tiers`);
+  console.log("  Tiers, roles, and scopes: `help tiers` lists the current levels, roles, limits, and scope ids.");
   printSection("Examples");
   console.log(`    ${CLI_NAME} add --name "Mystic Maya" --access pro+ --roles admin`);
   console.log(`    ${CLI_NAME} upsert --id cli_818c822b5ad3191a --roles admin`);

@@ -1366,7 +1366,8 @@ async function syncFile(sourcePath, destPath) {
 // Copy a source directory into a destination directory, skipping files that are
 // unchanged (same size, and no newer mtime) and removing files that no longer
 // exist in the source. This makes migrate:data cheap when only one item changed.
-async function syncDirectory(sourceRoot, destRoot) {
+async function syncDirectory(sourceRoot, destRoot, options = {}) {
+  const exclude = new Set(options.exclude || []);
   await fs.mkdir(destRoot, { recursive: true });
 
   async function walk(currentSource, currentDest) {
@@ -1385,6 +1386,9 @@ async function syncDirectory(sourceRoot, destRoot) {
       const destPath = path.join(currentDest, entry.name);
 
       if (entry.isDirectory()) {
+        if (currentSource === sourceRoot && exclude.has(entry.name)) {
+          continue;
+        }
         await fs.mkdir(destPath, { recursive: true });
         await walk(sourcePath, destPath);
         continue;
@@ -1410,7 +1414,7 @@ async function copyInputsToStorage() {
   // sourceDecksRoot (source/assets/tarot deck) lives inside sourceAssetRoot, so the
   // assets sync below already includes the deck images and thumbnails.
   logStep(`Syncing assets (images and tarot decks) from ${sourceAssetRoot}...`);
-  await syncDirectory(sourceAssetRoot, assetRoot);
+  await syncDirectory(sourceAssetRoot, assetRoot, { exclude: ["fonts"] });
 
   logStep("Syncing runtime scripts...");
   await Promise.all(runtimeFiles.map((fileName) => syncFile(
