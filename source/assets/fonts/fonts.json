@@ -1,5 +1,5 @@
 {
-  "note": "Drop font files in this folder and add a families entry. The catalog is read from disk, so refresh the site; no API restart. role unicode is for Greek, Hebrew, Arabic, CJK, and similar scripts: set unicodeRange so only those characters change, stacks (main, display, arabic, enochian, cjk) to join those lists, and aliases such as \"Noto Sans Hebrew\" or \"Noto Serif\" so existing text uses the file. role symbol is not added to body text. This I Ching face is a symbol font: symbols.hexagram maps King Wen numbers, symbols.trigram and symbols.binary map top-to-bottom 1=yang patterns, and symbols.line maps a single line.",
+  "note": "Drop font files in this folder and add a families entry. The catalog is read from disk, so refresh the site; no API restart. role unicode is for Greek, Hebrew, Arabic, CJK, and similar scripts: set unicodeRange so only those characters change, stacks (main, display, arabic, enochian, cjk) to join those lists, and aliases such as \"Noto Sans Hebrew\" or \"Noto Serif\" so existing text uses the file. role symbol is not added to body text. I Ching symbols.hexagram maps King Wen numbers. Enochian symbols.letter maps the 21 letter ids (A B C D E F G H I L M N O P Q R S T V X Z) to the same character in the Enochian face.",
   "families": [
     {
       "id": "iching",
@@ -171,6 +171,40 @@
           "010011": "V",
           "001100": "m",
           "010101": "b"
+        }
+      }
+    },
+    {
+      "id": "enochian",
+      "family": "Enochian",
+      "role": "symbol",
+      "scripts": ["enochian"],
+      "files": [
+        { "file": "enochian/Enochian.ttf", "weight": 400, "style": "normal" }
+      ],
+      "symbols": {
+        "letter": {
+          "A": "A",
+          "B": "B",
+          "C": "C",
+          "D": "D",
+          "E": "E",
+          "F": "F",
+          "G": "G",
+          "H": "H",
+          "I": "I",
+          "L": "L",
+          "M": "M",
+          "N": "N",
+          "O": "O",
+          "P": "P",
+          "Q": "Q",
+          "R": "R",
+          "S": "S",
+          "T": "T",
+          "V": "V",
+          "X": "X",
+          "Z": "Z"
         }
       }
     }
