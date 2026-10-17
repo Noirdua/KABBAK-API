@@ -1616,7 +1616,7 @@
       },
       "post": {
         "tags": ["profile"],
-        "summary": "Enable, disable, rotate, or set the layers/format/options of the authenticated profile's calendar feed",
+        "summary": "Enable, disable, rotate, set layers, or manage separate curated calendar URLs",
         "operationId": "updateProfileCalendarFeed",
         "responses": {
           "200": { "$ref": "#/components/responses/JsonPayload" },

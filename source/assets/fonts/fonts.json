@@ -1,5 +1,5 @@
 {
-  "note": "Drop font files in this folder and add a families entry. The catalog is read from disk, so refresh the site; no API restart. role unicode is for Greek, Hebrew, Arabic, CJK, and similar scripts: set unicodeRange so only those characters change, stacks (main, display, arabic, enochian, cjk) to join those lists, and aliases such as \"Noto Sans Hebrew\" or \"Noto Serif\" so existing text uses the file. role symbol is not added to body text. I Ching symbols.hexagram maps King Wen numbers. Enochian symbols.letter maps the 21 letter ids (A B C D E F G H I L M N O P Q R S T V X Z) to the same character in the Enochian face.",
+  "note": "Drop a font file in this folder. Files not listed below are picked up on refresh, no API restart. A file joins Unicode Greek only when it contains the alphabet (Α–Ω or α–ω), not a handful of Greek symbols. A file named exactly Greek, Hebrew, Arabic, or Enochian is a symbol face. An entry here overrides a dropped file.",
   "families": [
     {
       "id": "iching",

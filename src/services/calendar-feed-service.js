@@ -11,7 +11,7 @@ const {
   aliasCalendarFeedLayer,
   normalizeCalendarFeedOptions,
   normalizeJournalVisibility,
-  profileFeedHasLayer,
+  feedTokenHasLayer,
   readProfile,
   resolveCalendarFeedToken,
   resolveEventOccurrenceAttachments
@@ -258,7 +258,7 @@ function renderVjournalLines(journal) {
   return lines;
 }
 
-function renderIcs(calendarName, events, offsetMinutes = 0) {
+function renderIcs(calendarName, events, offsetMinutes = 0, color = "") {
   const tzid = offsetTzId(offsetMinutes);
   const usesLocalTz = events.some((event) => event
     && event.component !== "journal"
@@ -274,6 +274,10 @@ function renderIcs(calendarName, events, offsetMinutes = 0) {
     `X-WR-CALNAME:${escapeIcsText(calendarName)}`,
     `X-WR-TIMEZONE:${tzid}`
   ];
+  if (/^#[0-9A-F]{6}$/.test(color)) {
+    lines.push(`COLOR:${color}`);
+    lines.push(`X-APPLE-CALENDAR-COLOR:${color}`);
+  }
   if (usesLocalTz) {
     lines.push(...renderVtimezone(offsetMinutes));
   }
@@ -878,8 +882,13 @@ async function buildCalendarFeed({ token, layers, notesFormat = "", now = new Da
   const stored = resolved.profile.calendarFeed && typeof resolved.profile.calendarFeed === "object"
     ? resolved.profile.calendarFeed
     : {};
+  const calendar = resolved.calendar || null;
   const hasStoredLayers = Array.isArray(stored.layers);
-  const layerSet = normalizeLayers(hasStoredLayers ? stored.layers : (layers || stored.layers));
+  // A curated calendar URL always emits that calendar's layers. The combined
+  // feed still prefers a saved selection over a legacy ?layers= query.
+  const layerSet = calendar
+    ? normalizeLayers(calendar.layers)
+    : normalizeLayers(hasStoredLayers ? stored.layers : (layers || stored.layers));
   const storedFormat = String(stored.notesFormat || "").toLowerCase();
   const noteMode = (storedFormat || String(notesFormat || "").toLowerCase() || "events") === "journal" ? "journal" : "events";
   const offsetMinutes = resolveFeedOffsetMinutes(resolved.profile, utcOffsetMinutes);
@@ -895,6 +904,7 @@ async function buildCalendarFeed({ token, layers, notesFormat = "", now = new Da
     feedOptions.astrologyDetail,
     [...feedOptions.moonPhases].sort().join(","),
     [...feedOptions.sunEvents].sort().join(","),
+    calendar ? `${calendar.id}|${calendar.color}|${calendar.name}` : "",
     String(offsetMinutes),
     token,
     String(baseUrl).replace(/\/+$/, ""),
@@ -918,8 +928,10 @@ async function buildCalendarFeed({ token, layers, notesFormat = "", now = new Da
     collectContext: { baseUrl, origin, token, profile: resolved.profile, clientId: resolved.clientId }
   });
 
-  const calendarName = String(resolved.profile.displayName || "").trim() || "KABBAK";
-  const body = renderIcs(calendarName, feedEvents, offsetMinutes);
+  const calendarName = calendar
+    ? calendar.name
+    : (String(resolved.profile.displayName || "").trim() || "KABBAK");
+  const body = renderIcs(calendarName, feedEvents, offsetMinutes, calendar?.color || "");
   writeFeedCache(cacheKey, body);
   return body;
 }
@@ -1014,7 +1026,7 @@ async function buildProfileCalendarEvents(clientId, { fromIso, toIso, utcOffsetM
 // token is invalid/disabled or the attachment does not exist.
 function resolveFeedAttachment({ token, eventId, attachmentId, options = {} } = {}) {
   const resolved = resolveCalendarFeedToken(token, options);
-  if (!resolved || !profileFeedHasLayer(resolved.profile, "user")) {
+  if (!resolved || !feedTokenHasLayer(resolved, "user")) {
     return null;
   }
   return findEventAttachment(resolved.profile, eventId, attachmentId);
@@ -1022,7 +1034,7 @@ function resolveFeedAttachment({ token, eventId, attachmentId, options = {} } = 
 
 function resolveFeedNoteAttachment({ token, noteId, sceneId, attachmentId, options = {} } = {}) {
   const resolved = resolveCalendarFeedToken(token, options);
-  if (!resolved || !profileFeedHasLayer(resolved.profile, "notes")) {
+  if (!resolved || !feedTokenHasLayer(resolved, "notes")) {
     return null;
   }
   if (normalizeJournalVisibility(resolved.profile.journalVisibility) !== "public") {

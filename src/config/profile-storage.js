@@ -67,6 +67,19 @@ const DEFAULT_CALENDAR_FEED_LAYERS = Object.freeze(["user", "moon", "holidays"])
 const CALENDAR_MOON_PHASES = Object.freeze(["new", "first-quarter", "full", "last-quarter"]);
 const CALENDAR_ASTROLOGY_DETAILS = Object.freeze(["decan", "degree", "sign"]);
 const CALENDAR_SUN_EVENTS = Object.freeze(["sunrise", "sunset"]);
+// Separate subscription calendars. Calendar apps color a whole ICS URL, not
+// events inside it, so each curated calendar gets its own token and URL.
+const MAX_FEED_CALENDARS = 16;
+const MAX_FEED_CALENDAR_NAME = 80;
+const CALENDAR_FEED_LAYER_META = Object.freeze({
+  user: Object.freeze({ label: "My events", color: "#6366F1" }),
+  notes: Object.freeze({ label: "Notes & journals", color: "#818CF8" }),
+  holidays: Object.freeze({ label: "Holidays", color: "#FDE68A" }),
+  moon: Object.freeze({ label: "Moon phases", color: "#C7D2FE" }),
+  astrology: Object.freeze({ label: "Astrology", color: "#FCD34D" }),
+  planetary: Object.freeze({ label: "Planetary hours", color: "#52525B" }),
+  sun: Object.freeze({ label: "Sunrise & sunset", color: "#FB923C" })
+});
 // Who may read a profile's journal: private (owner only), friends, or anyone.
 const JOURNAL_VISIBILITY = Object.freeze(["private", "friends", "public"]);
 const DEFAULT_JOURNAL_VISIBILITY = "private";
@@ -131,6 +144,9 @@ module.exports = {
   CALENDAR_MOON_PHASES,
   CALENDAR_ASTROLOGY_DETAILS,
   CALENDAR_SUN_EVENTS,
+  MAX_FEED_CALENDARS,
+  MAX_FEED_CALENDAR_NAME,
+  CALENDAR_FEED_LAYER_META,
   JOURNAL_VISIBILITY,
   DEFAULT_JOURNAL_VISIBILITY,
   MAX_TAGLINE_LENGTH,

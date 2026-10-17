@@ -59,6 +59,9 @@ const {
   CALENDAR_MOON_PHASES,
   CALENDAR_ASTROLOGY_DETAILS,
   CALENDAR_SUN_EVENTS,
+  MAX_FEED_CALENDARS,
+  MAX_FEED_CALENDAR_NAME,
+  CALENDAR_FEED_LAYER_META,
   JOURNAL_VISIBILITY,
   DEFAULT_JOURNAL_VISIBILITY,
   MAX_TAGLINE_LENGTH,
@@ -2520,8 +2523,77 @@ function normalizeStoredCalendarFeed(raw) {
     ...(hasLayers ? { layers: normalizeCalendarFeedLayers(source.layers) } : {}),
     ...(notesFormat === "journal" || notesFormat === "events" ? { notesFormat } : {}),
     ...(source.options && typeof source.options === "object" ? { options: normalizeCalendarFeedOptions(source.options) } : {}),
+    ...(Array.isArray(source.calendars) ? { calendars: normalizeFeedCalendars(source.calendars) } : {}),
     createdAt: String(source.createdAt || "").trim(),
     updatedAt: String(source.updatedAt || "").trim()
+  };
+}
+
+function normalizeFeedColor(value, fallback = "#6366F1") {
+  const match = String(value || "").trim().match(/^#?([0-9a-fA-F]{6})$/);
+  return match ? `#${match[1].toUpperCase()}` : fallback;
+}
+
+function defaultColorForLayers(layers) {
+  const first = Array.isArray(layers) ? layers[0] : "";
+  return CALENDAR_FEED_LAYER_META[first]?.color || "#6366F1";
+}
+
+function normalizeFeedCalendars(raw) {
+  const seenIds = new Set();
+  const seenTokens = new Set();
+  const calendars = [];
+  for (const entry of Array.isArray(raw) ? raw : []) {
+    if (!entry || typeof entry !== "object") continue;
+    const id = String(entry.id || "").trim();
+    const token = String(entry.token || "").trim();
+    if (!id || !token || seenIds.has(id) || seenTokens.has(token)) continue;
+    if (entry.layers === undefined) continue;
+    const layers = normalizeCalendarFeedLayers(entry.layers);
+    if (!layers.length) continue;
+    seenIds.add(id);
+    seenTokens.add(token);
+    calendars.push({
+      id,
+      name: String(entry.name || "").trim().slice(0, MAX_FEED_CALENDAR_NAME) || "Calendar",
+      layers,
+      color: normalizeFeedColor(entry.color, defaultColorForLayers(layers)),
+      enabled: entry.enabled !== false,
+      token,
+      createdAt: String(entry.createdAt || "").trim(),
+      updatedAt: String(entry.updatedAt || "").trim()
+    });
+    if (calendars.length >= MAX_FEED_CALENDARS) break;
+  }
+  return calendars;
+}
+
+function presentFeedCalendar(calendar) {
+  return {
+    id: calendar.id,
+    name: calendar.name,
+    layers: [...calendar.layers],
+    color: calendar.color,
+    enabled: calendar.enabled === true,
+    token: calendar.token,
+    path: calendar.token ? buildCalendarFeedPath(calendar.token) : "",
+    createdAt: calendar.createdAt,
+    updatedAt: calendar.updatedAt
+  };
+}
+
+function presentCalendarFeed(feed) {
+  return {
+    enabled: feed.enabled,
+    token: feed.token,
+    path: feed.token ? buildCalendarFeedPath(feed.token) : "",
+    layers: feed.layers || [...DEFAULT_CALENDAR_FEED_LAYERS],
+    layersSaved: Array.isArray(feed.layers),
+    notesFormat: feed.notesFormat || "events",
+    options: feed.options || normalizeCalendarFeedOptions(null),
+    calendars: (feed.calendars || []).map(presentFeedCalendar),
+    createdAt: feed.createdAt,
+    updatedAt: feed.updatedAt
   };
 }
 
@@ -2599,18 +2671,155 @@ function buildCalendarFeedPath(token) {
 
 function getProfileCalendarFeed(clientId, options = {}) {
   const profile = readProfile(clientId, options);
-  const feed = normalizeStoredCalendarFeed(profile.calendarFeed);
+  return presentCalendarFeed(normalizeStoredCalendarFeed(profile.calendarFeed));
+}
+
+const FEED_CALENDAR_ACTIONS = new Set([
+  "add-calendar",
+  "set-calendar",
+  "remove-calendar",
+  "rotate-calendar",
+  "split-calendars"
+]);
+
+function takenFeedTokens(calendars, extra = "") {
+  const taken = new Set((calendars || []).map((calendar) => calendar.token));
+  if (extra) taken.add(extra);
+  return taken;
+}
+
+function unusedFeedToken(clientId, taken) {
+  let token = generateCalendarFeedToken(clientId);
+  while (taken.has(token)) {
+    token = generateCalendarFeedToken(clientId);
+  }
+  taken.add(token);
+  return token;
+}
+
+function newFeedCalendarId(calendars) {
+  const taken = new Set((calendars || []).map((calendar) => calendar.id));
+  let id = `cal_${crypto.randomBytes(8).toString("hex")}`;
+  while (taken.has(id)) {
+    id = `cal_${crypto.randomBytes(8).toString("hex")}`;
+  }
+  return id;
+}
+
+function requireCalendarLayers(value) {
+  if (value === undefined) {
+    throw new ProfileStorageError("invalid_feed_calendar", "A calendar needs at least one layer.");
+  }
+  const layers = normalizeCalendarFeedLayers(value);
+  if (!layers.length) {
+    throw new ProfileStorageError("invalid_feed_calendar", "A calendar needs at least one known layer.");
+  }
+  return layers;
+}
+
+function requireCalendarName(value, fallback = "") {
+  const name = String(value || "").trim().slice(0, MAX_FEED_CALENDAR_NAME);
+  if (!name && !fallback) {
+    throw new ProfileStorageError("invalid_feed_calendar", "A calendar needs a name.");
+  }
+  return name || fallback;
+}
+
+function findFeedCalendar(calendars, calendarId) {
+  const id = String(calendarId || "").trim();
+  const calendar = (calendars || []).find((entry) => entry.id === id);
+  if (!calendar) {
+    throw new ProfileStorageError("invalid_feed_calendar", "That calendar was not found.");
+  }
+  return calendar;
+}
+
+function assertCalendarRoom(calendars) {
+  if ((calendars || []).length >= MAX_FEED_CALENDARS) {
+    throw new ProfileStorageError(
+      "invalid_feed_calendar",
+      `A profile can have at most ${MAX_FEED_CALENDARS} calendars.`
+    );
+  }
+}
+
+function makeFeedCalendar(clientId, calendars, { name, layers, color }, nowIso) {
+  assertCalendarRoom(calendars);
+  const taken = takenFeedTokens(calendars);
   return {
-    enabled: feed.enabled,
-    token: feed.token,
-    path: feed.token ? buildCalendarFeedPath(feed.token) : "",
-    layers: feed.layers || [...DEFAULT_CALENDAR_FEED_LAYERS],
-    layersSaved: Array.isArray(feed.layers),
-    notesFormat: feed.notesFormat || "events",
-    options: feed.options || normalizeCalendarFeedOptions(null),
-    createdAt: feed.createdAt,
-    updatedAt: feed.updatedAt
+    id: newFeedCalendarId(calendars),
+    name,
+    layers,
+    color: normalizeFeedColor(color, defaultColorForLayers(layers)),
+    enabled: true,
+    token: unusedFeedToken(clientId, taken),
+    createdAt: nowIso,
+    updatedAt: nowIso
   };
+}
+
+function splitFeedCalendars(clientId, calendars, layers, nowIso) {
+  const next = [...(calendars || [])];
+  for (const layer of layers) {
+    const exists = next.some((calendar) => calendar.layers.length === 1 && calendar.layers[0] === layer);
+    if (exists) continue;
+    const meta = CALENDAR_FEED_LAYER_META[layer] || {};
+    next.push(makeFeedCalendar(clientId, next, {
+      name: meta.label || layer,
+      layers: [layer],
+      color: meta.color
+    }, nowIso));
+  }
+  return next;
+}
+
+function applyFeedCalendarAction(action, input, clientId, calendars, nowIso) {
+  if (action === "add-calendar") {
+    const source = input?.calendar && typeof input.calendar === "object" ? input.calendar : input;
+    return [...calendars, makeFeedCalendar(clientId, calendars, {
+      name: requireCalendarName(source?.name),
+      layers: requireCalendarLayers(source?.layers),
+      color: source?.color
+    }, nowIso)];
+  }
+  if (action === "split-calendars") {
+    const layers = input?.layers !== undefined
+      ? requireCalendarLayers(input.layers)
+      : (calendars.length ? null : [...DEFAULT_CALENDAR_FEED_LAYERS]);
+    if (!layers) {
+      throw new ProfileStorageError("invalid_feed_calendar", "Pass layers to split into separate calendars.");
+    }
+    return splitFeedCalendars(clientId, calendars, layers, nowIso);
+  }
+  if (action === "remove-calendar") {
+    findFeedCalendar(calendars, input?.calendarId);
+    return calendars.filter((calendar) => calendar.id !== String(input.calendarId).trim());
+  }
+  if (action === "rotate-calendar") {
+    const current = findFeedCalendar(calendars, input?.calendarId);
+    const taken = takenFeedTokens(calendars.filter((calendar) => calendar.id !== current.id));
+    return calendars.map((calendar) => (calendar.id === current.id
+      ? { ...calendar, token: unusedFeedToken(clientId, taken), updatedAt: nowIso }
+      : calendar));
+  }
+  if (action === "set-calendar") {
+    const current = findFeedCalendar(calendars, input?.calendarId);
+    const source = input?.calendar && typeof input.calendar === "object" ? input.calendar : input;
+    const layers = source?.layers !== undefined ? requireCalendarLayers(source.layers) : current.layers;
+    return calendars.map((calendar) => (calendar.id === current.id
+      ? {
+        ...calendar,
+        name: source?.name !== undefined ? requireCalendarName(source.name, current.name) : current.name,
+        layers,
+        color: source?.color !== undefined
+          ? normalizeFeedColor(source.color, defaultColorForLayers(layers))
+          : calendar.color,
+        enabled: typeof source?.enabled === "boolean" ? source.enabled : calendar.enabled,
+        updatedAt: nowIso
+      }
+      : calendar));
+  }
+  return calendars;
 }
 
 function updateProfileCalendarFeed(clientId, input, options = {}) {
@@ -2618,8 +2827,9 @@ function updateProfileCalendarFeed(clientId, input, options = {}) {
   const hasLayers = input?.layers !== undefined;
   const hasFormat = input?.notesFormat !== undefined;
   const hasOptions = input?.options !== undefined;
-  if (action && !["enable", "disable", "rotate"].includes(action)) {
-    throw new ProfileStorageError("invalid_feed_action", "Feed action must be enable, disable, or rotate.");
+  const calendarAction = FEED_CALENDAR_ACTIONS.has(action);
+  if (action && !["enable", "disable", "rotate"].includes(action) && !calendarAction) {
+    throw new ProfileStorageError("invalid_feed_action", "Feed action must be enable, disable, rotate, or a calendar action.");
   }
   if (!action && !hasLayers && !hasFormat && !hasOptions) {
     throw new ProfileStorageError("invalid_feed_action", "Provide an action or feed settings to update.");
@@ -2627,17 +2837,21 @@ function updateProfileCalendarFeed(clientId, input, options = {}) {
   const profile = readProfile(clientId, options);
   const existing = normalizeStoredCalendarFeed(profile.calendarFeed);
   const nowIso = new Date().toISOString();
+  const previousCalendars = existing.calendars || [];
   let token = existing.token;
-  if (action === "rotate" || (action === "enable" && !token)) {
-    token = generateCalendarFeedToken(clientId);
+  let enabled = action === "disable" ? false : action === "enable" ? true : existing.enabled;
+  if (calendarAction && !enabled) {
+    enabled = true;
   }
-  const enabled = action === "disable" ? false : action === "enable" ? true : existing.enabled;
+  if (action === "rotate" || ((action === "enable" || calendarAction) && !token)) {
+    token = unusedFeedToken(clientId, takenFeedTokens(previousCalendars));
+  }
   // Only persist a selection when one is given, so a feed that was merely
   // enabled keeps honoring a legacy ?layers= URL until the user saves one.
   const rawFeed = profile.calendarFeed && typeof profile.calendarFeed === "object" ? profile.calendarFeed : {};
   const previousLayers = Array.isArray(rawFeed.layers) ? normalizeCalendarFeedLayers(rawFeed.layers) : null;
   const previousFormat = rawFeed.notesFormat === "journal" ? "journal" : (rawFeed.notesFormat === "events" ? "events" : null);
-  const nextLayers = hasLayers ? normalizeCalendarFeedLayers(input.layers) : previousLayers;
+  const nextLayers = hasLayers && !calendarAction ? normalizeCalendarFeedLayers(input.layers) : previousLayers;
   const nextFormat = hasFormat
     ? (String(input.notesFormat || "").trim().toLowerCase() === "journal" ? "journal" : "events")
     : previousFormat;
@@ -2645,30 +2859,23 @@ function updateProfileCalendarFeed(clientId, input, options = {}) {
     ? normalizeCalendarFeedOptions(rawFeed.options)
     : null;
   const nextOptions = hasOptions ? normalizeCalendarFeedOptions(input.options) : previousOptions;
+  const nextCalendars = calendarAction
+    ? applyFeedCalendarAction(action, input, clientId, previousCalendars, nowIso)
+    : previousCalendars;
   profile.calendarFeed = {
     enabled,
     token,
     ...(nextLayers ? { layers: nextLayers } : {}),
     ...(nextFormat ? { notesFormat: nextFormat } : {}),
     ...(nextOptions ? { options: nextOptions } : {}),
+    ...((nextCalendars.length || calendarAction) ? { calendars: nextCalendars } : {}),
     createdAt: existing.createdAt || nowIso,
     updatedAt: nowIso
   };
   profile.updatedAt = nowIso;
   const usage = writeProfile(clientId, profile, options);
-  const feed = normalizeStoredCalendarFeed(profile.calendarFeed);
   return {
-    feed: {
-      enabled: feed.enabled,
-      token: feed.token,
-      path: buildCalendarFeedPath(feed.token),
-    layers: feed.layers || [...DEFAULT_CALENDAR_FEED_LAYERS],
-    layersSaved: Array.isArray(feed.layers),
-      notesFormat: feed.notesFormat || "events",
-      options: feed.options || normalizeCalendarFeedOptions(null),
-      createdAt: feed.createdAt,
-      updatedAt: feed.updatedAt
-    },
+    feed: presentCalendarFeed(normalizeStoredCalendarFeed(profile.calendarFeed)),
     usage
   };
 }
@@ -2699,10 +2906,25 @@ function resolveCalendarFeedToken(token, options = {}) {
     return null;
   }
   const feed = normalizeStoredCalendarFeed(profile.calendarFeed);
-  if (!feed.enabled || feed.token !== rawToken) {
+  if (!feed.enabled) {
     return null;
   }
-  return { clientId, profile };
+  if (feed.token === rawToken) {
+    return { clientId, profile, calendar: null };
+  }
+  const calendar = (feed.calendars || []).find((entry) => entry.enabled && entry.token === rawToken) || null;
+  if (!calendar) {
+    return null;
+  }
+  return { clientId, profile, calendar };
+}
+
+function feedTokenHasLayer(resolved, layer) {
+  if (!resolved) return false;
+  if (resolved.calendar) {
+    return resolved.calendar.layers.includes(aliasCalendarFeedLayer(layer));
+  }
+  return profileFeedHasLayer(resolved.profile, layer);
 }
 
 // --- Share links -------------------------------------------------------------
@@ -4442,6 +4664,7 @@ module.exports = {
   listProfileQuickNotes,
   readProfile,
   resolveCalendarFeedToken,
+  feedTokenHasLayer,
   resolveEventOccurrenceAttachments,
   updateProfileQuickNote,
   recordQuizAttempt,
