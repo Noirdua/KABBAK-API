@@ -78,7 +78,11 @@ function categoryByKind(kind) {
 function isGuiPluginManifest(manifest) {
   const kind = String(manifest?.kind || "").trim().toLowerCase();
   const role = String(manifest?.role || "").trim().toLowerCase();
-  return kind === "gui" || role === "gui" || role === "skin";
+  return kind === "gui"
+    || role === "gui"
+    || role === "skin"
+    || role === "overhaul"
+    || role === "ui";
 }
 
 // Catalog entries can originate from a remote manifest, so names are untrusted input.

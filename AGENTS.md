@@ -78,9 +78,9 @@ Catalog + install: `src/services/dlc-catalog.js` + `src/routes/dlc.js`. Installe
 
 Plugin list: `GET /api/v1/plugins` → `{ plugins[], uploadLimitBytes }`. Fields the GUI host needs: `name`, `kind`, `id`, `title`, `entry`, `css`, `section`, `role`, `preserveChrome`. A plugin needs a browser `entry` or a `server.entry`; **server-only** plugins (a billing/webhook integration) are valid and validate their server entry too.
 
-`role`: `widget` (top bar), `section` / `kind: "api"` (extra page), `skin` (layout overhaul). `preserveChrome: true` = official default layout (do not hide the top bar).
+`role`: `widget` (top bar), `section` / `kind: "api"` (extra page), `skin` (layout overhaul; `overhaul` and `ui` are accepted aliases). `preserveChrome: true` = official default layout (do not hide the top bar).
 
-Plugin JS/CSS: `GET /plugins/:name/:file` (`Cache-Control: no-cache` for code). Nested files: `/plugins/:name/files/:dir/:file`. Config GET redacts `*key*` / `*secret*` fields; POST is admin-only.
+Plugin JS/CSS: `GET /plugins/:name/:file` (`Cache-Control: no-cache` for code). Nested files: `/plugins/:name/files/:dir/:file`. Config GET redacts secret fields (`key`/`secret`/`password`/`token` segments; `keywords` and `keyboard` stay readable) and adds `<field>Set` flags. Config POST is admin-only, restores stored secrets sent back as `***`, drops the helper flags, and returns only the redacted config.
 
 **Do not delete `source/` on uninstall.** Shop uninstall removes import/checkout copies only.
 
@@ -96,8 +96,11 @@ Layout skins currently in the DLC checkout:
 |---|---|
 | `layout-default` | Built-in top bar (`preserveChrome`) |
 | `layout-dock` | Left dock + HUD |
+| `layout-terminal` | Fixed terminal index + breadcrumb bar; pairs with the `homepage-terminal` widget |
 | `layout-phone` | Native-first mobile chrome: app bar + horizontally scrollable bottom rail with a pinned More sheet; default skin in `KABBAK-APP`. Its page area is a positioning context so the full-bleed `#home-welcome` overlay cannot cover the chrome. |
 | `mindmap-layout` | Correspondence mindmap; tools/admin/plugin pages stay real screens |
+
+Home-replacing widgets: `homepage` (static `index.html`) and `homepage-terminal` (terminal feed/index with filters and a status rail). Install at most one.
 
 Only one skin is active (`kabbak-active-skin` in the browser). Default if unset: `layout-default`. Native shell (`KABBAK-APP`) defaults to `layout-phone`.
 

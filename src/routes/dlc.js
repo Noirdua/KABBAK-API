@@ -40,29 +40,10 @@ const {
   writePluginAssetFile,
   writePluginConfig
 } = require("../services/dlc-catalog");
-
-function redactPluginConfig(config) {
-  if (!config || typeof config !== "object") {
-    return config;
-  }
-  if (Array.isArray(config)) {
-    return config.map((entry) => redactPluginConfig(entry));
-  }
-  const next = { ...config };
-  for (const key of Object.keys(next)) {
-    if (/key|secret|password|token/i.test(key)) {
-      if (next[key]) {
-        next[key] = "***";
-        next[`${key}Set`] = true;
-      }
-      continue;
-    }
-    if (next[key] && typeof next[key] === "object") {
-      next[key] = redactPluginConfig(next[key]);
-    }
-  }
-  return next;
-}
+const {
+  redactPluginConfig,
+  restoreRedactedSecrets
+} = require("../services/plugin-config-secrets");
 
 function normalizeHydrusPluginConfig(config) {
   const src = config && typeof config === "object" && !Array.isArray(config) ? config : {};
@@ -391,16 +372,14 @@ router.post(
     let config;
     try {
       const incoming = body?.config ?? body;
+      const current = readPluginConfig(name) || {};
       let nextConfig = incoming;
       if (name === "hydrus-network") {
-        const current = readPluginConfig(name) || {};
         nextConfig = normalizeHydrusPluginConfig(incoming);
-        if (!nextConfig.apiKey || nextConfig.apiKey === "***") {
-          nextConfig.apiKey = String(current.apiKey || "").trim();
-        }
-        if (!nextConfig.origin) {
-          nextConfig.origin = String(current.origin || "").trim();
-        }
+      }
+      nextConfig = restoreRedactedSecrets(nextConfig, current);
+      if (name === "hydrus-network" && !nextConfig.origin) {
+        nextConfig.origin = String(current.origin || "").trim();
       }
       config = writePluginConfig(name, nextConfig);
     } catch (error) {
@@ -412,7 +391,7 @@ router.post(
       pluginName: name
     });
 
-    response.apiSuccess({ name, config });
+    response.apiSuccess({ name, config: redactPluginConfig(config) });
   }
 );
 

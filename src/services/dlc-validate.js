@@ -19,7 +19,7 @@ const {
 } = require("./dlc-catalog");
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif", ".bmp"]);
-const PLUGIN_ROLES = new Set(["widget", "section", "skin"]);
+const PLUGIN_ROLES = new Set(["widget", "section", "skin", "overhaul", "ui"]);
 const MAX_REPORTED = 12;
 
 function isPlainObject(value) {
@@ -431,7 +431,7 @@ function validatePlugin(dir, kind, errors, warnings) {
     errors.push("manifest.json version is empty.");
   }
   if (manifest.role != null && !PLUGIN_ROLES.has(String(manifest.role).trim())) {
-    errors.push(`manifest.json role '${label(manifest.role)}' is invalid (use widget, section, skin).`);
+    errors.push(`manifest.json role '${label(manifest.role)}' is invalid (use widget, section, skin, overhaul, or ui).`);
   }
   // A plugin needs a browser entry or a server entry; server-only plugins (a
   // billing/webhook integration, for example) have no UI script.
