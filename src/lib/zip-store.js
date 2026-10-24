@@ -2,6 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const zlib = require("zlib");
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
@@ -133,19 +134,28 @@ function unpackStoreZip(buffer) {
     const localOffset = readUInt32LE(zip, cursor + 42);
     const name = zip.slice(cursor + 46, cursor + 46 + nameLength).toString("utf8");
     cursor += 46 + nameLength + extraLength + commentLength;
+    const rawName = String(name || "").replace(/\\/g, "/");
     const safeName = normalizeZipPath(name);
-    if (!safeName || safeName.endsWith("/")) {
+    if (!safeName || rawName.endsWith("/")) {
       continue;
     }
-    if (method !== 0) {
-      throw new Error(`Zip entry '${safeName}' is compressed. Upload an uncompressed zip.`);
+    if (method !== 0 && method !== 8) {
+      throw new Error(`Zip entry '${safeName}' uses unsupported compression. Upload an uncompressed or deflate zip.`);
     }
     const localNameLength = readUInt16LE(zip, localOffset + 26);
     const localExtraLength = readUInt16LE(zip, localOffset + 28);
     const dataStart = localOffset + 30 + localNameLength + localExtraLength;
-    const data = zip.slice(dataStart, dataStart + size);
-    if (data.length !== size) {
+    const stored = zip.slice(dataStart, dataStart + size);
+    if (stored.length !== size) {
       throw new Error(`Zip entry '${safeName}' is truncated.`);
+    }
+    let data = stored;
+    if (method === 8) {
+      try {
+        data = zlib.inflateRawSync(stored);
+      } catch (_error) {
+        throw new Error(`Zip entry '${safeName}' could not be decompressed.`);
+      }
     }
     if (crc32(data) !== crc) {
       throw new Error(`Zip entry '${safeName}' failed checksum.`);
