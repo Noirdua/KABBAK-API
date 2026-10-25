@@ -414,10 +414,17 @@ function signUp({ username, email, password, filePath = accountsPath } = {}) {
 
 function resendVerification({ username, filePath = accountsPath } = {}) {
   const accounts = readAccounts({ filePath });
-  const normalizedUsername = normalizeUsername(username);
-  const index = accounts.findIndex((account) => account.usernameNormalized === normalizedUsername);
+  const value = String(username || "").trim();
+  const emailLookup = value.includes("@");
+  const normalizedUsername = normalizeUsername(value);
+  const normalizedEmail = normalizeEmail(value);
+  const index = accounts.findIndex((account) => (
+    emailLookup
+      ? account.emailNormalized === normalizedEmail
+      : account.usernameNormalized === normalizedUsername
+  ));
   if (index < 0) {
-    throw createHttpError(404, "account_not_found", "No account with that username.");
+    throw createHttpError(404, "account_not_found", "No account with that username or email.");
   }
   if (accounts[index].emailVerified) {
     throw createHttpError(409, "already_verified", "That account is already verified. Just sign in.");
@@ -746,9 +753,9 @@ function verifyAccountManually(accountId, { filePath = accountsPath, clientsFile
 }
 
 function verifyEmail({ username, code, filePath = accountsPath, clientsFilePath } = {}) {
-  const account = findAccountByUsername(username, { filePath });
+  const account = findAccountByIdentifier(username, { filePath });
   if (!account) {
-    throw createHttpError(404, "account_not_found", "No account with that username.");
+    throw createHttpError(404, "account_not_found", "No account with that username or email.");
   }
 
   if (account.emailVerified) {
@@ -790,9 +797,9 @@ function verifyEmailByToken({ token, filePath = accountsPath, clientsFilePath } 
 }
 
 function authenticate({ username, password, filePath = accountsPath } = {}) {
-  const account = findAccountByUsername(username, { filePath });
+  const account = findAccountByIdentifier(username, { filePath });
   if (!account || !verifyPasswordRecord(account.password, String(password || ""))) {
-    throw createHttpError(401, "invalid_credentials", "Username or password is incorrect.");
+    throw createHttpError(401, "invalid_credentials", "Username/email or password is incorrect.");
   }
   return account;
 }

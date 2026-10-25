@@ -166,7 +166,7 @@ ${htmlLink}
   router.post("/login", (request, response, next) => {
     try {
       const result = accounts.login({
-        username: request.body?.username,
+        username: request.body?.identifier || request.body?.username,
         password: request.body?.password
       });
       response.apiSuccess(accounts.trialPayload(result));
@@ -180,7 +180,7 @@ ${htmlLink}
       if (!mail.isMailConfigured() && !mail.isDevFallbackEnabled()) {
         throw createHttpError(403, "email_not_configured", "Email is not configured on this server, so codes cannot be sent.");
       }
-      const result = accounts.resendVerification({ username: request.body?.username });
+      const result = accounts.resendVerification({ username: request.body?.identifier || request.body?.username });
       const delivered = await mail.sendMail({
         to: result.account.email || "",
         subject: "Your new KABBAK verification code",
@@ -265,7 +265,7 @@ ${htmlLink}
   router.post("/verify", (request, response, next) => {
     try {
       const result = accounts.verifyEmail({
-        username: request.body?.username,
+        username: request.body?.identifier || request.body?.username,
         code: request.body?.code
       });
       response.apiSuccess(accounts.trialPayload(result));
