@@ -87,6 +87,36 @@ function getTrialPolicy() {
   return { days, accessLevel };
 }
 
+function trialSupportContact() {
+  let email = "";
+  let phone = "";
+  try {
+    const config = require("./dlc-catalog").readPluginConfig("demo-users");
+    email = String(config?.supportEmail || "").trim();
+    phone = String(config?.supportPhone || "").trim();
+  } catch (_error) {}
+  return {
+    email: email || String(process.env.KABBAK_TRIAL_SUPPORT_EMAIL || "").trim(),
+    phone: phone || String(process.env.KABBAK_TRIAL_SUPPORT_PHONE || "").trim()
+  };
+}
+
+function trialExpiredMessage(contact = null) {
+  const source = contact && typeof contact === "object" ? contact : trialSupportContact();
+  const email = String(source.email || "").trim();
+  const phone = String(source.phone || "").trim();
+  if (email && phone) {
+    return `This trial has ended. Contact the operator at ${email} or ${phone} to continue.`;
+  }
+  if (email) {
+    return `This trial has ended. Contact the operator at ${email} to continue.`;
+  }
+  if (phone) {
+    return `This trial has ended. Contact the operator at ${phone} to continue.`;
+  }
+  return "This trial has ended. Contact the operator to continue.";
+}
+
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -733,7 +763,7 @@ function completeVerification(account, { filePath, clientsFilePath } = {}) {
   const verified = getAccountById(account.id, { filePath }) || account;
   const trial = issueTrial(verified, { filePath, clientsFilePath });
   if (!trial.active) {
-    throw createHttpError(403, "trial_expired", "This trial has ended. Contact the operator to continue.");
+    throw createHttpError(403, "trial_expired", trialExpiredMessage());
   }
   return {
     account: publicAccount(getAccountById(account.id, { filePath }) || verified),
@@ -814,7 +844,7 @@ function login({ username, password, filePath = accountsPath, clientsFilePath } 
   updateAccount(account.id, { lastLoginAt: new Date().toISOString() }, { filePath });
 
   if (!trial.active) {
-    throw createHttpError(403, "trial_expired", "This trial has ended. Contact the operator to continue.");
+    throw createHttpError(403, "trial_expired", trialExpiredMessage());
   }
 
   return {
@@ -1006,6 +1036,7 @@ module.exports = {
   VERIFICATION_TTL_MS,
   getTrialPolicy,
   isSignupEnabled,
+  trialExpiredMessage,
   normalizeEmail,
   normalizeUsername,
   createVerificationLinkToken,

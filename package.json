@@ -11,6 +11,8 @@
     "check:syntax": "node scripts/check-syntax.js src scripts tests",
     "accounts": "node scripts/manage-accounts.js",
     "clients": "node scripts/manage-accounts.js",
+    "trial:extend": "node scripts/manage-accounts.js extend",
+    "trial:remove": "node scripts/manage-accounts.js remove",
     "settings": "node scripts/manage-server-settings.js",
     "gui:default": "node scripts/manage-server-settings.js fix",
     "mail:test": "node scripts/test-mail.js",

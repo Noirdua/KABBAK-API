@@ -70,7 +70,16 @@ const FLAG_ALIASES = new Map([
   ["--admin", "admin"],
   ["-admin", "admin"],
   ["--email", "email"],
-  ["-email", "email"]
+  ["-email", "email"],
+  ["--days", "days"],
+  ["-days", "days"],
+  ["--extend-days", "days"],
+  ["--extenddays", "days"],
+  ["--until", "until"],
+  ["-until", "until"],
+  ["--expires-at", "expiresAt"],
+  ["--expiresat", "expiresAt"],
+  ["-expiresat", "expiresAt"]
 ]);
 
 function parseFlags(argv) {
@@ -443,6 +452,54 @@ function runPasswd(rest) {
   return 0;
 }
 
+function runExtend(rest) {
+  const parsed = parseFlags(rest);
+  const paths = pathsFor(parsed.values);
+  const target = resolveTarget(parsed, paths);
+  if (target.kind !== "account") {
+    throw new Error("extend applies to trial accounts. Pick a username, email, or acc_ id.");
+  }
+
+  const daysRaw = parsed.provided.has("days") ? parsed.values.days : undefined;
+  const untilRaw = parsed.provided.has("until") ? parsed.values.until : undefined;
+  const expiresRaw = parsed.provided.has("expiresAt") ? parsed.values.expiresAt : undefined;
+  const expiresInput = String(expiresRaw || untilRaw || "").trim();
+  const days = daysRaw === undefined ? undefined : Number(daysRaw);
+  if (daysRaw !== undefined && (!Number.isFinite(days) || days <= 0)) {
+    throw new Error("--days must be a positive number (for example --days 14).");
+  }
+  if (!expiresInput && (days === undefined || !Number.isFinite(days) || days <= 0)) {
+    throw new Error([
+      `Usage: ${CLI_NAME} extend <@username|email> --days 14`,
+      `       ${CLI_NAME} extend <@username|email> --until 2027-01-31`
+    ].join("\n"));
+  }
+
+  let expiresAt = expiresInput;
+  if (expiresAt && /^\d{4}-\d{2}-\d{2}$/.test(expiresAt)) {
+    expiresAt = new Date(`${expiresAt}T23:59:59`).toISOString();
+  }
+
+  const result = accounts.extendAccountTrial(target.account.id, {
+    days: expiresInput ? undefined : days,
+    expiresAt: expiresInput ? expiresAt : undefined,
+    filePath: paths.accountsFile,
+    clientsFilePath: paths.clientsFile
+  });
+  const client = readManagedApiClients({ filePath: paths.clientsFile })
+    .find((entry) => entry.id === result.clientId) || null;
+  const expiresMs = Date.parse(client?.expiresAt || result.expiresAt || "");
+  const active = Number.isFinite(expiresMs) && expiresMs > Date.now();
+
+  console.log(`Extended @${target.account.username} (${target.account.id}).`);
+  console.log(`  Trial:   ${active ? "active" : "expired"}`);
+  console.log(`  Expires: ${result.expiresAt || client?.expiresAt || "-"}`);
+  if (active) {
+    console.log("  The trial key works again.");
+  }
+  return 0;
+}
+
 function runAdd(rest) {
   const parsed = parseFlags(rest);
   const wantsClient = parsed.provided.has("name") && !parsed.provided.has("password") && !parsed.provided.has("admin") && !parsed.positionals.length;
@@ -503,6 +560,8 @@ function printHelp() {
     "    reset <@login>               Same as passwd (operator password reset)",
     "    passwd --client <name|id> --username <login> [--password <value>]",
     "    verify <@username>           Issue the trial key when the email never arrived",
+    "    extend <@username|email> --days 14 | --until YYYY-MM-DD",
+    "                                  Extend or reactivate an expired trial",
     "    rekey <@username>            Rotate the trial key only",
     "    remove <@username>           Delete the account and its trial key",
     "",
@@ -528,6 +587,8 @@ function printHelp() {
     "    --file <path>                Managed clients file (default storage/config/api-clients.json)",
     "    --accounts-file <path>       Accounts file (default storage/config/accounts.json)",
     "    --password <value>           passwd/reset: set this password instead of generating one",
+    "    --days <n>                   extend: add days from now or the current end",
+    "    --until <YYYY-MM-DD>         extend: set the trial end date (local end of day)",
     "    --account <selector>         Force account resolution",
     "    --client <selector>          Force client resolution",
     "    --username <name>            Account selector (same as @name)",
@@ -580,6 +641,9 @@ function main(argv) {
       return runPasswd(rest);
     case "verify":
       return runVerify(rest);
+    case "extend":
+    case "reactivate":
+      return runExtend(rest);
     case "add":
       return runAdd(rest);
     case "set":

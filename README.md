@@ -93,6 +93,11 @@ npm run accounts -- passwd @username             # reset an existing login and r
 npm run accounts -- reset @username --password "new-secret"
 npm run accounts -- passwd --client "Esau Nordy" --username esau
 npm run accounts -- rekey @username              # rotate the trial key only
+npm run accounts -- extend @username --days 14   # extend or reactivate an expired trial
+npm run accounts -- extend @username --until 2027-01-31
+npm run accounts -- remove @username             # delete the account and its trial key
+npm run trial:extend -- @username --days 14      # same as the extend command above
+npm run trial:remove -- @username                # same as remove above
 ```
 
 `add` generates the client id (`cli_<random hex>`) and API key (`kabbak_<random base64url>`) server-side. `rekey` replaces a lost key with a freshly generated one. The full key is printed once after creation/rotation and only ever stored masked. `list` prints one plain line per client so nothing gets cut off.
