@@ -53,7 +53,9 @@ function authorFor(auth) {
   } catch (_error) {
     name = "";
   }
-  return { clientId: auth.clientId, name: name || String(auth.clientId) };
+  const authName = String(auth.name || "").trim();
+  const clientName = authName && !authName.startsWith("cli_") ? authName : "";
+  return { clientId: auth.clientId, name: name || clientName || String(auth.clientId) };
 }
 
 function assertCanModify(auth, ownerClientId) {

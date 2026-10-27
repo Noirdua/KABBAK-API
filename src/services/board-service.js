@@ -190,7 +190,7 @@ function createTopic(input, author = {}, options = {}) {
   };
   topics.push(topic);
   writeBoard(topics.slice(-MAX_TOPICS), options);
-  return normalizeStoredTopic(topic);
+  return withResolvedNames(normalizeStoredTopic(topic));
 }
 
 function addReply(topicId, input, author = {}, options = {}) {
@@ -214,7 +214,7 @@ function addReply(topicId, input, author = {}, options = {}) {
   topic.updatedAt = nowIso;
   topics[index] = topic;
   writeBoard(topics, options);
-  return topic;
+  return withResolvedNames(topic);
 }
 
 function updateTopic(topicId, input = {}, options = {}) {
@@ -296,6 +296,14 @@ function resolveContributorName(clientId, storedName = "") {
       const username = String(account?.username || "").trim();
       if (username) {
         return `@${username}`;
+      }
+    } catch (_error) {}
+    try {
+      const client = require("./api-client-registry").readManagedApiClients()
+        .find((entry) => String(entry.id || "").trim() === id);
+      const clientName = String(client?.name || "").trim();
+      if (clientName && !clientName.startsWith("cli_") && clientName !== id) {
+        return clientName;
       }
     } catch (_error) {}
   }
