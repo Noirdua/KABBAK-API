@@ -96,6 +96,7 @@ const cache = {
   dictionaryHebrew: null,
   dictionaryGreek: null,
   textCatalog: null,
+  tarotCommentaries: null,
   textSourceById: new Map(),
   textReferenceById: new Map(),
   deckManifestById: new Map()
@@ -259,6 +260,14 @@ async function loadTextCatalog() {
   return cache.textCatalog;
 }
 
+async function loadTarotCommentaries() {
+  if (!cache.tarotCommentaries) {
+    cache.tarotCommentaries = readDocument("tarotCommentaries") || { collections: [] };
+  }
+
+  return cache.tarotCommentaries;
+}
+
 async function loadTextSource(sourceId) {
   const key = String(getTextSourceDocumentKey(sourceId) || "").trim();
   if (!key) {
@@ -329,6 +338,7 @@ function resetCaches() {
   cache.dictionaryHebrew = null;
   cache.dictionaryGreek = null;
   cache.textCatalog = null;
+  cache.tarotCommentaries = null;
   cache.textSourceById.clear();
   cache.textReferenceById.clear();
   cache.deckManifestById.clear();
@@ -355,6 +365,7 @@ module.exports = {
   loadHebrewDictionary,
   loadGreekDictionary,
   loadTextCatalog,
+  loadTarotCommentaries,
   loadTextSource,
   loadTextReference,
   loadDeckManifest,

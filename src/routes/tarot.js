@@ -5,6 +5,7 @@ const { parsePaginationParams } = require("../lib/pagination");
 const {
   listCards,
   getCardById,
+  getCardCommentaries,
   listSpreads,
   pullSpread
 } = require("../services/tarot-service");
@@ -48,6 +49,12 @@ router.get("/tarot/cards/:cardId/relations", async (request, response) => {
     },
     relations: result.relations
   });
+});
+
+router.get("/tarot/cards/:cardId/commentaries", async (request, response) => {
+  const result = await requireCard(request.params.cardId);
+  const commentaries = await getCardCommentaries(result.card.id);
+  response.apiSuccess(commentaries);
 });
 
 router.get("/tarot/cards/:cardId/image", async (request, response) => {

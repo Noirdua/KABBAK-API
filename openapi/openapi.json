@@ -764,6 +764,31 @@
         }
       }
     },
+    "/tarot/cards/{cardId}/commentaries": {
+      "get": {
+        "tags": [
+          "tarot"
+        ],
+        "summary": "Get commentaries and meditations for a tarot card",
+        "operationId": "getTarotCardCommentaries",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CardId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonPayload"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/tarot/spreads": {
       "get": {
         "tags": [

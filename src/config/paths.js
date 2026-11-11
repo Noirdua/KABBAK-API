@@ -6,6 +6,7 @@ const sourceRoot = path.join(projectRoot, "source");
 const sourceImportRoot = path.join(sourceRoot, "imports");
 const sourceTextImportRoot = path.join(sourceImportRoot, "text");
 const sourceDataRoot = path.join(sourceRoot, "data");
+const sourceTarotCommentariesRoot = path.join(sourceDataRoot, "tarot-commentaries");
 const sourceTextDataRoot = path.join(sourceDataRoot, "text");
 const sourceGeneratedTextRoot = path.join(sourceTextDataRoot, "_generated");
 const generatedTextSourceRegistryPath = path.join(sourceGeneratedTextRoot, "sources.generated.json");
@@ -41,6 +42,7 @@ module.exports = {
   sourceImportRoot,
   sourceTextImportRoot,
   sourceDataRoot,
+  sourceTarotCommentariesRoot,
   sourceTextDataRoot,
   sourceGeneratedTextRoot,
   generatedTextSourceRegistryPath,

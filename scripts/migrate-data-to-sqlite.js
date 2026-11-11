@@ -6,6 +6,7 @@ const sharp = require("sharp");
 const {
   sourceRoot,
   sourceDataRoot,
+  sourceTarotCommentariesRoot,
   sourceAssetRoot,
   sourceDecksRoot,
   sourceGeneratedTextRoot,
@@ -41,6 +42,9 @@ const {
 const {
   refreshTextLibraryRegistry
 } = require("../src/services/text-library-registry");
+const {
+  normalizeCommentaryDocument
+} = require("../src/services/tarot-commentary-service");
 
 const apiRoot = path.resolve(__dirname, "..");
 const sourceDeckRegistryPath = path.join(sourceDecksRoot, "decks.json");
@@ -546,6 +550,43 @@ async function buildReferenceData() {
     islamicCalendar: islamicCalendarJson && typeof islamicCalendarJson === "object" ? islamicCalendarJson : {},
     wheelOfYear: wheelOfYearJson && typeof wheelOfYearJson === "object" ? wheelOfYearJson : {}
   };
+}
+
+async function buildTarotCommentaries() {
+  let directoryEntries = [];
+  try {
+    directoryEntries = await fs.readdir(sourceTarotCommentariesRoot, { withFileTypes: true });
+  } catch {
+    return { collections: [] };
+  }
+
+  const collections = [];
+  const sortedEntries = directoryEntries
+    .filter((entry) => entry.isFile() && /\.json$/i.test(entry.name) && !entry.name.startsWith("_") && !entry.name.startsWith("."))
+    .sort((left, right) => left.name.localeCompare(right.name));
+
+  for (const entry of sortedEntries) {
+    try {
+      const rawDocument = await readJson(path.join(sourceTarotCommentariesRoot, entry.name));
+      const normalized = normalizeCommentaryDocument(rawDocument, { sourceFile: entry.name });
+      collections.push(...normalized.collections);
+    } catch (error) {
+      console.warn(`[tarot-commentaries] Skipping ${entry.name}: ${error && error.message ? error.message : error}`);
+    }
+  }
+
+  const seenIds = new Set();
+  const uniqueCollections = [];
+  collections.forEach((collection) => {
+    if (seenIds.has(collection.id)) {
+      console.warn(`[tarot-commentaries] Duplicate collection id '${collection.id}' in ${collection.sourceFile || "unknown"}; skipping.`);
+      return;
+    }
+    seenIds.add(collection.id);
+    uniqueCollections.push(collection);
+  });
+
+  return { collections: uniqueCollections };
 }
 
 function normalizeIndexWord(value) {
@@ -1440,7 +1481,8 @@ function writeDatabase({
   dictionaryGreek,
   deckRegistry,
   deckManifests,
-  textLibrarySnapshot
+  textLibrarySnapshot,
+  tarotCommentaries
 }, dbPath = null) {
   const targetPath = dbPath || databasePath;
   const database = new DatabaseSync(targetPath);
@@ -1470,6 +1512,7 @@ function writeDatabase({
   writeDocument.run("anagramWordIndex", JSON.stringify(anagramWordIndex), timestamp);
   writeDocument.run("deckRegistry", JSON.stringify(deckRegistry), timestamp);
   writeDocument.run("textCatalog", JSON.stringify(textLibrarySnapshot.catalog), timestamp);
+  writeDocument.run("tarotCommentaries", JSON.stringify(tarotCommentaries), timestamp);
   if (dictionaryEnglish) {
     writeDocument.run("dictionaryEnglish", JSON.stringify(dictionaryEnglish), timestamp);
   }
@@ -1641,13 +1684,15 @@ async function main() {
   logStep("Copying inputs to storage...");
   await copyInputsToStorage();
 
-  logStep("Building data snapshots (manifest, dataset, reference data, gematria, text library)...");
-  const [magickManifest, magickDataset, referenceData, textLibrarySnapshot] = await Promise.all([
+  logStep("Building data snapshots (manifest, dataset, reference data, gematria, text library, tarot commentaries)...");
+  const [magickManifest, magickDataset, referenceData, textLibrarySnapshot, tarotCommentaries] = await Promise.all([
     buildMagickManifest(),
     buildMagickDataset(),
     buildReferenceData(),
-    buildTextLibrarySnapshot()
+    buildTextLibrarySnapshot(),
+    buildTarotCommentaries()
   ]);
+  logStep(`Built ${tarotCommentaries.collections.length} tarot commentary collection(s).`);
   const gematriaWordIndex = await buildGematriaWordIndex(textLibrarySnapshot);
   const anagramWordIndex = buildAnagramWordIndex(gematriaWordIndex);
 
@@ -1680,7 +1725,8 @@ async function main() {
     dictionaryGreek,
     deckRegistry,
     deckManifests,
-    textLibrarySnapshot
+    textLibrarySnapshot,
+    tarotCommentaries
   }, activeDbPath);
 
   // Atomically set the active database pointer

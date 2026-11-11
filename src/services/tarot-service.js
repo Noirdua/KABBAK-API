@@ -1,8 +1,10 @@
 const {
   loadReferenceData,
-  loadMagickDataset
+  loadMagickDataset,
+  loadTarotCommentaries
 } = require("./data-loader");
 const { loadTarotRuntime } = require("./browser-module-runtime");
+const { buildCommentaryIndex, getCommentariesForCard } = require("./tarot-commentary-service");
 const { createSeededRandom } = require("../lib/random");
 const { toTitleCase } = require("../lib/string-utils");
 
@@ -92,6 +94,18 @@ const MINOR_RANK_NUMBER_BY_NAME = {
   ten: 10
 };
 
+const TAROT_CARD_LOOKUP_ALIASES = {
+  magician: "the magus",
+  "the magician": "the magus",
+  "wheel of fortune": "fortune",
+  "the wheel of fortune": "fortune",
+  strength: "lust",
+  judgement: "aeon",
+  judgment: "aeon",
+  world: "universe",
+  "the world": "universe"
+};
+
 const SMALL_CARD_SIGN_BY_MODALITY_AND_SUIT = {
   cardinal: {
     wands: "aries",
@@ -152,6 +166,34 @@ function normalizeTarotCardLookupName(value) {
   }
 
   return `${rankWord} of ${suit}`;
+}
+
+function buildTarotCardLookupCandidates(value) {
+  const normalized = normalizeTarotCardLookupName(value);
+  if (!normalized) {
+    return [];
+  }
+
+  const candidates = new Set([normalized]);
+
+  if (normalized.startsWith("the ")) {
+    candidates.add(normalized.slice(4));
+  } else {
+    candidates.add(`the ${normalized}`);
+  }
+
+  const alias = TAROT_CARD_LOOKUP_ALIASES[normalized];
+  if (alias) {
+    candidates.add(alias);
+  }
+
+  const courtMatch = normalized.match(/^(page|king) of (.+)$/);
+  if (courtMatch) {
+    const rank = courtMatch[1] === "page" ? "princess" : "knight";
+    candidates.add(`${rank} of ${courtMatch[2]}`);
+  }
+
+  return [...candidates];
 }
 
 function normalizeRelationId(value) {
@@ -387,10 +429,11 @@ async function buildTarotContext() {
     return tarotContextCache;
   }
 
-  const [referenceData, magickDataset, tarotRuntime] = await Promise.all([
+  const [referenceData, magickDataset, tarotRuntime, tarotCommentaries] = await Promise.all([
     loadReferenceData(),
     loadMagickDataset(),
-    loadTarotRuntime()
+    loadTarotRuntime(),
+    loadTarotCommentaries()
   ]);
 
   const cards = tarotRuntime.buildTarotDatabase(referenceData, magickDataset).map((card) => ({
@@ -402,6 +445,27 @@ async function buildTarotContext() {
   const monthRefsByCardId = tarotRuntime.buildMonthReferencesByCard(referenceData, cards);
   const courtCardByDecanId = tarotRuntime.buildCourtCardByDecanId(cards);
   const cardById = new Map(cards.map((card) => [card.id, card]));
+  const cardByLookupName = new Map(cards.map((card) => [card.lookupName, card]));
+  const commentaryIndex = buildCommentaryIndex(tarotCommentaries, {
+    resolveCardId: (entry) => {
+      const explicitId = String(entry?.cardId || "").trim().toLowerCase();
+      if (explicitId && cardById.has(explicitId)) {
+        return explicitId;
+      }
+
+      const candidates = [entry?.card, explicitId].filter(Boolean);
+      for (const candidate of candidates) {
+        for (const lookup of buildTarotCardLookupCandidates(candidate)) {
+          const match = cardByLookupName.get(lookup);
+          if (match) {
+            return match.id;
+          }
+        }
+      }
+
+      return "";
+    }
+  });
 
   tarotContextCache = {
     referenceData,
@@ -409,6 +473,8 @@ async function buildTarotContext() {
     tarotRuntime,
     cards,
     cardById,
+    cardByLookupName,
+    commentaryIndex,
     monthRefsByCardId,
     courtCardByDecanId
   };
@@ -507,6 +573,16 @@ async function getCardById(cardIdValue) {
   };
 }
 
+async function getCardCommentaries(cardIdValue) {
+  const context = await buildTarotContext();
+  const key = String(cardIdValue || "").trim();
+  if (!context.cardById.has(key)) {
+    return null;
+  }
+
+  return getCommentariesForCard(context.commentaryIndex, key);
+}
+
 function normalizeSpreadId(spreadId) {
   return String(spreadId || "").trim().toLowerCase() === "celtic-cross"
     ? "celtic-cross"
@@ -574,7 +650,10 @@ function resetTarotContextCache() {
 module.exports = {
   listCards,
   getCardById,
+  getCardCommentaries,
   listSpreads,
   pullSpread,
+  normalizeTarotCardLookupName,
+  buildTarotCardLookupCandidates,
   resetTarotContextCache
 };
